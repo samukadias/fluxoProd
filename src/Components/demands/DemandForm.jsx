@@ -142,7 +142,7 @@ export default function DemandForm({
                         </SelectTrigger>
                         <SelectContent>
                             {[0, 1, 2, 3, 4].map(w => (
-                                <SelectItem key={w} value={String(w)}>{w}</SelectItem>
+                                <SelectItem key={w} value={String(w)}>{String(w)}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -168,7 +168,7 @@ export default function DemandForm({
                 <div className="space-y-2">
                     <Label className="text-sm text-slate-600">Cliente</Label>
                     <Select
-                        value={formData.client_id || "none"}
+                        value={formData.client_id ? String(formData.client_id) : "none"}
                         onValueChange={(v) => setFormData({ ...formData, client_id: v === "none" ? "" : v })}
                     >
                         <SelectTrigger className="h-10">
@@ -177,7 +177,7 @@ export default function DemandForm({
                         <SelectContent>
                             <SelectItem value="none">Nenhum</SelectItem>
                             {clients.filter(c => c.active !== false).map(c => (
-                                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -186,7 +186,7 @@ export default function DemandForm({
                 <div className="space-y-2">
                     <Label className="text-sm text-slate-600">Ciclo</Label>
                     <Select
-                        value={formData.cycle_id || "none"}
+                        value={formData.cycle_id ? String(formData.cycle_id) : "none"}
                         onValueChange={(v) => setFormData({ ...formData, cycle_id: v === "none" ? "" : v })}
                     >
                         <SelectTrigger className="h-10">
@@ -195,7 +195,7 @@ export default function DemandForm({
                         <SelectContent>
                             <SelectItem value="none">Nenhum</SelectItem>
                             {cycles.filter(c => c.active !== false).map(c => (
-                                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -204,7 +204,7 @@ export default function DemandForm({
                 <div className="space-y-2">
                     <Label className="text-sm text-slate-600">Responsável</Label>
                     <Select
-                        value={formData.analyst_id || "none"}
+                        value={formData.analyst_id ? String(formData.analyst_id) : "none"}
                         onValueChange={(v) => setFormData({ ...formData, analyst_id: v === "none" ? "" : v })}
                     >
                         <SelectTrigger className="h-10">
@@ -213,7 +213,7 @@ export default function DemandForm({
                         <SelectContent>
                             <SelectItem value="none">Não designado</SelectItem>
                             {analysts.filter(a => a.active !== false).map(a => (
-                                <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                                <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -222,7 +222,7 @@ export default function DemandForm({
                 <div className="space-y-2">
                     <Label className="text-sm text-slate-600">Solicitante</Label>
                     <Select
-                        value={formData.requester_id || "none"}
+                        value={formData.requester_id ? String(formData.requester_id) : "none"}
                         onValueChange={(v) => setFormData({ ...formData, requester_id: v === "none" ? "" : v })}
                     >
                         <SelectTrigger className="h-10">
@@ -231,7 +231,7 @@ export default function DemandForm({
                         <SelectContent>
                             <SelectItem value="none">Nenhum</SelectItem>
                             {requesters.filter(r => r.active !== false).map(r => (
-                                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                                <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
