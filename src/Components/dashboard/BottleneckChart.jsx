@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, ZAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
 
 const STATUS_COLORS = {
     "PENDENTE TRIAGEM": "#f59e0b",
@@ -19,39 +19,59 @@ const STATUS_COLORS = {
 
 function formatDuration(minutes) {
     if (!minutes || minutes < 0) return '0h';
-
     const hours = Math.round(minutes / 60);
     if (hours < 24) return `${hours}h`;
-
     const days = Math.round(hours / 24);
     return `${days}d`;
 }
 
 export default function BottleneckChart({ data = [] }) {
+    // Enrich data with Average Time
     const chartData = data
         .filter(d => d.total_minutes > 0)
-        .sort((a, b) => b.total_minutes - a.total_minutes)
-        .slice(0, 10);
-
-    const totalMinutes = chartData.reduce((sum, d) => sum + d.total_minutes, 0);
+        .map(d => ({
+            ...d,
+            avg_minutes: Math.round(d.total_minutes / d.count),
+            // We use total_minutes for bubble size (Z axis) importance
+            importance: d.total_minutes
+        }))
+        .sort((a, b) => b.total_minutes - a.total_minutes);
 
     const CustomTooltip = ({ active, payload }) => {
         if (active && payload && payload.length) {
             const item = payload[0].payload;
-            const percentage = totalMinutes > 0 ? ((item.total_minutes / totalMinutes) * 100).toFixed(1) : 0;
-
             return (
-                <div className="bg-white rounded-lg shadow-xl border border-slate-200 p-3">
-                    <p className="font-semibold text-slate-800 text-sm mb-1">{item.status}</p>
-                    <p className="text-xs text-slate-600">
-                        Tempo Total: <span className="font-medium">{formatDuration(item.total_minutes)}</span>
-                    </p>
-                    <p className="text-xs text-slate-600">
-                        Percentual: <span className="font-medium">{percentage}%</span>
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                        {item.count} ocorrência(s)
-                    </p>
+                <div className="bg-white rounded-lg shadow-xl border border-slate-200 p-3 min-w-[200px]">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: STATUS_COLORS[item.status] || '#94a3b8' }}
+                        />
+                        <p className="font-semibold text-slate-800 text-sm leading-tight">
+                            {item.status}
+                        </p>
+                    </div>
+
+                    <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-slate-600">
+                            <span>Quantidade:</span>
+                            <span className="font-medium bg-slate-100 px-1.5 rounded text-slate-800">
+                                {item.count} dmds
+                            </span>
+                        </div>
+                        <div className="flex justify-between text-xs text-slate-600">
+                            <span>Tempo Médio:</span>
+                            <span className="font-medium bg-indigo-50 px-1.5 rounded text-indigo-700">
+                                {formatDuration(item.avg_minutes)}
+                            </span>
+                        </div>
+                        <div className="border-t border-slate-100 my-1 pt-1 flex justify-between text-xs text-slate-500">
+                            <span>Impacto Total:</span>
+                            <span className="font-medium">
+                                {formatDuration(item.total_minutes)}
+                            </span>
+                        </div>
+                    </div>
                 </div>
             );
         }
@@ -67,36 +87,56 @@ export default function BottleneckChart({ data = [] }) {
     }
 
     return (
-        <ResponsiveContainer width="100%" height={300}>
-            <BarChart
-                data={chartData}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
-            >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
-                <XAxis
-                    type="number"
-                    tickFormatter={(v) => formatDuration(v)}
-                    tick={{ fontSize: 11, fill: '#64748b' }}
-                    axisLine={{ stroke: '#e2e8f0' }}
-                />
-                <YAxis
-                    type="category"
-                    dataKey="status"
-                    tick={{ fontSize: 11, fill: '#64748b' }}
-                    axisLine={{ stroke: '#e2e8f0' }}
-                    width={110}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="total_minutes" radius={[0, 4, 4, 0]}>
-                    {chartData.map((entry, index) => (
-                        <Cell
-                            key={`cell-${index}`}
-                            fill={STATUS_COLORS[entry.status] || '#94a3b8'}
-                        />
-                    ))}
-                </Bar>
-            </BarChart>
-        </ResponsiveContainer>
+        <div className="h-[300px] w-full relative">
+            {/* Axis Labels */}
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 -rotate-90 text-[10px] font-medium text-slate-400 tracking-wider pointer-events-none">
+                LENTIDÃO (TEMPO MÉDIO)
+            </div>
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] font-medium text-slate-400 tracking-wider pointer-events-none">
+                VOLUME (QUANTIDADE)
+            </div>
+
+            <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis
+                        type="number"
+                        dataKey="count"
+                        name="Volume"
+                        unit=""
+                        tick={{ fontSize: 11, fill: '#64748b' }}
+                        axisLine={{ stroke: '#e2e8f0' }}
+                    />
+                    <YAxis
+                        type="number"
+                        dataKey="avg_minutes"
+                        name="Tempo Médio"
+                        unit="min"
+                        tickFormatter={(v) => formatDuration(v)}
+                        tick={{ fontSize: 11, fill: '#64748b' }}
+                        axisLine={{ stroke: '#e2e8f0' }}
+                    />
+                    <ZAxis
+                        type="number"
+                        dataKey="importance"
+                        range={[100, 1000]}
+                        name="Tempo Total"
+                    />
+                    <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3' }} />
+                    <Scatter name="Demandas" data={chartData}>
+                        {chartData.map((entry, index) => (
+                            <Cell
+                                key={`cell-${index}`}
+                                fill={STATUS_COLORS[entry.status] || '#94a3b8'}
+                                fillOpacity={0.8}
+                                stroke={STATUS_COLORS[entry.status] || '#94a3b8'}
+                                strokeWidth={2}
+                            />
+                        ))}
+                    </Scatter>
+                </ScatterChart>
+            </ResponsiveContainer>
+        </div>
     );
 }
+

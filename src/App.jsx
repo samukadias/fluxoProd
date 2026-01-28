@@ -1,46 +1,88 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // Pages
-import Dashboard from "./Pages/Dashboard";
-import Demands from "./Pages/Demands";
-import DemandDetail from "./Pages/DemandDetail";
-import Settings from "./Pages/Settings";
+import Dashboard from "./pages/Dashboard";
+import Demands from "./pages/Demands";
+import DemandDetail from "./pages/DemandDetail";
+import Settings from "./pages/Settings";
+import Login from "./pages/Login";
 
 // Components
-import UserNotRegisteredError from "./Components/UserNotRegisteredError";
+import UserNotRegisteredError from "./components/UserNotRegisteredError";
+import Layout from "./components/Layout";
 
-// Layout - assuming you want a layout wrapper, but if not provided we can wrap simply.
-// I'll create a simple wrapper layout if one doesn't exist or use the pages directly.
-// Given I reconstructed Pages, they likely include their own layout or sidebar.
-// Checking `Dashboard.jsx`, it imports `Sidebar`.
-// Let's assume a simple setup where we render pages directly for now, 
-// as many dashboard templates handle layout internally or via a Layout component.
-// If there was a specific Layout.js, I should use it. I'll stick to a simple router.
+const queryClient = new QueryClient();
 
-// Note: I will wrap everything in TooltipProvider as it is required by some shadcn components
-// and often omitted in individual files.
+// Protected Route Wrapper
+const ProtectedRoute = ({ children, user }) => {
+    const location = useLocation();
+    if (!user) {
+        return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+    return children;
+};
 
 function App() {
-    // Simple authentication simulation or check could go here
-    // For now, we route directly to the pages.
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        // Hydrate user from localStorage
+        const storedUser = localStorage.getItem('fluxo_user');
+        if (storedUser) {
+            try {
+                setUser(JSON.parse(storedUser));
+            } catch (e) {
+                console.error("Invalid user data", e);
+            }
+        }
+        setLoading(false);
+    }, []);
+
+    const handleLogin = (userData) => {
+        setUser(userData);
+        localStorage.setItem('fluxo_user', JSON.stringify(userData));
+    };
+
+    const handleLogout = () => {
+        setUser(null);
+        localStorage.removeItem('fluxo_user');
+    };
+
+    if (loading) return null; // Or a loading spinner
 
     return (
-        <TooltipProvider>
-            <BrowserRouter>
-                <Routes>
-                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/demands" element={<Demands />} />
-                    <Route path="/demand-detail" element={<DemandDetail />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/access-denied" element={<UserNotRegisteredError />} />
-                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                </Routes>
-            </BrowserRouter>
-            <Toaster />
-        </TooltipProvider>
+        <QueryClientProvider client={queryClient}>
+            <TooltipProvider>
+                <BrowserRouter>
+                    <Routes>
+                        <Route path="/login" element={
+                            user ? <Navigate to={user.role === 'requester' ? "/demands" : "/dashboard"} replace /> : <Login onLogin={handleLogin} />
+                        } />
+
+                        <Route path="/" element={
+                            <ProtectedRoute user={user}>
+                                <Layout onLogout={handleLogout} user={user} />
+                            </ProtectedRoute>
+                        }>
+                            <Route index element={<Navigate to={user?.role === 'requester' ? "/demands" : "/dashboard"} replace />} />
+                            <Route path="dashboard" element={<Dashboard />} />
+                            <Route path="demands" element={<Demands />} />
+                            <Route path="demand-detail" element={<DemandDetail />} />
+                            <Route path="settings" element={<Settings />} />
+                        </Route>
+
+                        <Route path="/access-denied" element={<UserNotRegisteredError />} />
+                        <Route path="*" element={<Navigate to={user?.role === 'requester' ? "/demands" : "/dashboard"} replace />} />
+                    </Routes>
+                </BrowserRouter>
+                <Toaster />
+            </TooltipProvider>
+        </QueryClientProvider>
     );
 }
 

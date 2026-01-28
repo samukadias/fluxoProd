@@ -25,7 +25,10 @@ export default function DemandsPage() {
     });
 
     useEffect(() => {
-        base44.auth.me().then(setUser).catch(() => { });
+        const stored = localStorage.getItem('fluxo_user');
+        if (stored) {
+            setUser(JSON.parse(stored));
+        }
     }, []);
 
     const { data: demands = [], isLoading: loadingDemands } = useQuery({
@@ -94,6 +97,20 @@ export default function DemandsPage() {
     });
 
     const filteredDemands = demands.filter(d => {
+        // Role-based filtering
+        if (user?.role === 'analyst') {
+            const myAnalystProfile = analysts.find(a => a.email === user.email);
+            if (myAnalystProfile && d.analyst_id !== myAnalystProfile.id) {
+                return false;
+            }
+        }
+        if (user?.role === 'requester') {
+            const myRequesterProfile = requesters.find(r => r.email === user.email);
+            if (myRequesterProfile && d.requester_id !== myRequesterProfile.id) {
+                return false;
+            }
+        }
+
         if (filters.search) {
             const search = filters.search.toLowerCase();
             if (!d.product?.toLowerCase().includes(search) &&
@@ -143,13 +160,15 @@ export default function DemandsPage() {
                                 <List className="w-4 h-4" />
                             </Button>
                         </div>
-                        <Button
-                            onClick={() => setShowForm(true)}
-                            className="bg-indigo-600 hover:bg-indigo-700"
-                        >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Nova Demanda
-                        </Button>
+                        {user?.role !== 'requester' && (
+                            <Button
+                                onClick={() => setShowForm(true)}
+                                className="bg-indigo-600 hover:bg-indigo-700"
+                            >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Nova Demanda
+                            </Button>
+                        )}
                     </div>
                 </div>
 

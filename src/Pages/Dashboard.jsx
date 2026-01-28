@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Clock, AlertTriangle, CheckCircle2, TrendingUp } from "lucide-react";
 import StatsCard from '@/components/dashboard/StatsCard';
 import BottleneckChart from '@/components/dashboard/BottleneckChart';
+import BottleneckBarChart from '@/components/dashboard/BottleneckBarChart';
 import ComplexityChart from '@/components/dashboard/ComplexityChart';
 import { calculateWorkDays } from '@/components/demands/EffortCalculator';
 import { isAfter, parseISO, format, getYear } from 'date-fns';
@@ -28,6 +29,14 @@ export default function DashboardPage() {
     const currentYear = getYear(new Date());
     const [selectedYear, setSelectedYear] = useState(String(currentYear));
     const [selectedAnalyst, setSelectedAnalyst] = useState('all');
+    const [user, setUser] = useState(null);
+
+    useEffect(() => {
+        const stored = localStorage.getItem('fluxo_user');
+        if (stored) {
+            setUser(JSON.parse(stored));
+        }
+    }, []);
 
     const { data: demands = [] } = useQuery({
         queryKey: ['demands'],
@@ -49,6 +58,17 @@ export default function DashboardPage() {
         queryFn: () => base44.entities.Holiday.list()
     });
 
+    const currentAnalyst = useMemo(() => {
+        if (!user || user.role !== 'analyst') return null;
+        return analysts.find(a => a.email === user.email);
+    }, [user, analysts]);
+
+    useEffect(() => {
+        if (currentAnalyst) {
+            setSelectedAnalyst(currentAnalyst.id);
+        }
+    }, [currentAnalyst]);
+
     const years = useMemo(() => {
         const yearsSet = new Set();
         demands.forEach(d => {
@@ -66,10 +86,16 @@ export default function DashboardPage() {
                 const demandYear = String(getYear(parseISO(d.created_date)));
                 if (demandYear !== selectedYear) return false;
             }
+
+            // If user is analyst, force their ID
+            if (currentAnalyst) {
+                return d.analyst_id === currentAnalyst.id;
+            }
+
             if (selectedAnalyst !== 'all' && d.analyst_id !== selectedAnalyst) return false;
             return true;
         });
-    }, [demands, selectedYear, selectedAnalyst]);
+    }, [demands, selectedYear, selectedAnalyst, currentAnalyst]);
 
     const stats = useMemo(() => {
         const total = filteredDemands.length;
@@ -156,17 +182,19 @@ export default function DashboardPage() {
                                 ))}
                             </SelectContent>
                         </Select>
-                        <Select value={selectedAnalyst} onValueChange={setSelectedAnalyst}>
-                            <SelectTrigger className="w-48 bg-white">
-                                <SelectValue placeholder="Responsável" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos os Responsáveis</SelectItem>
-                                {analysts.map(a => (
-                                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        {!currentAnalyst && (
+                            <Select value={selectedAnalyst} onValueChange={setSelectedAnalyst}>
+                                <SelectTrigger className="w-48 bg-white">
+                                    <SelectValue placeholder="Responsável" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos os Responsáveis</SelectItem>
+                                    {analysts.map(a => (
+                                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                     </div>
                 </div>
 
@@ -202,14 +230,19 @@ export default function DashboardPage() {
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2">
                                 <TrendingUp className="w-5 h-5 text-indigo-600" />
-                                Mapa de Calor - Gargalos
+                                {user?.role === 'manager' ? 'Relação Volume x Lentidão' : 'Mapa de Calor - Gargalos'}
                             </CardTitle>
                             <p className="text-sm text-slate-500">
-                                Tempo acumulado em cada status (identifica onde o processo estaciona)
+                                {user?.role === 'manager'
+                                    ? 'Identifique se o gargalo é por volume (x) ou demora (y)'
+                                    : 'Tempo acumulado em cada status'}
                             </p>
                         </CardHeader>
                         <CardContent>
-                            <BottleneckChart data={bottleneckData} />
+                            {user?.role === 'manager'
+                                ? <BottleneckChart data={bottleneckData} />
+                                : <BottleneckBarChart data={bottleneckData} />
+                            }
                         </CardContent>
                     </Card>
 
@@ -227,6 +260,23 @@ export default function DashboardPage() {
                             <ComplexityChart data={complexityData} />
                         </CardContent>
                     </Card>
+
+                    {user?.role === 'manager' && (
+                        <Card className="border-0 shadow-lg rounded-2xl col-span-1 lg:col-span-2">
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center gap-2">
+                                    <TrendingUp className="w-5 h-5 text-indigo-600" />
+                                    Mapa de Calor - Visão Geral
+                                </CardTitle>
+                                <p className="text-sm text-slate-500">
+                                    Tempo total acumulado de todas as demandas em cada etapa
+                                </p>
+                            </CardHeader>
+                            <CardContent>
+                                <BottleneckBarChart data={bottleneckData} />
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
         </div>

@@ -49,18 +49,21 @@ export default function DemandDetailPage() {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
     useEffect(() => {
-        base44.auth.me().then(setUser).catch(() => { });
+        const stored = localStorage.getItem('fluxo_user');
+        if (stored) {
+            setUser(JSON.parse(stored));
+        }
     }, []);
 
     const { data: demand, isLoading: loadingDemand } = useQuery({
         queryKey: ['demand', demandId],
-        queryFn: () => base44.entities.Demand.filter({ id: demandId }).then(r => r[0]),
+        queryFn: () => base44.entities.Demand.get(demandId),
         enabled: !!demandId
     });
 
     const { data: history = [] } = useQuery({
         queryKey: ['history', demandId],
-        queryFn: () => base44.entities.StatusHistory.filter({ demand_id: demandId }, 'changed_at'),
+        queryFn: () => base44.entities.StatusHistory.list({ demand_id: demandId, sort: 'changed_at' }),
         enabled: !!demandId
     });
 
@@ -238,14 +241,16 @@ export default function DemandDetailPage() {
                         </Button>
                     </Link>
                     <div className="flex items-center gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => setShowEditForm(true)}
-                            className="text-slate-600"
-                        >
-                            <Edit2 className="w-4 h-4 mr-2" />
-                            Editar
-                        </Button>
+                        {user && user.role !== 'requester' && (
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowEditForm(true)}
+                                className="text-slate-600"
+                            >
+                                <Edit2 className="w-4 h-4 mr-2" />
+                                Editar
+                            </Button>
+                        )}
                         {user?.role === 'admin' && (
                             <Button
                                 variant="outline"

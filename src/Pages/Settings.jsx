@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit2, Trash2, Building2, Users, Layers, UserCheck, Calendar, Save, X } from "lucide-react";
+import { Plus, Edit2, Trash2, Building2, Users, Layers, UserCheck, Calendar, Save, X, UserCog } from "lucide-react";
 import { toast } from "sonner";
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -24,10 +24,13 @@ export default function SettingsPage() {
     const [formData, setFormData] = useState({});
 
     useEffect(() => {
-        base44.auth.me().then(setUser).catch(() => { });
+        const stored = localStorage.getItem('fluxo_user');
+        if (stored) {
+            setUser(JSON.parse(stored));
+        }
     }, []);
 
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = user?.role === 'admin' || user?.role === 'manager';
 
     const { data: clients = [] } = useQuery({
         queryKey: ['clients'],
@@ -52,6 +55,11 @@ export default function SettingsPage() {
     const { data: holidays = [] } = useQuery({
         queryKey: ['holidays'],
         queryFn: () => base44.entities.Holiday.list()
+    });
+
+    const { data: managers = [] } = useQuery({
+        queryKey: ['managers'],
+        queryFn: () => base44.entities.User.list({ role: 'manager' })
     });
 
     const createMutation = useMutation({
@@ -95,14 +103,20 @@ export default function SettingsPage() {
             cycles: 'Cycle',
             analysts: 'Analyst',
             requesters: 'Requester',
-            holidays: 'Holiday'
+            holidays: 'Holiday',
+            managers: 'User'
         };
         const entity = entityMap[activeTab];
 
+        let finalData = { ...formData };
+        if (activeTab === 'managers') {
+            finalData.role = 'manager';
+        }
+
         if (editItem) {
-            updateMutation.mutate({ entity, id: editItem.id, data: formData });
+            updateMutation.mutate({ entity, id: editItem.id, data: finalData });
         } else {
-            createMutation.mutate({ entity, data: formData });
+            createMutation.mutate({ entity, data: finalData });
         }
     };
 
@@ -260,6 +274,15 @@ export default function SettingsPage() {
                             placeholder="email@empresa.com"
                         />
                     </div>
+                    <div className="space-y-2">
+                        <Label>Senha {!editItem && '*'}</Label>
+                        <Input
+                            type="password"
+                            value={formData.password || ''}
+                            onChange={e => setFormData({ ...formData, password: e.target.value })}
+                            placeholder={editItem ? "Deixe em branco para manter" : "Senha de acesso"}
+                        />
+                    </div>
                     <div className="flex items-center gap-3">
                         <Switch
                             checked={formData.active !== false}
@@ -288,6 +311,15 @@ export default function SettingsPage() {
                             placeholder="email@empresa.com"
                         />
                     </div>
+                    <div className="space-y-2">
+                        <Label>Senha {!editItem && '*'}</Label>
+                        <Input
+                            type="password"
+                            value={formData.password || ''}
+                            onChange={e => setFormData({ ...formData, password: e.target.value })}
+                            placeholder={editItem ? "Deixe em branco para manter" : "Senha de acesso"}
+                        />
+                    </div>
                     <div className="flex items-center gap-3">
                         <Switch
                             checked={formData.active !== false}
@@ -313,6 +345,37 @@ export default function SettingsPage() {
                             type="date"
                             value={formData.date || ''}
                             onChange={e => setFormData({ ...formData, date: e.target.value })}
+                        />
+                    </div>
+                </>
+            ),
+
+            managers: (
+                <>
+                    <div className="space-y-2">
+                        <Label>Nome do Gestor *</Label>
+                        <Input
+                            value={formData.name || ''}
+                            onChange={e => setFormData({ ...formData, name: e.target.value })}
+                            placeholder="Nome completo"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Email *</Label>
+                        <Input
+                            type="email"
+                            value={formData.email || ''}
+                            onChange={e => setFormData({ ...formData, email: e.target.value })}
+                            placeholder="email@empresa.com"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Senha {!editItem && '*'}</Label>
+                        <Input
+                            type="password"
+                            value={formData.password || ''}
+                            onChange={e => setFormData({ ...formData, password: e.target.value })}
+                            placeholder={editItem ? "Deixe em branco para manter" : "Senha de acesso"}
                         />
                     </div>
                 </>
@@ -411,6 +474,16 @@ export default function SettingsPage() {
                     label: 'Data',
                     render: v => v ? format(parseISO(v), 'dd/MM/yyyy', { locale: ptBR }) : '-'
                 }
+            ]
+        },
+        managers: {
+            title: 'Gestores',
+            icon: UserCog,
+            data: managers,
+            entityName: 'User',
+            columns: [
+                { key: 'name', label: 'Nome' },
+                { key: 'email', label: 'Email' }
             ]
         }
     };

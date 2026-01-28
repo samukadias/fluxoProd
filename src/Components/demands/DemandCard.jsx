@@ -26,7 +26,7 @@ export default function DemandCard({ demand, analyst, client }) {
         isAfter(new Date(), parseISO(demand.expected_delivery_date));
 
     return (
-        <Link to={createPageUrl(`DemandDetail?id=${demand.id}`)}>
+        <Link to={createPageUrl(`demand-detail?id=${demand.id}`)}>
             <div className={cn(
                 "bg-white rounded-xl border p-4 hover:shadow-md transition-all duration-200 cursor-pointer group",
                 isOverdue ? "border-red-300 bg-red-50/30" : "border-slate-200 hover:border-indigo-200"
