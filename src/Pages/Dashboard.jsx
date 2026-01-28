@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { base44 } from '@/api/base44Client';
+import { fluxoApi } from '@/api/fluxoClient';
 import { useQuery } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,22 +40,22 @@ export default function DashboardPage() {
 
     const { data: demands = [] } = useQuery({
         queryKey: ['demands'],
-        queryFn: () => base44.entities.Demand.list()
+        queryFn: () => fluxoApi.entities.Demand.list()
     });
 
     const { data: history = [] } = useQuery({
         queryKey: ['all-history'],
-        queryFn: () => base44.entities.StatusHistory.list()
+        queryFn: () => fluxoApi.entities.StatusHistory.list()
     });
 
     const { data: analysts = [] } = useQuery({
         queryKey: ['analysts'],
-        queryFn: () => base44.entities.Analyst.list()
+        queryFn: () => fluxoApi.entities.Analyst.list()
     });
 
     const { data: holidays = [] } = useQuery({
         queryKey: ['holidays'],
-        queryFn: () => base44.entities.Holiday.list()
+        queryFn: () => fluxoApi.entities.Holiday.list()
     });
 
     const currentAnalyst = useMemo(() => {

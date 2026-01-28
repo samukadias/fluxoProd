@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { fluxoApi } from '@/api/fluxoClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -34,37 +34,37 @@ export default function SettingsPage() {
 
     const { data: clients = [] } = useQuery({
         queryKey: ['clients'],
-        queryFn: () => base44.entities.Client.list()
+        queryFn: () => fluxoApi.entities.Client.list()
     });
 
     const { data: cycles = [] } = useQuery({
         queryKey: ['cycles'],
-        queryFn: () => base44.entities.Cycle.list()
+        queryFn: () => fluxoApi.entities.Cycle.list()
     });
 
     const { data: analysts = [] } = useQuery({
         queryKey: ['analysts'],
-        queryFn: () => base44.entities.Analyst.list()
+        queryFn: () => fluxoApi.entities.Analyst.list()
     });
 
     const { data: requesters = [] } = useQuery({
         queryKey: ['requesters'],
-        queryFn: () => base44.entities.Requester.list()
+        queryFn: () => fluxoApi.entities.Requester.list()
     });
 
     const { data: holidays = [] } = useQuery({
         queryKey: ['holidays'],
-        queryFn: () => base44.entities.Holiday.list()
+        queryFn: () => fluxoApi.entities.Holiday.list()
     });
 
     const { data: managers = [] } = useQuery({
         queryKey: ['managers'],
-        queryFn: () => base44.entities.User.list({ role: 'manager' })
+        queryFn: () => fluxoApi.entities.User.list({ role: 'manager' })
     });
 
     const createMutation = useMutation({
         mutationFn: async ({ entity, data }) => {
-            return base44.entities[entity].create(data);
+            return fluxoApi.entities[entity].create(data);
         },
         onSuccess: (_, { entity }) => {
             queryClient.invalidateQueries({ queryKey: [entity.toLowerCase() + 's'] });
@@ -76,7 +76,7 @@ export default function SettingsPage() {
 
     const updateMutation = useMutation({
         mutationFn: async ({ entity, id, data }) => {
-            return base44.entities[entity].update(id, data);
+            return fluxoApi.entities[entity].update(id, data);
         },
         onSuccess: (_, { entity }) => {
             queryClient.invalidateQueries({ queryKey: [entity.toLowerCase() + 's'] });
@@ -89,7 +89,7 @@ export default function SettingsPage() {
 
     const deleteMutation = useMutation({
         mutationFn: async ({ entity, id }) => {
-            return base44.entities[entity].delete(id);
+            return fluxoApi.entities[entity].delete(id);
         },
         onSuccess: (_, { entity }) => {
             queryClient.invalidateQueries({ queryKey: [entity.toLowerCase() + 's'] });

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
+import { fluxoApi } from '@/api/fluxoClient';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +25,7 @@ export default function LoginPage({ onLogin }) {
         setIsLoading(true);
 
         try {
-            const user = await base44.auth.login(email, password);
+            const user = await fluxoApi.auth.login(email, password);
             toast.success(`Bem-vindo, ${user.name}!`);
             onLogin(user);
             navigate(user.role === 'requester' ? '/demands' : '/dashboard');

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { fluxoApi } from '@/api/fluxoClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Plus, LayoutGrid, List } from "lucide-react";
@@ -33,33 +33,33 @@ export default function DemandsPage() {
 
     const { data: demands = [], isLoading: loadingDemands } = useQuery({
         queryKey: ['demands'],
-        queryFn: () => base44.entities.Demand.list('-created_date')
+        queryFn: () => fluxoApi.entities.Demand.list('-created_date')
     });
 
     const { data: analysts = [] } = useQuery({
         queryKey: ['analysts'],
-        queryFn: () => base44.entities.Analyst.list()
+        queryFn: () => fluxoApi.entities.Analyst.list()
     });
 
     const { data: clients = [] } = useQuery({
         queryKey: ['clients'],
-        queryFn: () => base44.entities.Client.list()
+        queryFn: () => fluxoApi.entities.Client.list()
     });
 
     const { data: cycles = [] } = useQuery({
         queryKey: ['cycles'],
-        queryFn: () => base44.entities.Cycle.list()
+        queryFn: () => fluxoApi.entities.Cycle.list()
     });
 
     const { data: requesters = [] } = useQuery({
         queryKey: ['requesters'],
-        queryFn: () => base44.entities.Requester.list()
+        queryFn: () => fluxoApi.entities.Requester.list()
     });
 
     const createMutation = useMutation({
         mutationFn: async (data) => {
-            const demand = await base44.entities.Demand.create(data);
-            await base44.entities.StatusHistory.create({
+            const demand = await fluxoApi.entities.Demand.create(data);
+            await fluxoApi.entities.StatusHistory.create({
                 demand_id: demand.id,
                 from_status: null,
                 to_status: data.status || 'PENDENTE TRIAGEM',
@@ -73,7 +73,7 @@ export default function DemandsPage() {
                 const analyst = analysts.find(a => a.id === data.analyst_id);
                 if (analyst?.email) {
                     try {
-                        await base44.integrations.Core.SendEmail({
+                        await fluxoApi.integrations.Core.SendEmail({
                             to: analyst.email,
                             subject: `Nova demanda designada: ${data.product}`,
                             body: `Você foi designado como responsável pela demanda "${data.product}".\n\nAcesse o sistema para mais detalhes.`

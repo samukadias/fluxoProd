@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { fluxoApi } from '@/api/fluxoClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -57,39 +57,39 @@ export default function DemandDetailPage() {
 
     const { data: demand, isLoading: loadingDemand } = useQuery({
         queryKey: ['demand', demandId],
-        queryFn: () => base44.entities.Demand.get(demandId),
+        queryFn: () => fluxoApi.entities.Demand.get(demandId),
         enabled: !!demandId
     });
 
     const { data: history = [] } = useQuery({
         queryKey: ['history', demandId],
-        queryFn: () => base44.entities.StatusHistory.list({ demand_id: demandId, sort: 'changed_at' }),
+        queryFn: () => fluxoApi.entities.StatusHistory.list({ demand_id: demandId, sort: 'changed_at' }),
         enabled: !!demandId
     });
 
     const { data: holidays = [] } = useQuery({
         queryKey: ['holidays'],
-        queryFn: () => base44.entities.Holiday.list()
+        queryFn: () => fluxoApi.entities.Holiday.list()
     });
 
     const { data: analysts = [] } = useQuery({
         queryKey: ['analysts'],
-        queryFn: () => base44.entities.Analyst.list()
+        queryFn: () => fluxoApi.entities.Analyst.list()
     });
 
     const { data: clients = [] } = useQuery({
         queryKey: ['clients'],
-        queryFn: () => base44.entities.Client.list()
+        queryFn: () => fluxoApi.entities.Client.list()
     });
 
     const { data: cycles = [] } = useQuery({
         queryKey: ['cycles'],
-        queryFn: () => base44.entities.Cycle.list()
+        queryFn: () => fluxoApi.entities.Cycle.list()
     });
 
     const { data: requesters = [] } = useQuery({
         queryKey: ['requesters'],
-        queryFn: () => base44.entities.Requester.list()
+        queryFn: () => fluxoApi.entities.Requester.list()
     });
 
     const updateMutation = useMutation({
@@ -122,7 +122,7 @@ export default function DemandDetailPage() {
                 }
 
                 // Registrar histórico
-                await base44.entities.StatusHistory.create({
+                await fluxoApi.entities.StatusHistory.create({
                     demand_id: demandId,
                     from_status: oldStatus,
                     to_status: newStatus,
@@ -136,7 +136,7 @@ export default function DemandDetailPage() {
                     const requester = requesters.find(r => r.id === demand.requester_id);
                     if (requester?.email) {
                         try {
-                            await base44.integrations.Core.SendEmail({
+                            await fluxoApi.integrations.Core.SendEmail({
                                 to: requester.email,
                                 subject: `Demanda ${newStatus === 'ENTREGUE' ? 'entregue' : 'cancelada'}: ${demand.product}`,
                                 body: `A demanda "${demand.product}" foi ${newStatus === 'ENTREGUE' ? 'entregue' : 'cancelada'}.\n\nAcesse o sistema para mais detalhes.`
@@ -152,7 +152,7 @@ export default function DemandDetailPage() {
                     const analyst = analysts.find(a => a.id === data.analyst_id);
                     if (analyst?.email) {
                         try {
-                            await base44.integrations.Core.SendEmail({
+                            await fluxoApi.integrations.Core.SendEmail({
                                 to: analyst.email,
                                 subject: `Nova demanda designada: ${demand.product}`,
                                 body: `Você foi designado como responsável pela demanda "${demand.product}".\n\nAcesse o sistema para mais detalhes.`
@@ -164,7 +164,7 @@ export default function DemandDetailPage() {
                 }
             }
 
-            return base44.entities.Demand.update(demandId, data);
+            return fluxoApi.entities.Demand.update(demandId, data);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['demand', demandId] });
@@ -178,9 +178,9 @@ export default function DemandDetailPage() {
         mutationFn: async () => {
             // Deletar histórico primeiro
             for (const h of history) {
-                await base44.entities.StatusHistory.delete(h.id);
+                await fluxoApi.entities.StatusHistory.delete(h.id);
             }
-            return base44.entities.Demand.delete(demandId);
+            return fluxoApi.entities.Demand.delete(demandId);
         },
         onSuccess: () => {
             toast.success('Demanda excluída!');
