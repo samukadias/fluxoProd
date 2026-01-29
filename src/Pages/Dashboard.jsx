@@ -8,6 +8,7 @@ import StatsCard from '@/components/dashboard/StatsCard';
 import BottleneckChart from '@/components/dashboard/BottleneckChart';
 import BottleneckBarChart from '@/components/dashboard/BottleneckBarChart';
 import ComplexityChart from '@/components/dashboard/ComplexityChart';
+import QualifiedDemandsChart from '@/components/dashboard/QualifiedDemandsChart';
 import { calculateWorkDays } from '@/components/demands/EffortCalculator';
 import { isAfter, parseISO, format, getYear } from 'date-fns';
 
@@ -16,6 +17,7 @@ const ACTIVE_STATUSES = [
     "DESIGNADA",
     "EM QUALIFICAÇÃO",
     "EM ANDAMENTO",
+    "CORREÇÃO",
     "PENDÊNCIA DDS",
     "PENDÊNCIA DOP",
     "PENDÊNCIA DOP E DDS",
@@ -262,23 +264,40 @@ export default function DashboardPage() {
                     </Card>
 
                     {user?.role === 'manager' && (
-                        <Card className="border-0 shadow-lg rounded-2xl col-span-1 lg:col-span-2">
-                            <CardHeader>
-                                <CardTitle className="text-lg flex items-center gap-2">
-                                    <TrendingUp className="w-5 h-5 text-indigo-600" />
-                                    Mapa de Calor - Visão Geral
-                                </CardTitle>
-                                <p className="text-sm text-slate-500">
-                                    Tempo total acumulado de todas as demandas em cada etapa
-                                </p>
-                            </CardHeader>
-                            <CardContent>
-                                <BottleneckBarChart data={bottleneckData} />
-                            </CardContent>
-                        </Card>
+                        <>
+                            <Card className="border-0 shadow-lg rounded-2xl col-span-1 lg:col-span-2">
+                                <CardHeader>
+                                    <CardTitle className="text-lg flex items-center gap-2">
+                                        <TrendingUp className="w-5 h-5 text-indigo-600" />
+                                        Mapa de Calor - Visão Geral
+                                    </CardTitle>
+                                    <p className="text-sm text-slate-500">
+                                        Tempo total acumulado de todas as demandas em cada etapa
+                                    </p>
+                                </CardHeader>
+                                <CardContent>
+                                    <BottleneckBarChart data={bottleneckData} />
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border-0 shadow-lg rounded-2xl col-span-1 lg:col-span-2">
+                                <CardHeader>
+                                    <CardTitle className="text-lg flex items-center gap-2">
+                                        <CheckCircle2 className="w-5 h-5 text-indigo-600" />
+                                        Demandas Qualificadas
+                                    </CardTitle>
+                                    <p className="text-sm text-slate-500">
+                                        Volume de demandas qualificadas por período
+                                    </p>
+                                </CardHeader>
+                                <CardContent>
+                                    <QualifiedDemandsChart demands={demands} />
+                                </CardContent>
+                            </Card>
+                        </>
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

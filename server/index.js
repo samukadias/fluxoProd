@@ -136,8 +136,11 @@ const initDb = async () => {
         delivery_date TIMESTAMP,
         observation TEXT,
         frozen_time_minutes INTEGER DEFAULT 0,
-        last_frozen_at TIMESTAMP
-      )
+        last_frozen_at TIMESTAMP,
+        support_analyst_id INTEGER
+      );
+      
+      ALTER TABLE demands ADD COLUMN IF NOT EXISTS support_analyst_id INTEGER;
     `);
 
         // Status History

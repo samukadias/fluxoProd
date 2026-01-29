@@ -10,6 +10,7 @@ const STATUS_LIST = [
     "DESIGNADA",
     "EM QUALIFICAÇÃO",
     "EM ANDAMENTO",
+    "CORREÇÃO",
     "PENDÊNCIA DDS",
     "PENDÊNCIA DOP",
     "PENDÊNCIA DOP E DDS",
@@ -30,7 +31,7 @@ export default function DemandFilters({
     const clearFilters = () => {
         setFilters({
             search: '',
-            status: 'all',
+            status: 'active',
             analyst_id: 'all',
             client_id: 'all',
             cycle_id: 'all',
@@ -81,7 +82,8 @@ export default function DemandFilters({
                         <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">Todos os Status</SelectItem>
+                        <SelectItem value="active">EM ABERTO</SelectItem>
+                        <SelectItem value="all">TODOS OS STATUS</SelectItem>
                         {STATUS_LIST.map(s => (
                             <SelectItem key={s} value={s}>{s}</SelectItem>
                         ))}

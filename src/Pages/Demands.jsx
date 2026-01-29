@@ -17,7 +17,7 @@ export default function DemandsPage() {
     const [viewMode, setViewMode] = useState('grid');
     const [filters, setFilters] = useState({
         search: '',
-        status: 'all',
+        status: 'active',
         analyst_id: 'all',
         client_id: 'all',
         cycle_id: 'all',
@@ -118,7 +118,12 @@ export default function DemandsPage() {
                 return false;
             }
         }
-        if (filters.status !== 'all' && d.status !== filters.status) return false;
+
+        if (filters.status === 'active') {
+            if (['ENTREGUE', 'CANCELADA'].includes(d.status)) return false;
+        } else if (filters.status !== 'all' && d.status !== filters.status) {
+            return false;
+        }
         if (filters.analyst_id !== 'all' && d.analyst_id !== filters.analyst_id) return false;
         if (filters.client_id !== 'all' && d.client_id !== filters.client_id) return false;
         if (filters.cycle_id !== 'all' && d.cycle_id !== filters.cycle_id) return false;

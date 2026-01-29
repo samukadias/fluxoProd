@@ -32,6 +32,7 @@ const ACTIVE_STATUSES = [
     "DESIGNADA",
     "EM QUALIFICAÇÃO",
     "EM ANDAMENTO",
+    "CORREÇÃO",
     "PENDÊNCIA DDS",
     "PENDÊNCIA DOP",
     "PENDÊNCIA DOP E DDS",

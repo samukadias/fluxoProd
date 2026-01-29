@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit2, Trash2, Building2, Users, Layers, UserCheck, Calendar, Save, X, UserCog } from "lucide-react";
+import { Plus, Edit2, Trash2, Building2, Users, Layers, UserCheck, Calendar, Save, X, UserCog, FileDown, FileUp, Database } from "lucide-react";
 import { toast } from "sonner";
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -503,7 +503,7 @@ export default function SettingsPage() {
                 </div>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <TabsList className="mb-6 bg-white border border-slate-200 p-1 rounded-xl">
+                    <TabsList className="mb-6 bg-white border border-slate-200 p-1 rounded-xl flex flex-wrap h-auto">
                         {Object.entries(tabConfig).map(([key, config]) => (
                             <TabsTrigger
                                 key={key}
@@ -514,6 +514,13 @@ export default function SettingsPage() {
                                 {config.title}
                             </TabsTrigger>
                         ))}
+                        <TabsTrigger
+                            value="import_export"
+                            className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white rounded-lg"
+                        >
+                            <Database className="w-4 h-4 mr-2" />
+                            Importar/Exportar
+                        </TabsTrigger>
                     </TabsList>
 
                     {Object.entries(tabConfig).map(([key, config]) => (
@@ -540,6 +547,130 @@ export default function SettingsPage() {
                             </Card>
                         </TabsContent>
                     ))}
+
+                    <TabsContent value="import_export">
+                        <Card className="border-0 shadow-lg rounded-2xl">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Database className="w-5 h-5 text-indigo-600" />
+                                    Importação e Exportação
+                                </CardTitle>
+                                <CardDescription>
+                                    Gerencie os dados do sistema em lote
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-4 p-6 bg-slate-50 rounded-xl border border-slate-100">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="p-2 bg-indigo-100 rounded-lg">
+                                                <FileDown className="w-6 h-6 text-indigo-600" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-semibold text-slate-900">Exportar Dados</h3>
+                                                <p className="text-sm text-slate-500">Baixe os dados em formato JSON</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <Button
+                                                variant="outline"
+                                                className="w-full justify-start"
+                                                onClick={() => {
+                                                    const data = {
+                                                        clients,
+                                                        cycles,
+                                                        analysts,
+                                                        requesters,
+                                                        holidays,
+                                                        managers
+                                                    };
+                                                    const json = JSON.stringify(data, null, 2);
+                                                    const blob = new Blob([json], { type: 'application/json' });
+                                                    const url = URL.createObjectURL(blob);
+                                                    const a = document.createElement('a');
+                                                    a.href = url;
+                                                    a.download = `fluxo_backup_catalogos_${format(new Date(), 'yyyy-MM-dd')}.json`;
+                                                    a.click();
+                                                }}
+                                            >
+                                                Exportar Catálogos (Configurações)
+                                            </Button>
+
+                                            <Button
+                                                variant="outline"
+                                                className="w-full justify-start"
+                                                onClick={async () => {
+                                                    try {
+                                                        toast.info('Gerando exportação de demandas...');
+                                                        const demands = await fluxoApi.entities.Demand.list();
+                                                        const history = await fluxoApi.entities.StatusHistory.list();
+
+                                                        const data = { demands, history };
+                                                        const json = JSON.stringify(data, null, 2);
+                                                        const blob = new Blob([json], { type: 'application/json' });
+                                                        const url = URL.createObjectURL(blob);
+                                                        const a = document.createElement('a');
+                                                        a.href = url;
+                                                        a.download = `fluxo_backup_demandas_${format(new Date(), 'yyyy-MM-dd')}.json`;
+                                                        a.click();
+                                                        toast.success('Exportação concluída!');
+                                                    } catch (e) {
+                                                        toast.error('Erro ao exportar demandas');
+                                                    }
+                                                }}
+                                            >
+                                                Exportar Demandas e Histórico
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4 p-6 bg-slate-50 rounded-xl border border-slate-100">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="p-2 bg-emerald-100 rounded-lg">
+                                                <FileUp className="w-6 h-6 text-emerald-600" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-semibold text-slate-900">Importar Dados</h3>
+                                                <p className="text-sm text-slate-500">Restaure backup ou importe dados</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-white">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <FileUp className="w-8 h-8 text-slate-300" />
+                                                <span className="text-sm font-medium text-slate-600">
+                                                    Arraste um arquivo JSON aqui
+                                                </span>
+                                                <span className="text-xs text-slate-400">
+                                                    ou clique para selecionar
+                                                </span>
+                                                <input
+                                                    type="file"
+                                                    accept=".json"
+                                                    onChange={(e) => {
+                                                        if (e.target.files?.length > 0) {
+                                                            toast.info('Funcionalidade de importação em desenvolvimento');
+                                                        }
+                                                    }}
+                                                    className="hidden"
+                                                    id="file-upload"
+                                                />
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    className="mt-2"
+                                                    onClick={() => document.getElementById('file-upload').click()}
+                                                >
+                                                    Selecionar Arquivo
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
                 </Tabs>
             </div>
 

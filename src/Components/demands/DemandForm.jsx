@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, parseISO } from 'date-fns';
@@ -17,6 +18,7 @@ const STATUS_LIST = [
     "DESIGNADA",
     "EM QUALIFICAÇÃO",
     "EM ANDAMENTO",
+    "CORREÇÃO",
     "PENDÊNCIA DDS",
     "PENDÊNCIA DOP",
     "PENDÊNCIA DOP E DDS",
@@ -52,8 +54,11 @@ export default function DemandForm({
         client_id: demand?.client_id || '',
         cycle_id: demand?.cycle_id || '',
         analyst_id: demand?.analyst_id || '',
-        requester_id: demand?.requester_id || ''
+        requester_id: demand?.requester_id || '',
+        support_analyst_id: demand?.support_analyst_id || ''
     });
+
+    const [showSupport, setShowSupport] = useState(!!demand?.support_analyst_id);
 
     const isGestor = userRole === 'admin';
 
@@ -217,6 +222,41 @@ export default function DemandForm({
                             ))}
                         </SelectContent>
                     </Select>
+                </div>
+
+                <div className="space-y-2 flex flex-col justify-end pb-2">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Switch
+                            id="has-support"
+                            checked={showSupport}
+                            onCheckedChange={(checked) => {
+                                setShowSupport(checked);
+                                if (!checked) {
+                                    setFormData(prev => ({ ...prev, support_analyst_id: '' }));
+                                }
+                            }}
+                        />
+                        <Label htmlFor="has-support" className="text-sm text-slate-600 cursor-pointer">
+                            Recebe Suporte?
+                        </Label>
+                    </div>
+
+                    {showSupport && (
+                        <Select
+                            value={formData.support_analyst_id ? String(formData.support_analyst_id) : "none"}
+                            onValueChange={(v) => setFormData({ ...formData, support_analyst_id: v === "none" ? "" : v })}
+                        >
+                            <SelectTrigger className="h-10">
+                                <SelectValue placeholder="Responsável Suporte" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">Selecione...</SelectItem>
+                                {analysts.filter(a => a.active !== false && String(a.id) !== String(formData.analyst_id)).map(a => (
+                                    <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
                 </div>
 
                 <div className="space-y-2">
