@@ -64,7 +64,18 @@ export default function DemandForm({
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSave(formData);
+
+        // Sanitize data: convert empty strings to null for ID fields
+        const cleanedData = {
+            ...formData,
+            client_id: formData.client_id === "" ? null : formData.client_id,
+            analyst_id: formData.analyst_id === "" ? null : formData.analyst_id,
+            cycle_id: formData.cycle_id === "" ? null : formData.cycle_id,
+            requester_id: formData.requester_id === "" ? null : formData.requester_id,
+            support_analyst_id: formData.support_analyst_id === "" ? null : formData.support_analyst_id,
+        };
+
+        onSave(cleanedData);
     };
 
     const DatePicker = ({ value, onChange, label, disabled }) => (

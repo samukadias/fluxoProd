@@ -228,24 +228,7 @@ export default function SettingsPage() {
                             placeholder="Ex: Ciclo 2024.1"
                         />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label>Data Início</Label>
-                            <Input
-                                type="date"
-                                value={formData.start_date || ''}
-                                onChange={e => setFormData({ ...formData, start_date: e.target.value })}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Data Término</Label>
-                            <Input
-                                type="date"
-                                value={formData.end_date || ''}
-                                onChange={e => setFormData({ ...formData, end_date: e.target.value })}
-                            />
-                        </div>
-                    </div>
+
                     <div className="flex items-center gap-3">
                         <Switch
                             checked={formData.active !== false}
@@ -261,7 +244,7 @@ export default function SettingsPage() {
                         <Label>Nome do Analista *</Label>
                         <Input
                             value={formData.name || ''}
-                            onChange={e => setFormData({ ...formData, name: e.target.value })}
+                            onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
                             placeholder="Nome completo"
                         />
                     </div>
@@ -298,7 +281,7 @@ export default function SettingsPage() {
                         <Label>Nome do Solicitante *</Label>
                         <Input
                             value={formData.name || ''}
-                            onChange={e => setFormData({ ...formData, name: e.target.value })}
+                            onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
                             placeholder="Nome completo"
                         />
                     </div>
@@ -356,7 +339,7 @@ export default function SettingsPage() {
                         <Label>Nome do Gestor *</Label>
                         <Input
                             value={formData.name || ''}
-                            onChange={e => setFormData({ ...formData, name: e.target.value })}
+                            onChange={e => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
                             placeholder="Nome completo"
                         />
                     </div>
@@ -409,16 +392,7 @@ export default function SettingsPage() {
             entityName: 'Cycle',
             columns: [
                 { key: 'name', label: 'Nome' },
-                {
-                    key: 'start_date',
-                    label: 'Início',
-                    render: v => v ? format(parseISO(v), 'dd/MM/yyyy', { locale: ptBR }) : '-'
-                },
-                {
-                    key: 'end_date',
-                    label: 'Término',
-                    render: v => v ? format(parseISO(v), 'dd/MM/yyyy', { locale: ptBR }) : '-'
-                },
+
                 {
                     key: 'active',
                     label: 'Status',
@@ -540,6 +514,48 @@ export default function SettingsPage() {
                                         <Plus className="w-4 h-4 mr-2" />
                                         Adicionar
                                     </Button>
+                                    {key === 'holidays' && (
+                                        <Button
+                                            variant="outline"
+                                            className="ml-2"
+                                            onClick={async () => {
+                                                const BRAZIL_HOLIDAYS_2026 = [
+                                                    { name: 'Confraternização Universal', date: '2026-01-01' },
+                                                    { name: 'Carnaval', date: '2026-02-17' },
+                                                    { name: 'Sexta-feira Santa', date: '2026-04-03' },
+                                                    { name: 'Tiradentes', date: '2026-04-21' },
+                                                    { name: 'Dia do Trabalho', date: '2026-05-01' },
+                                                    { name: 'Corpus Christi', date: '2026-06-04' },
+                                                    { name: 'Independência do Brasil', date: '2026-09-07' },
+                                                    { name: 'Nossa Senhora Aparecida', date: '2026-10-12' },
+                                                    { name: 'Finados', date: '2026-11-02' },
+                                                    { name: 'Proclamação da República', date: '2026-11-15' },
+                                                    { name: 'Natal', date: '2026-12-25' }
+                                                ];
+
+                                                let addedCount = 0;
+                                                toast.info('Importando feriados...');
+
+                                                for (const holiday of BRAZIL_HOLIDAYS_2026) {
+                                                    const exists = holidays.some(h => h.date && h.date.startsWith(holiday.date));
+                                                    if (!exists) {
+                                                        await fluxoApi.entities.Holiday.create(holiday);
+                                                        addedCount++;
+                                                    }
+                                                }
+
+                                                queryClient.invalidateQueries({ queryKey: ['holidays'] });
+                                                if (addedCount > 0) {
+                                                    toast.success(`${addedCount} feriados importados com sucesso!`);
+                                                } else {
+                                                    toast.info('Todos os feriados já estavam cadastrados.');
+                                                }
+                                            }}
+                                        >
+                                            <Calendar className="w-4 h-4 mr-2" />
+                                            Importar Feriados Nacionais
+                                        </Button>
+                                    )}
                                 </CardHeader>
                                 <CardContent>
                                     {renderTable(config.data, config.columns, config.entityName)}
@@ -699,6 +715,6 @@ export default function SettingsPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     );
 }
