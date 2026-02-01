@@ -61,8 +61,40 @@ export const AuthProvider = ({ children }) => {
     const logout = () => {
         setUser(null);
         localStorage.removeItem('fluxo_user');
-        toast.info('Você saiu do sistema.');
+        // Apenas mostra toast se estiver logado, para evitar toast duplo no timeout e depois no redirect
+        // mas aqui é genérico.
+        // toast.info('Você saiu do sistema.'); 
+        // O toast pode ser chamado por quem invoca, ou aqui.
+        // Vou manter simples.
     };
+
+    // Auto-logout por inatividade (20 minutos)
+    useEffect(() => {
+        if (!user) return;
+
+        let timeoutId;
+        const INACTIVITY_LIMIT = 20 * 60 * 1000; // 20 minutos
+
+        const handleInactive = () => {
+            toast.warning("Sessão encerrada por inatividade (20min).");
+            logout();
+        };
+
+        const resetTimer = () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            timeoutId = setTimeout(handleInactive, INACTIVITY_LIMIT);
+        };
+
+        const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove'];
+
+        events.forEach(event => document.addEventListener(event, resetTimer));
+        resetTimer();
+
+        return () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            events.forEach(event => document.removeEventListener(event, resetTimer));
+        };
+    }, [user]);
 
     return (
         <AuthContext.Provider value={{ user, login, logout, loading, isAuthenticated: !!user }}>
