@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from "@/utils";
 import { cn } from "@/lib/utils";
-import { Calendar, User, Building2, Clock, AlertTriangle } from "lucide-react";
+import { Calendar, User, Building2, Clock, AlertTriangle, Trash2 } from "lucide-react";
 import StatusBadge from './StatusBadge';
 import PriorityBadge from './PriorityBadge';
 import { format, isAfter, parseISO } from 'date-fns';
@@ -21,7 +21,7 @@ const ACTIVE_STATUSES = [
     "PENDÊNCIA FORNECEDOR"
 ];
 
-export default function DemandCard({ demand, analyst, client }) {
+export default function DemandCard({ demand, analyst, client, onDelete }) {
     const isOverdue = demand.expected_delivery_date &&
         ACTIVE_STATUSES.includes(demand.status) &&
         isAfter(new Date(), parseISO(demand.expected_delivery_date));
@@ -49,7 +49,22 @@ export default function DemandCard({ demand, analyst, client }) {
                             {demand.product}
                         </h3>
                     </div>
-                    <StatusBadge status={demand.status} size="sm" />
+                    <div className="flex items-center gap-2">
+                        <StatusBadge status={demand.status} size="sm" />
+                        {onDelete && (
+                            <button
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onDelete(demand.id);
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                                title="Excluir demanda"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-3 text-xs text-slate-500 mb-3">

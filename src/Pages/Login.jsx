@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fluxoApi } from '@/api/fluxoClient';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,8 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { toast } from "sonner";
 import { Lock, Mail, Loader2 } from "lucide-react";
 
-export default function LoginPage({ onLogin }) {
+export default function LoginPage() {
     const navigate = useNavigate();
+    const { login } = useAuth(); // Usar o hook useAuth
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -25,13 +26,21 @@ export default function LoginPage({ onLogin }) {
         setIsLoading(true);
 
         try {
-            const user = await fluxoApi.auth.login(email, password);
-            toast.success(`Bem-vindo, ${user.name}!`);
-            onLogin(user);
-            navigate(user.role === 'requester' ? '/demands' : '/dashboard');
+            // Chama o login do contexto
+            const success = await login(email, password);
+            if (success) {
+                // Se sucesso, o Contexto atualiza o 'user'
+                // O App.jsx vai reagir a essa mudança e redirecionar (via <Navigate /> na rota /login)
+                // Mas podemos forçar uma navegação aqui se necessário, 
+                // porém o melhor é deixar o estado reativo cuidar disso ou usar o navigate aqui como fallback.
+
+                // Vamos deixar o usuário ser redirecionado reativamente pelo AppRoutes, mas por segurança, 
+                // em alguns fluxos react-router, pode ser bom navegar explicitamente se o componente não desmontar.
+                // Como user vai mudar, o AppRoutes vai redirecionar.
+            }
         } catch (error) {
             console.error(error);
-            toast.error("Email ou senha inválidos.");
+            // Erro já é tratado no context (toast)
         } finally {
             setIsLoading(false);
         }
@@ -97,9 +106,8 @@ export default function LoginPage({ onLogin }) {
                     <CardFooter className="flex flex-col space-y-2 text-center text-sm text-slate-500 bg-slate-50/50 p-6 rounded-b-xl border-t">
                         <p>Credenciais de teste:</p>
                         <div className="grid grid-cols-1 gap-1 text-xs">
-                            <code>gestor@fluxo.com / 123 (Gestor)</code>
-                            <code>responsavel@fluxo.com / 123 (Responsável)</code>
-                            <code>solicitante@fluxo.com / 123 (Solicitante)</code>
+                            <code>gerente_gor@fluxo.com / 123 (Gerente)</code>
+                            <code>analista_cocr@fluxo.com / 123 (Analista)</code>
                         </div>
                     </CardFooter>
                 </Card>

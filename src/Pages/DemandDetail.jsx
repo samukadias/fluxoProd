@@ -73,9 +73,9 @@ export default function DemandDetailPage() {
         queryFn: () => fluxoApi.entities.Holiday.list()
     });
 
-    const { data: analysts = [] } = useQuery({
-        queryKey: ['analysts'],
-        queryFn: () => fluxoApi.entities.Analyst.list()
+    const { data: users = [] } = useQuery({
+        queryKey: ['users'],
+        queryFn: () => fluxoApi.entities.User.list()
     });
 
     const { data: clients = [] } = useQuery({
@@ -88,10 +88,18 @@ export default function DemandDetailPage() {
         queryFn: () => fluxoApi.entities.Cycle.list()
     });
 
-    const { data: requesters = [] } = useQuery({
-        queryKey: ['requesters'],
-        queryFn: () => fluxoApi.entities.Requester.list()
-    });
+    // Filtros unificados com lógica de perservação do valor atual
+    const analysts = users.filter(u =>
+        (['analyst', 'manager', 'admin'].includes(u.role) &&
+            (!u.department || u.department === 'CDPC')) ||
+        (demand && String(u.id) === String(demand.analyst_id))
+    );
+
+    const requesters = users.filter(u =>
+        (['requester', 'analyst', 'manager', 'admin'].includes(u.role) &&
+            (!u.department || u.department === 'CDPC')) ||
+        (demand && String(u.id) === String(demand.requester_id))
+    );
 
     const updateMutation = useMutation({
         mutationFn: async (data) => {

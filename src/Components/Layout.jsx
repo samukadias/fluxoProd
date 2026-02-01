@@ -1,27 +1,29 @@
 import React from 'react';
 import { NavLink, useLocation, Outlet } from 'react-router-dom';
-import { LayoutDashboard, List, Settings, LogOut, Menu } from 'lucide-react';
+import { LayoutDashboard, List, Settings, LogOut, Menu, DollarSign, CalendarClock, FileText, UserCog, BarChart3, GitBranch, Database, Search } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
-const SidebarItem = ({ icon: Icon, label, to, onClick }) => {
-    const location = useLocation();
-    const isActive = location.pathname === to || (to !== '/dashboard' && location.pathname.startsWith(to));
-
+const SidebarItem = ({ icon: Icon, label, to, onClick, end }) => {
     return (
         <NavLink
             to={to}
             onClick={onClick}
-            className={({ isActive: linkActive }) => cn(
+            end={end}
+            className={({ isActive }) => cn(
                 "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
                 isActive
                     ? "bg-indigo-50 text-indigo-600 shadow-sm"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             )}
         >
-            <Icon className={cn("w-5 h-5", isActive ? "text-indigo-600" : "text-slate-400")} />
-            {label}
+            {({ isActive }) => (
+                <>
+                    <Icon className={cn("w-5 h-5", isActive ? "text-indigo-600" : "text-slate-400")} />
+                    {label}
+                </>
+            )}
         </NavLink>
     );
 };
@@ -41,12 +43,49 @@ export default function Layout({ onLogout, user }) {
             </div>
 
             <div className="flex-1 py-6 px-3 space-y-1">
-                {user?.role !== 'requester' && (
-                    <SidebarItem icon={LayoutDashboard} label="Dashboard" to="/dashboard" onClick={() => setOpen(false)} />
+                {/* Módulo CDPC (Antigo Fluxo/Demandas) */}
+                {(user?.department === 'GOR' || user?.allowed_modules?.includes('flow') || user?.department === 'CDPC') && (
+                    <>
+                        <SidebarItem icon={LayoutDashboard} label="Dashboard CDPC" to="/dashboard" onClick={() => setOpen(false)} end />
+                        <div className="pl-2 space-y-1 mt-1 border-l sm:ml-4 border-slate-200">
+                            <SidebarItem icon={List} label="Demandas CDPC" to="/demands" onClick={() => setOpen(false)} />
+                        </div>
+                    </>
                 )}
-                <SidebarItem icon={List} label="Demandas" to="/demands" onClick={() => setOpen(false)} />
+
+                {/* Módulo CVAC (Antigo Financeiro) */}
+                {(user?.department === 'GOR' || user?.allowed_modules?.includes('finance') || user?.department === 'CVAC') && (
+                    <>
+                        {/* Dashboard CVAC: Visible to Managers (CVAC/GOR) */}
+                        {((user?.department === 'CVAC' && user?.role === 'manager') || user?.department === 'GOR' || user?.perfil === 'GESTOR') && (
+                            <SidebarItem icon={DollarSign} label="Dashboard CVAC" to="/financeiro" onClick={() => setOpen(false)} end />
+                        )}
+
+                        <div className="pl-2 space-y-1 mt-1 border-l sm:ml-4 border-slate-200">
+                            <SidebarItem icon={FileText} label="Contratos CVAC" to="/financeiro/contratos" onClick={() => setOpen(false)} />
+                        </div>
+                    </>
+                )}
+
+                {/* Módulo COCR (Antigo Prazos) */}
+                {(user?.department === 'GOR' || user?.allowed_modules?.includes('contracts') || user?.department === 'COCR') && (
+                    <>
+                        <SidebarItem icon={CalendarClock} label="Dashboard COCR" to="/prazos" onClick={() => setOpen(false)} end />
+                        <div className="pl-2 space-y-1 mt-1 border-l sm:ml-4 border-slate-200">
+                            <SidebarItem icon={FileText} label="Contratos" to="/prazos/contratos" onClick={() => setOpen(false)} />
+                            <SidebarItem icon={Search} label="Pesquisar" to="/prazos/pesquisa" onClick={() => setOpen(false)} />
+                            <SidebarItem icon={BarChart3} label="Análise" to="/prazos/analise" onClick={() => setOpen(false)} />
+                            <SidebarItem icon={GitBranch} label="Controle de Etapas" to="/prazos/etapas" onClick={() => setOpen(false)} />
+                            <SidebarItem icon={Database} label="Gestão de Dados" to="/prazos/gestao-dados" onClick={() => setOpen(false)} />
+                        </div>
+                    </>
+                )}
+
+                {/* Administration: Only Managers and Admins */}
                 {(user?.role === 'admin' || user?.role === 'manager') && (
-                    <SidebarItem icon={Settings} label="Configurações" to="/settings" onClick={() => setOpen(false)} />
+                    <>
+                        <SidebarItem icon={Settings} label="Administração" to="/settings" onClick={() => setOpen(false)} />
+                    </>
                 )}
             </div>
 

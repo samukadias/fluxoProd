@@ -34,7 +34,7 @@ export default function DashboardPage() {
     const [user, setUser] = useState(null);
 
     useEffect(() => {
-        const stored = localStorage.getItem('fluxo_user');
+        const stored = localStorage.getItem('fluxo_user') || localStorage.getItem('user');
         if (stored) {
             setUser(JSON.parse(stored));
         }
@@ -55,15 +55,32 @@ export default function DashboardPage() {
         queryFn: () => fluxoApi.entities.Analyst.list()
     });
 
+    const { data: requesters = [] } = useQuery({
+        queryKey: ['requesters'],
+        queryFn: () => fluxoApi.entities.Requester.list()
+    });
+
     const { data: holidays = [] } = useQuery({
         queryKey: ['holidays'],
         queryFn: () => fluxoApi.entities.Holiday.list()
     });
 
     const currentAnalyst = useMemo(() => {
-        if (!user || user.role !== 'analyst') return null;
-        return analysts.find(a => a.email === user.email);
+        if (!user || (user.role !== 'analyst' && user.perfil !== 'ANALISTA')) return null;
+        return analysts.find(a =>
+            a.email?.toLowerCase() === user.email?.toLowerCase() ||
+            a.name?.toLowerCase() === user.name?.toLowerCase() ||
+            a.name?.toLowerCase() === user.full_name?.toLowerCase()
+        );
     }, [user, analysts]);
+
+    const currentRequester = useMemo(() => {
+        // Se o usuario for solicitante, tenta achar ele na lista de solicitantes pelo email
+        if (!user || user.role !== 'requester') return null;
+        // Assume que demands tem requester_id ou requester_email
+        // Se a tabela demands tem requester_id, precisamos do ID.
+        return requesters.find(r => r.email === user.email);
+    }, [user, requesters]);
 
     useEffect(() => {
         if (currentAnalyst) {
@@ -89,15 +106,28 @@ export default function DashboardPage() {
                 if (demandYear !== selectedYear) return false;
             }
 
-            // If user is analyst, force their ID
-            if (currentAnalyst) {
-                return d.analyst_id === currentAnalyst.id;
+            // PERMISSÕES:
+            // Analista: Apenas suas demandas
+            // Se for analista (role ou perfil), OBRIGATORIAMENTE filtra
+            if (user?.role === 'analyst' || user?.perfil === 'ANALISTA') {
+                if (currentAnalyst) {
+                    return d.analyst_id === currentAnalyst.id;
+                }
+                // Se é analista mas não achamos o cadastro dele na tabela 'analysts', 
+                // por segurança não mostra nada (ou vaza tudo)
+                return false;
+            }
+
+            // Solicitante: Apenas demandas que ele solicitou
+            if (currentRequester) {
+                // Verifica se bate o ID ou se o nome do solicitante bate (caso o backend retorne o nome direto)
+                return d.requester_id === currentRequester.id || d.requester_name === currentRequester.name;
             }
 
             if (selectedAnalyst !== 'all' && d.analyst_id !== selectedAnalyst) return false;
             return true;
         });
-    }, [demands, selectedYear, selectedAnalyst, currentAnalyst]);
+    }, [demands, selectedYear, selectedAnalyst, currentAnalyst, currentRequester, user]);
 
     const stats = useMemo(() => {
         const total = filteredDemands.length;
@@ -161,16 +191,19 @@ export default function DashboardPage() {
         return averages;
     }, [filteredDemands, holidays]);
 
+    const isManager = user?.role === 'manager' || user?.perfil === 'GESTOR' || user?.department === 'GOR' || (user?.department === 'CDPC' && user?.role === 'manager');
+    const isRequester = user?.role === 'requester';
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="p-6 bg-slate-50 min-h-screen">
+            <div className="max-w-7xl mx-auto">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-                            Dashboard
+                            Dashboard CDPC
                         </h1>
                         <p className="text-slate-500 mt-1">
-                            Visão geral e análise de gargalos
+                            {isRequester ? "Minossas Solicitações" : "Visão geral e análise de gargalos"}
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -184,7 +217,7 @@ export default function DashboardPage() {
                                 ))}
                             </SelectContent>
                         </Select>
-                        {!currentAnalyst && (
+                        {isManager && (
                             <Select value={selectedAnalyst} onValueChange={setSelectedAnalyst}>
                                 <SelectTrigger className="w-48 bg-white">
                                     <SelectValue placeholder="Responsável" />
@@ -205,98 +238,153 @@ export default function DashboardPage() {
                         title="Total de Demandas"
                         value={stats.total}
                         icon={FileText}
-                        iconClassName="bg-indigo-100"
+                        type="default"
                     />
                     <StatsCard
                         title="Em Aberto"
                         value={stats.open}
                         icon={Clock}
-                        iconClassName="bg-amber-100"
+                        type="warning"
                     />
                     <StatsCard
                         title="Atrasadas"
                         value={stats.overdue}
                         icon={AlertTriangle}
-                        iconClassName="bg-red-100"
+                        type="danger"
                     />
                     <StatsCard
                         title="Entregues"
                         value={stats.delivered}
                         icon={CheckCircle2}
-                        iconClassName="bg-emerald-100"
+                        type="success"
                     />
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <Card className="border-0 shadow-lg rounded-2xl">
-                        <CardHeader>
-                            <CardTitle className="text-lg flex items-center gap-2">
-                                <TrendingUp className="w-5 h-5 text-indigo-600" />
-                                {user?.role === 'manager' ? 'Relação Volume x Lentidão' : 'Mapa de Calor - Gargalos'}
-                            </CardTitle>
-                            <p className="text-sm text-slate-500">
-                                {user?.role === 'manager'
-                                    ? 'Identifique se o gargalo é por volume (x) ou demora (y)'
-                                    : 'Tempo acumulado em cada status'}
-                            </p>
-                        </CardHeader>
-                        <CardContent>
-                            {user?.role === 'manager'
-                                ? <BottleneckChart data={bottleneckData} />
-                                : <BottleneckBarChart data={bottleneckData} />
-                            }
-                        </CardContent>
-                    </Card>
+                {!isRequester && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center gap-2">
+                                    <TrendingUp className="w-5 h-5 text-indigo-600" />
+                                    {isManager ? 'Relação Volume x Lentidão' : 'Mapa de Calor - Gargalos'}
+                                </CardTitle>
+                                <p className="text-sm text-slate-500">
+                                    {isManager
+                                        ? 'Identifique se o gargalo é por volume (x) ou demora (y)'
+                                        : 'Tempo acumulado em cada status'}
+                                </p>
+                            </CardHeader>
+                            <CardContent>
+                                {isManager
+                                    ? <BottleneckChart data={bottleneckData} />
+                                    : <BottleneckBarChart data={bottleneckData} />
+                                }
+                            </CardContent>
+                        </Card>
 
-                    <Card className="border-0 shadow-lg rounded-2xl">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center gap-2">
+                                    <Clock className="w-5 h-5 text-indigo-600" />
+                                    Tempo Médio por Complexidade
+                                </CardTitle>
+                                <p className="text-sm text-slate-500">
+                                    Dias úteis médios para conclusão por nível
+                                </p>
+                            </CardHeader>
+                            <CardContent>
+                                <ComplexityChart data={complexityData} />
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+
+                {isRequester && (
+                    <Card className="col-span-1 lg:col-span-2 mt-6">
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2">
                                 <Clock className="w-5 h-5 text-indigo-600" />
-                                Tempo Médio por Complexidade
+                                Demandas em Aberto
                             </CardTitle>
                             <p className="text-sm text-slate-500">
-                                Dias úteis médios para conclusão por nível
+                                Acompanhe o status das suas solicitações pendentes
                             </p>
                         </CardHeader>
                         <CardContent>
-                            <ComplexityChart data={complexityData} />
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="text-xs text-slate-700 uppercase bg-slate-50">
+                                        <tr>
+                                            <th className="px-4 py-3">ID</th>
+                                            <th className="px-4 py-3">Título</th>
+                                            <th className="px-4 py-3">Status</th>
+                                            <th className="px-4 py-3">Data Prevista</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredDemands
+                                            .filter(d => ACTIVE_STATUSES.includes(d.status))
+                                            .map(d => (
+                                                <tr key={d.id} className="border-b hover:bg-slate-50">
+                                                    <td className="px-4 py-3 font-medium">#{d.id}</td>
+                                                    <td className="px-4 py-3">{d.title || d.project_name || 'Sem Título'}</td>
+                                                    <td className="px-4 py-3">
+                                                        <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                                                            {d.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        {d.expected_delivery_date ? format(parseISO(d.expected_delivery_date), 'dd/MM/yyyy') : '-'}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        {filteredDemands.filter(d => ACTIVE_STATUSES.includes(d.status)).length === 0 && (
+                                            <tr>
+                                                <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
+                                                    Nenhuma demanda em aberto encontrada.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </CardContent>
                     </Card>
+                )}
 
-                    {user?.role === 'manager' && (
-                        <>
-                            <Card className="border-0 shadow-lg rounded-2xl col-span-1 lg:col-span-2">
-                                <CardHeader>
-                                    <CardTitle className="text-lg flex items-center gap-2">
-                                        <TrendingUp className="w-5 h-5 text-indigo-600" />
-                                        Mapa de Calor - Visão Geral
-                                    </CardTitle>
-                                    <p className="text-sm text-slate-500">
-                                        Tempo total acumulado de todas as demandas em cada etapa
-                                    </p>
-                                </CardHeader>
-                                <CardContent>
-                                    <BottleneckBarChart data={bottleneckData} />
-                                </CardContent>
-                            </Card>
+                {isManager && (
+                    <div className="grid grid-cols-1 gap-6">
+                        <Card className="col-span-1 lg:col-span-2">
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center gap-2">
+                                    <TrendingUp className="w-5 h-5 text-indigo-600" />
+                                    Mapa de Calor - Visão Geral
+                                </CardTitle>
+                                <p className="text-sm text-slate-500">
+                                    Tempo total acumulado de todas as demandas em cada etapa
+                                </p>
+                            </CardHeader>
+                            <CardContent>
+                                <BottleneckBarChart data={bottleneckData} />
+                            </CardContent>
+                        </Card>
 
-                            <Card className="border-0 shadow-lg rounded-2xl col-span-1 lg:col-span-2">
-                                <CardHeader>
-                                    <CardTitle className="text-lg flex items-center gap-2">
-                                        <CheckCircle2 className="w-5 h-5 text-indigo-600" />
-                                        Demandas Qualificadas
-                                    </CardTitle>
-                                    <p className="text-sm text-slate-500">
-                                        Volume de demandas qualificadas por período
-                                    </p>
-                                </CardHeader>
-                                <CardContent>
-                                    <QualifiedDemandsChart demands={demands} />
-                                </CardContent>
-                            </Card>
-                        </>
-                    )}
-                </div>
+                        <Card className="col-span-1 lg:col-span-2">
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center gap-2">
+                                    <CheckCircle2 className="w-5 h-5 text-indigo-600" />
+                                    Demandas Qualificadas
+                                </CardTitle>
+                                <p className="text-sm text-slate-500">
+                                    Volume de demandas qualificadas por período
+                                </p>
+                            </CardHeader>
+                            <CardContent>
+                                <QualifiedDemandsChart demands={demands} />
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
             </div>
         </div >
     );

@@ -1,49 +1,80 @@
 import React from 'react';
-import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
+import { motion } from "framer-motion";
 
 export default function StatsCard({
     title,
     value,
     subtitle,
+    type = 'default',
     icon: Icon,
     trend,
-    trendUp,
-    className,
-    iconClassName
+    trendUp
 }) {
+    const getStyles = () => {
+        switch (type) {
+            case 'danger':
+                return {
+                    bg: 'bg-gradient-to-br from-red-500 to-red-600',
+                    iconBg: 'bg-red-400/30',
+                    text: 'text-white'
+                };
+            case 'success':
+                return {
+                    bg: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
+                    iconBg: 'bg-emerald-400/30',
+                    text: 'text-white'
+                };
+            case 'warning':
+                return {
+                    bg: 'bg-gradient-to-br from-amber-500 to-amber-600',
+                    iconBg: 'bg-amber-400/30',
+                    text: 'text-white'
+                };
+            default: // Blue/Indigo
+                return {
+                    bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
+                    iconBg: 'bg-indigo-400/30',
+                    text: 'text-white'
+                };
+        }
+    };
+
+    const styles = getStyles();
+
     return (
-        <div className={cn(
-            "bg-white rounded-2xl border border-slate-200 p-5 transition-all hover:shadow-lg hover:border-slate-300",
-            className
-        )}>
-            <div className="flex items-start justify-between">
-                <div className="flex-1">
-                    <p className="text-sm font-medium text-slate-500 mb-1">{title}</p>
-                    <p className="text-3xl font-bold text-slate-900 tracking-tight">{value}</p>
-                    {subtitle && (
-                        <p className="text-xs text-slate-400 mt-1">{subtitle}</p>
-                    )}
-                    {trend && (
-                        <p className={cn(
-                            "text-xs font-medium mt-2",
-                            trendUp ? "text-emerald-600" : "text-red-600"
-                        )}>
-                            {trend}
-                        </p>
-                    )}
-                </div>
-                {Icon && (
-                    <div className={cn(
-                        "p-3 rounded-xl",
-                        iconClassName || "bg-indigo-50"
-                    )}>
-                        <Icon className={cn(
-                            "w-5 h-5",
-                            iconClassName ? "text-white" : "text-indigo-600"
-                        )} />
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+        >
+            <Card className={`${styles.bg} border-0 shadow-xl overflow-hidden`}>
+                <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className={`text-sm font-medium ${styles.text} opacity-80`}>
+                                {title}
+                            </p>
+                            <p className={`text-3xl font-bold ${styles.text} mt-2`}>
+                                {value}
+                            </p>
+                            {(subtitle || trend) && (
+                                <div className={`text-xs ${styles.text} opacity-70 mt-1 flex items-center gap-2`}>
+                                    {subtitle && <span>{subtitle}</span>}
+                                    {trend && (
+                                        <span className={`flex items-center ${trendUp ? 'text-emerald-200' : 'text-red-200'} font-bold bg-white/10 px-1 rounded`}>
+                                            {trend}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <div className={`p-3 rounded-xl ${styles.iconBg}`}>
+                            {Icon && <Icon className={`w-6 h-6 ${styles.text}`} />}
+                        </div>
                     </div>
-                )}
-            </div>
-        </div>
+                </CardContent>
+            </Card>
+        </motion.div>
     );
 }

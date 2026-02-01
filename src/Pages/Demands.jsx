@@ -36,9 +36,9 @@ export default function DemandsPage() {
         queryFn: () => fluxoApi.entities.Demand.list('-created_date')
     });
 
-    const { data: analysts = [] } = useQuery({
-        queryKey: ['analysts'],
-        queryFn: () => fluxoApi.entities.Analyst.list()
+    const { data: users = [] } = useQuery({
+        queryKey: ['users'],
+        queryFn: () => fluxoApi.entities.User.list()
     });
 
     const { data: clients = [] } = useQuery({
@@ -51,10 +51,16 @@ export default function DemandsPage() {
         queryFn: () => fluxoApi.entities.Cycle.list()
     });
 
-    const { data: requesters = [] } = useQuery({
-        queryKey: ['requesters'],
-        queryFn: () => fluxoApi.entities.Requester.list()
-    });
+    // Filtra usuários para CDPC (ampliando para Gestores/Admins poderem ser responsáveis/solicitantes)
+    const analysts = users.filter(u =>
+        ['analyst', 'manager', 'admin'].includes(u.role) &&
+        (!u.department || u.department === 'CDPC')
+    );
+
+    const requesters = users.filter(u =>
+        ['requester', 'analyst', 'manager', 'admin'].includes(u.role) &&
+        (!u.department || u.department === 'CDPC')
+    );
 
     const createMutation = useMutation({
         mutationFn: async (data) => {
@@ -95,6 +101,21 @@ export default function DemandsPage() {
             toast.error('Erro ao criar demanda');
         }
     });
+
+    const deleteMutation = useMutation({
+        mutationFn: (id) => fluxoApi.entities.Demand.delete(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['demands'] });
+            toast.success('Demanda excluída com sucesso!');
+        },
+        onError: () => toast.error('Erro ao excluir demanda')
+    });
+
+    const handleDelete = (id) => {
+        if (confirm('Tem certeza que deseja excluir esta demanda? Esta ação não pode ser desfeita.')) {
+            deleteMutation.mutate(id);
+        }
+    };
 
     const filteredDemands = demands.filter(d => {
         // Role-based filtering
@@ -218,6 +239,7 @@ export default function DemandsPage() {
                                     demand={demand}
                                     analyst={analystsMap[demand.analyst_id]}
                                     client={clientsMap[demand.client_id]}
+                                    onDelete={handleDelete}
                                 />
                             ))}
                         </div>

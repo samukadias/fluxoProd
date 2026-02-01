@@ -19,6 +19,16 @@ const createCrud = (resource) => ({
         }
         return fluxClient.get(`/${resource}`, config).then(res => res.data);
     },
+    listPaginated: (args) => {
+        const config = {};
+        if (typeof args === 'object') {
+            config.params = args;
+        }
+        return fluxClient.get(`/${resource}`, config).then(res => ({
+            data: res.data,
+            total: parseInt(res.headers['x-total-count'] || 0)
+        }));
+    },
     get: (id) => fluxClient.get(`/${resource}/${id}`).then(res => res.data),
     create: (data) => fluxClient.post(`/${resource}`, data).then(res => res.data),
     update: (id, data) => fluxClient.put(`/${resource}/${id}`, data).then(res => res.data),
@@ -29,12 +39,18 @@ export const fluxoApi = {
     entities: {
         Demand: createCrud('demands'),
         StatusHistory: createCrud('status_history'),
-        Analyst: createCrud('analysts'),
         Holiday: createCrud('holidays'),
-        Client: createCrud('clients'),
         Cycle: createCrud('cycles'),
         Requester: createCrud('requesters'),
         User: createCrud('users'),
+        Contract: createCrud('contracts'), // Legado - manter para compatibilidade
+        FinanceContract: createCrud('finance_contracts'), // Módulo Financeiro
+        DeadlineContract: createCrud('deadline_contracts'), // Módulo Prazos
+        Invoice: createCrud('invoices'),
+        MonthlyAttestation: createCrud('monthly_attestations'),
+        Client: createCrud('clients'),
+        Analyst: createCrud('analysts'),
+        TermoConfirmacao: createCrud('termos_confirmacao'),
     },
     auth: {
         login: (email, password) => fluxClient.post('/auth/login', { email, password }).then(res => res.data),

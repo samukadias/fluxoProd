@@ -1,6 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const db = require('./db');
+// Import Modules
+const financeiroRoutes = require('./src/modules/financeiro/routes');
+const prazosRoutes = require('./src/modules/prazos/routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,13 +16,16 @@ const createCrudRoutes = (resource, tableName) => {
     // List
     app.get(`/${resource}`, async (req, res) => {
         try {
-            const { sort, ...filters } = req.query;
+            const { sort, page, limit, ...filters } = req.query;
             let query = `SELECT * FROM ${tableName}`;
+            let countQuery = `SELECT COUNT(*) FROM ${tableName}`;
             const values = [];
 
             if (Object.keys(filters).length > 0) {
                 const clauses = Object.keys(filters).map((key, i) => `${key} = $${i + 1}`);
-                query += ` WHERE ${clauses.join(' AND ')}`;
+                const whereClause = ` WHERE ${clauses.join(' AND ')}`;
+                query += whereClause;
+                countQuery += whereClause;
                 values.push(...Object.values(filters));
             }
 
@@ -29,7 +35,21 @@ const createCrudRoutes = (resource, tableName) => {
                 query += ` ORDER BY ${field} ${direction}`;
             }
 
+            // Pagination
+            if (page && limit) {
+                const limitVal = parseInt(limit);
+                const offsetVal = (parseInt(page) - 1) * limitVal;
+                query += ` LIMIT ${limitVal} OFFSET ${offsetVal}`;
+            }
+
+            // Get total count
+            const countResult = await db.query(countQuery, values);
+            const totalCount = parseInt(countResult.rows[0].count);
+
             const result = await db.query(query, values);
+
+            // Send total count in header
+            res.setHeader('X-Total-Count', totalCount);
             res.json(result.rows);
         } catch (err) {
             console.error(err);
@@ -52,8 +72,14 @@ const createCrudRoutes = (resource, tableName) => {
     // Create
     app.post(`/${resource}`, async (req, res) => {
         try {
-            const keys = Object.keys(req.body);
-            const values = Object.values(req.body);
+            const body = { ...req.body };
+            // Sanitização básica: strings vazias viram null para não dar erro em campos numéricos/data
+            Object.keys(body).forEach(key => {
+                if (body[key] === '') body[key] = null;
+            });
+
+            const keys = Object.keys(body);
+            const values = Object.values(body);
 
             // Basic ID generation if not provided (Postgres usually handles this with SERIAL/UUID, but ensuring it)
             // Actually, we'll let Postgres handle ID if it's serial/generated.
@@ -72,8 +98,14 @@ const createCrudRoutes = (resource, tableName) => {
     // Update
     app.put(`/${resource}/:id`, async (req, res) => {
         try {
-            const keys = Object.keys(req.body);
-            const values = Object.values(req.body);
+            const body = { ...req.body };
+            // Sanitização básica
+            Object.keys(body).forEach(key => {
+                if (body[key] === '') body[key] = null;
+            });
+
+            const keys = Object.keys(body);
+            const values = Object.values(body);
 
             if (keys.length === 0) return res.status(400).json({ error: 'No fields to update' });
 
@@ -112,7 +144,9 @@ const initDb = async () => {
         name VARCHAR(255),
         email VARCHAR(255) UNIQUE,
         password VARCHAR(255),
-        role VARCHAR(50)
+        role VARCHAR(50),
+        department VARCHAR(50),
+        allowed_modules TEXT[] DEFAULT '{flow}'
       )
     `);
 
@@ -137,10 +171,17 @@ const initDb = async () => {
         observation TEXT,
         frozen_time_minutes INTEGER DEFAULT 0,
         last_frozen_at TIMESTAMP,
-        support_analyst_id INTEGER
+        support_analyst_id INTEGER,
+        contract_id INTEGER REFERENCES contracts(id)
       );
       
+      -- Migrations for existing tables
       ALTER TABLE demands ADD COLUMN IF NOT EXISTS support_analyst_id INTEGER;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS allowed_modules TEXT[] DEFAULT '{flow}';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(50); -- Nova coluna de departamento
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_type VARCHAR(50); -- Para diferenciar Gestor/Analista explicitamente se necessario
+      ALTER TABLE clients ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+      ALTER TABLE analysts ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
     `);
 
         // Status History
@@ -169,7 +210,8 @@ const initDb = async () => {
         await db.query(`
       CREATE TABLE IF NOT EXISTS clients (
         id SERIAL PRIMARY KEY,
-        name VARCHAR(255)
+        name VARCHAR(255),
+        active BOOLEAN DEFAULT TRUE
       )
     `);
 
@@ -199,21 +241,310 @@ const initDb = async () => {
       )
     `);
 
-        // SEED DATA
-        const users = [
-            { name: 'Gestor Fluxo', email: 'gestor@fluxo.com', password: '123', role: 'manager' },
-            { name: 'Ana Responsável', email: 'responsavel@fluxo.com', password: '123', role: 'analyst' },
-            { name: 'João Solicitante', email: 'solicitante@fluxo.com', password: '123', role: 'requester' }
+        // Contracts (New Core Table)
+        await db.query(`
+      CREATE TABLE IF NOT EXISTS contracts (
+        id SERIAL PRIMARY KEY,
+        contract_number VARCHAR(50) UNIQUE NOT NULL,
+        object TEXT,
+        company_name VARCHAR(255),
+        start_date TIMESTAMP,
+        end_date TIMESTAMP,
+        total_value DECIMAL(15, 2),
+        current_balance DECIMAL(15, 2),
+        status VARCHAR(50) DEFAULT 'active'
+      )
+    `);
+
+
+        // Add Legacy Columns Separately (Prazos Module)
+        const legacyCols = [
+            'ADD COLUMN IF NOT EXISTS analista_responsavel VARCHAR(255)',
+            'ADD COLUMN IF NOT EXISTS cliente VARCHAR(255)',
+            'ADD COLUMN IF NOT EXISTS grupo_cliente VARCHAR(255)',
+            'ADD COLUMN IF NOT EXISTS contrato VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS termo VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS status_vencimento VARCHAR(50)',
+            'ADD COLUMN IF NOT EXISTS data_inicio_efetividade TIMESTAMP',
+            'ADD COLUMN IF NOT EXISTS data_fim_efetividade TIMESTAMP',
+            'ADD COLUMN IF NOT EXISTS data_limite_andamento TIMESTAMP',
+            'ADD COLUMN IF NOT EXISTS valor_contrato DECIMAL(15, 2)',
+            'ADD COLUMN IF NOT EXISTS valor_faturado DECIMAL(15, 2)',
+            'ADD COLUMN IF NOT EXISTS valor_cancelado DECIMAL(15, 2)',
+            'ADD COLUMN IF NOT EXISTS valor_a_faturar DECIMAL(15, 2)',
+            'ADD COLUMN IF NOT EXISTS valor_novo_contrato DECIMAL(15, 2)',
+            'ADD COLUMN IF NOT EXISTS tipo_tratativa VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS tipo_aditamento VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS etapa TEXT',
+            'ADD COLUMN IF NOT EXISTS objeto TEXT',
+            'ADD COLUMN IF NOT EXISTS secao_responsavel VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS observacao TEXT',
+            'ADD COLUMN IF NOT EXISTS numero_processo_sei_nosso VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS numero_processo_sei_cliente VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS contrato_cliente VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS contrato_anterior VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS numero_pnpp_crm VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS sei VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS contrato_novo VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS termo_novo VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS created_by VARCHAR(255)'
         ];
 
-        for (const user of users) {
+        for (const col of legacyCols) {
+            try {
+                await db.query(`ALTER TABLE contracts ${col}`);
+            } catch (e) { console.log('Column already exists or error:', e.message); }
+        }
+
+        // Fix contract_number to be nullable (for Prazos module compatibility)
+        try {
+            await db.query(`ALTER TABLE contracts ALTER COLUMN contract_number DROP NOT NULL`);
+            console.log('contract_number is now nullable');
+        } catch (e) {
+            console.log('contract_number already nullable or error:', e.message);
+        }
+
+        // Add Finance Module Columns to Contracts
+        const financeCols = [
+            'ADD COLUMN IF NOT EXISTS client_name VARCHAR(255)',
+            'ADD COLUMN IF NOT EXISTS responsible_analyst VARCHAR(255)',
+            'ADD COLUMN IF NOT EXISTS pd_number VARCHAR(50)',
+            'ADD COLUMN IF NOT EXISTS sei_process_number VARCHAR(50)',
+            'ADD COLUMN IF NOT EXISTS sei_send_area VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS esps JSONB DEFAULT \'[]\'',
+            'ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
+        ];
+
+        for (const col of financeCols) {
+            try {
+                await db.query(`ALTER TABLE contracts ${col}`);
+            } catch (e) { console.log('Finance col error:', e.message); }
+        }
+
+        // ========================================
+        // TABELAS SEPARADAS PARA MÓDULOS
+        // ========================================
+
+        // Tabela de Contratos Financeiros (Módulo Financeiro)
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS finance_contracts (
+                id SERIAL PRIMARY KEY,
+                client_name VARCHAR(255) NOT NULL,
+                pd_number VARCHAR(50) NOT NULL,
+                responsible_analyst VARCHAR(255),
+                sei_process_number VARCHAR(50),
+                sei_send_area VARCHAR(100),
+                esps JSONB DEFAULT '[]',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Tabela de Contratos de Prazos (Módulo Prazos)
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS deadline_contracts (
+                id SERIAL PRIMARY KEY,
+                analista_responsavel VARCHAR(255),
+                cliente VARCHAR(255),
+                grupo_cliente VARCHAR(255),
+                contrato VARCHAR(100),
+                termo VARCHAR(100),
+                status VARCHAR(50) DEFAULT 'Ativo',
+                status_vencimento VARCHAR(50),
+                data_inicio_efetividade TIMESTAMP,
+                data_fim_efetividade TIMESTAMP,
+                data_limite_andamento TIMESTAMP,
+                valor_contrato DECIMAL(15, 2),
+                valor_faturado DECIMAL(15, 2),
+                valor_cancelado DECIMAL(15, 2),
+                valor_a_faturar DECIMAL(15, 2),
+                valor_novo_contrato DECIMAL(15, 2),
+                objeto TEXT,
+                tipo_tratativa VARCHAR(100),
+                tipo_aditamento VARCHAR(100),
+                etapa TEXT,
+                secao_responsavel VARCHAR(100),
+                observacao TEXT,
+                numero_processo_sei_nosso VARCHAR(100),
+                numero_processo_sei_cliente VARCHAR(100),
+                contrato_cliente VARCHAR(100),
+                contrato_anterior VARCHAR(100),
+                numero_pnpp_crm VARCHAR(100),
+                sei VARCHAR(100),
+                contrato_novo VARCHAR(100),
+                termo_novo VARCHAR(100),
+                created_by VARCHAR(255),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        console.log('✅ Tabelas separadas criadas: finance_contracts e deadline_contracts');
+
+        // ========================================
+        // MIGRAÇÃO DE DADOS (LEGADO -> NOVAS TABELAS)
+        // ========================================
+        try {
+            // Verificar se as novas tabelas estão vazias antes de migrar
+            const financeCount = await db.query('SELECT COUNT(*) FROM finance_contracts');
+            const deadlineCount = await db.query('SELECT COUNT(*) FROM deadline_contracts');
+
+            if (parseInt(financeCount.rows[0].count) === 0) {
+                console.log('🔄 Migrando dados para finance_contracts...');
+                await db.query(`
+                    INSERT INTO finance_contracts (
+                        client_name, pd_number, responsible_analyst, 
+                        sei_process_number, sei_send_area, esps, created_at
+                    )
+                    SELECT 
+                        COALESCE(client_name, company_name, 'Sem Cliente'), 
+                        COALESCE(pd_number, contract_number, 'Sem PD'),
+                        COALESCE(responsible_analyst, analista_responsavel),
+                        sei_process_number, sei_send_area, esps, created_at
+                    FROM contracts 
+                    WHERE client_name IS NOT NULL OR pd_number IS NOT NULL OR esps IS NOT NULL
+                `);
+                console.log('✅ Migração para finance_contracts concluída');
+            }
+
+            if (parseInt(deadlineCount.rows[0].count) === 0) {
+                console.log('🔄 Migrando dados para deadline_contracts...');
+                await db.query(`
+                    INSERT INTO deadline_contracts (
+                        analista_responsavel, cliente, grupo_cliente, contrato, termo,
+                        status, status_vencimento, data_inicio_efetividade, data_fim_efetividade,
+                        data_limite_andamento, valor_contrato, valor_faturado, valor_cancelado,
+                        valor_a_faturar, valor_novo_contrato, objeto, tipo_tratativa,
+                        tipo_aditamento, etapa, secao_responsavel, observacao,
+                        numero_processo_sei_nosso, numero_processo_sei_cliente,
+                        contrato_cliente, contrato_anterior, numero_pnpp_crm, sei,
+                        contrato_novo, termo_novo, created_by, created_at
+                    )
+                    SELECT 
+                        analista_responsavel, cliente, grupo_cliente, contrato, termo,
+                        status, status_vencimento, data_inicio_efetividade, data_fim_efetividade,
+                        data_limite_andamento, valor_contrato, valor_faturado, valor_cancelado,
+                        valor_a_faturar, valor_novo_contrato, objeto, tipo_tratativa,
+                        tipo_aditamento, etapa, secao_responsavel, observacao,
+                        numero_processo_sei_nosso, numero_processo_sei_cliente,
+                        contrato_cliente, contrato_anterior, numero_pnpp_crm, sei,
+                        contrato_novo, termo_novo, created_by, created_at
+                    FROM contracts
+                    WHERE contrato IS NOT NULL OR cliente IS NOT NULL
+                `);
+                console.log('✅ Migração para deadline_contracts concluída');
+            }
+        } catch (migrationErr) {
+            console.error('⚠️ Erro durante migração:', migrationErr.message);
+        }
+
+        // Monthly Attestations (Finance Module)
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS monthly_attestations (
+                id SERIAL PRIMARY KEY,
+                contract_id INTEGER REFERENCES contracts(id),
+                client_name VARCHAR(255),
+                pd_number VARCHAR(50),
+                responsible_analyst VARCHAR(255),
+                esp_number VARCHAR(50),
+                reference_month VARCHAR(10),
+                report_generation_date DATE,
+                report_send_date DATE,
+                attestation_return_date DATE,
+                invoice_send_to_client_date DATE,
+                invoice_number VARCHAR(50),
+                billed_amount DECIMAL(15, 2),
+                paid_amount DECIMAL(15, 2),
+                invoice_send_date DATE,
+                observations TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Clients (Finance Module)
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS clients (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) UNIQUE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Analysts (Finance Module)
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS analysts (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) UNIQUE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Termos Confirmacao (Prazos/Legacy Module)
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS termos_confirmacao (
+                id SERIAL PRIMARY KEY,
+                numero_tc VARCHAR(50),
+                contrato_associado_pd VARCHAR(50),
+                numero_processo VARCHAR(50),
+                data_inicio_vigencia TIMESTAMP,
+                data_fim_vigencia TIMESTAMP,
+                valor_total DECIMAL(15, 2),
+                objeto TEXT,
+                area_demandante VARCHAR(100),
+                fiscal_contrato VARCHAR(255),
+                gestor_contrato VARCHAR(255),
+                created_by VARCHAR(255),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP
+            )
+        `);
+
+
+
+
+        // Invoices (New Finance Module)
+        await db.query(`
+      CREATE TABLE IF NOT EXISTS invoices(
+            id SERIAL PRIMARY KEY,
+            contract_id INTEGER REFERENCES contracts(id),
+            invoice_number VARCHAR(50),
+            amount DECIMAL(15, 2),
+            issue_date TIMESTAMP,
+            status VARCHAR(50)
+        )
+    `);
+
+        // SEED DATA - ATUALIZADO COM NOVOS PERFIS
+        const seedUsers = [
+            // GOR (Gerencia Geral)
+            { name: 'Gerente Geral', email: 'gerente_gor@fluxo.com', password: '123', role: 'manager', department: 'GOR', allowed_modules: ['flow', 'finance', 'contracts'] },
+
+            // COCR (Antigo Prazos)
+            { name: 'Gestor COCR', email: 'gestor_cocr@fluxo.com', password: '123', role: 'manager', department: 'COCR', allowed_modules: ['contracts'] },
+            { name: 'Analista COCR', email: 'analista_cocr@fluxo.com', password: '123', role: 'analyst', department: 'COCR', allowed_modules: ['contracts'] },
+            { name: 'Cliente COCR', email: 'cliente_cocr@fluxo.com', password: '123', role: 'client', department: 'COCR', allowed_modules: ['contracts'] }, // Novo role client
+
+            // CDPC (Antigo Fluxo)
+            { name: 'Gestor CDPC', email: 'gestor_cdpc@fluxo.com', password: '123', role: 'manager', department: 'CDPC', allowed_modules: ['flow'] },
+            { name: 'Analista CDPC', email: 'analista_cdpc@fluxo.com', password: '123', role: 'analyst', department: 'CDPC', allowed_modules: ['flow'] },
+            { name: 'Solicitante CDPC', email: 'solicitante_cdpc@fluxo.com', password: '123', role: 'requester', department: 'CDPC', allowed_modules: ['flow'] },
+
+            // CVAC (Antigo Financeiro)
+            { name: 'Gestor CVAC', email: 'gestor_cvac@fluxo.com', password: '123', role: 'manager', department: 'CVAC', allowed_modules: ['finance'] },
+            { name: 'Analista CVAC', email: 'analista_cvac@fluxo.com', password: '123', role: 'analyst', department: 'CVAC', allowed_modules: ['finance'] },
+
+            // Legacy/Compatibilidade
+            { name: 'Gestor Fluxo', email: 'gestor@fluxo.com', password: '123', role: 'manager', department: 'GOR', allowed_modules: ['flow', 'finance', 'contracts'] },
+        ];
+
+        for (const user of seedUsers) {
             const exists = await db.query('SELECT * FROM users WHERE email = $1', [user.email]);
             if (exists.rows.length === 0) {
                 await db.query(
-                    'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4)',
-                    [user.name, user.email, user.password, user.role]
+                    'INSERT INTO users (name, email, password, role, department, allowed_modules) VALUES ($1, $2, $3, $4, $5, $6)',
+                    [user.name, user.email, user.password, user.role, user.department, user.allowed_modules]
                 );
-                console.log(`Created user: ${user.name}`);
+                console.log(`Created user: ${user.name} (${user.department})`);
 
                 // Sync with domain tables
                 if (user.role === 'analyst') {
@@ -221,6 +552,9 @@ const initDb = async () => {
                 }
                 if (user.role === 'requester') {
                     await db.query('INSERT INTO requesters (name, email) VALUES ($1, $2)', [user.name, user.email]);
+                }
+                if (user.role === 'client') {
+                    await db.query('INSERT INTO clients (name) VALUES ($1) ON CONFLICT (name) DO NOTHING', [user.name]);
                 }
             }
         }
@@ -241,7 +575,7 @@ const handleEntityWithUserCreation = async (req, res, tableName, role) => {
         console.log('Handling entity creation:', { tableName, role, body: req.body });
 
         // 1. Create specific entity
-        const entityQuery = `INSERT INTO ${tableName} (name, email) VALUES ($1, $2) RETURNING *`;
+        const entityQuery = `INSERT INTO ${tableName} (name, email) VALUES($1, $2) RETURNING * `;
         const entityResult = await client.query(entityQuery, [name, email]);
 
         // 2. Create or Update User
@@ -276,7 +610,30 @@ const handleEntityWithUserCreation = async (req, res, tableName, role) => {
 app.post('/analysts', (req, res) => handleEntityWithUserCreation(req, res, 'analysts', 'analyst'));
 app.post('/requesters', (req, res) => handleEntityWithUserCreation(req, res, 'requesters', 'requester'));
 
+// Custom DELETE for demands to handle Cascade manually (since DB might lack ON DELETE CASCADE)
+app.delete('/demands/:id', async (req, res) => {
+    try {
+        await db.query('BEGIN');
+        // 1. Delete dependent history
+        await db.query('DELETE FROM status_history WHERE demand_id = $1', [req.params.id]);
+        // 2. Delete the demand
+        const result = await db.query('DELETE FROM demands WHERE id = $1 RETURNING *', [req.params.id]);
+
+        await db.query('COMMIT');
+
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        res.json({ message: 'Deleted successfully w/ cascade' });
+    } catch (err) {
+        await db.query('ROLLBACK');
+        console.error('Delete demand error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Routes
+// Note: Custom routes must define BEFORE generic createCrudRoutes if they overlap, 
+// BUT createCrudRoutes registers routes immediately. So we must place this custom route BEFORE calling createCrudRoutes('demands') below.
+// Actually Express matches in order. So we are good placing it here above.
 createCrudRoutes('demands', 'demands');
 createCrudRoutes('status_history', 'status_history');
 createCrudRoutes('analysts', 'analysts');
@@ -285,6 +642,18 @@ createCrudRoutes('cycles', 'cycles');
 createCrudRoutes('requesters', 'requesters');
 createCrudRoutes('holidays', 'holidays');
 createCrudRoutes('users', 'users'); // Allow listing users
+createCrudRoutes('contracts', 'contracts'); // Legado - manter para compatibilidade
+createCrudRoutes('finance_contracts', 'finance_contracts'); // Módulo Financeiro
+createCrudRoutes('deadline_contracts', 'deadline_contracts'); // Módulo Prazos
+createCrudRoutes('invoices', 'invoices');
+createCrudRoutes('monthly_attestations', 'monthly_attestations');
+createCrudRoutes('clients', 'clients');
+createCrudRoutes('analysts', 'analysts');
+createCrudRoutes('termos_confirmacao', 'termos_confirmacao');
+
+// Register Module Routes
+app.use('/api/financeiro', financeiroRoutes);
+app.use('/api/prazos', prazosRoutes);
 
 // Auth Routes
 app.post('/auth/login', async (req, res) => {
@@ -315,5 +684,5 @@ app.post('/integrations/email', (req, res) => {
 
 app.listen(PORT, async () => {
     await initDb();
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT} `);
 });
