@@ -239,7 +239,7 @@ export default function DemandsPage() {
                                     demand={demand}
                                     analyst={analystsMap[demand.analyst_id]}
                                     client={clientsMap[demand.client_id]}
-                                    onDelete={handleDelete}
+                                    onDelete={user?.role === 'analyst' ? null : handleDelete}
                                 />
                             ))}
                         </div>

@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Contract } from "@/entities/Contract";
 
 const statusColors = {
   "Ativo": "bg-green-100 text-green-800",
@@ -48,6 +49,9 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
   const deleteMutation = useDeleteContract();
   const [currentPage, setCurrentPage] = React.useState(1);
   const [sortConfig, setSortConfig] = React.useState({ key: null, direction: 'asc' });
+
+
+
   const itemsPerPage = 10;
 
   // Reset page when contracts change (e.g. filtering)
@@ -66,6 +70,11 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
         if (sortConfig.key === 'valor_contrato') {
           aValue = parseFloat(aValue || 0);
           bValue = parseFloat(bValue || 0);
+        } else if (sortConfig.key === 'data_fim_efetividade') {
+          const aDate = aValue ? new Date(aValue) : new Date(0);
+          const bDate = bValue ? new Date(bValue) : new Date(0);
+          aValue = aDate.getTime();
+          bValue = bDate.getTime();
         } else {
           // Strings case insensitive
           aValue = aValue ? aValue.toString().toLowerCase() : '';
@@ -97,6 +106,8 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
     if (sortConfig.direction === 'asc') return <ArrowUp className="w-4 h-4 ml-2 text-blue-600" />;
     return <ArrowDown className="w-4 h-4 ml-2 text-blue-600" />;
   };
+
+
 
   if (isLoading) {
     return (
@@ -190,7 +201,16 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
                 </TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Vencimento</TableHead>
-                <TableHead>Data Fim</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    className="p-0 h-auto font-medium hover:bg-transparent group"
+                    onClick={() => requestSort('data_fim_efetividade')}
+                  >
+                    Data Fim
+                    {getSortIcon('data_fim_efetividade')}
+                  </Button>
+                </TableHead>
                 <TableHead className="text-right">
                   <div className="flex justify-end">
                     <Button
@@ -328,6 +348,8 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
                               </TooltipContent>
                             </Tooltip>
                           )}
+
+
                       </div>
                     </TooltipProvider>
                   </TableCell>

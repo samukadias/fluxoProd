@@ -26,11 +26,15 @@ export default function DemandCard({ demand, analyst, client, onDelete }) {
         ACTIVE_STATUSES.includes(demand.status) &&
         isAfter(new Date(), parseISO(demand.expected_delivery_date));
 
+    const isDelivered = demand.status === 'ENTREGUE';
+
     return (
         <Link to={createPageUrl(`demand-detail?id=${demand.id}`)}>
             <div className={cn(
                 "bg-white rounded-xl border p-4 hover:shadow-md transition-all duration-200 cursor-pointer group",
-                isOverdue ? "border-red-300 bg-red-50/30" : "border-slate-200 hover:border-indigo-200"
+                isOverdue ? "border-red-300 bg-red-50/30" :
+                    isDelivered ? "border-emerald-200 bg-emerald-50/40 hover:border-emerald-300 hover:shadow-emerald-100" :
+                        "border-slate-200 hover:border-indigo-200"
             )}>
                 <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex-1 min-w-0">

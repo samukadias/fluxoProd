@@ -293,7 +293,8 @@ export default function EditContract() {
         </div>
 
         {/* Botão Renovar para Analistas/Gestores e contratos ativos */}
-        {["ANALISTA", "GESTOR"].includes(currentUser?.perfil) && contract.status === "Ativo" && (
+
+        {((["ANALISTA", "GESTOR", "MANAGER"].includes(currentUser?.perfil)) || (["analyst", "manager", "admin"].includes(currentUser?.role))) && contract.status === "Ativo" && (
           <Button
             className="bg-green-600 hover:bg-green-700 text-white"
             onClick={() => setIsRenewDialogOpen(true)}

@@ -50,10 +50,17 @@ export default function DashboardPage() {
         queryFn: () => fluxoApi.entities.StatusHistory.list()
     });
 
-    const { data: analysts = [] } = useQuery({
-        queryKey: ['analysts'],
-        queryFn: () => fluxoApi.entities.Analyst.list()
+    const { data: users = [] } = useQuery({
+        queryKey: ['users'],
+        queryFn: () => fluxoApi.entities.User.list()
     });
+
+    const analysts = useMemo(() => {
+        return users.filter(u =>
+            ['analyst', 'manager', 'admin'].includes(u.role) &&
+            (!u.department || u.department === 'CDPC')
+        );
+    }, [users]);
 
     const { data: requesters = [] } = useQuery({
         queryKey: ['requesters'],

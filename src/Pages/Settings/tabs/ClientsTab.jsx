@@ -18,11 +18,41 @@ export default function ClientsTab() {
     const [editItem, setEditItem] = useState(null);
     const [formData, setFormData] = useState({});
 
+    const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
+
     // Query
     const { data: clients = [], isLoading } = useQuery({
         queryKey: ['clients'],
         queryFn: () => fluxoApi.entities.Client.list()
     });
+
+    const sortedClients = React.useMemo(() => {
+        if (!clients) return [];
+        const sorted = [...clients];
+        sorted.sort((a, b) => {
+            const aValue = (a[sortConfig.key] || '').toString().toLowerCase();
+            const bValue = (b[sortConfig.key] || '').toString().toLowerCase();
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+        return sorted;
+    }, [clients, sortConfig]);
+
+    const handleSort = (key) => {
+        setSortConfig(current => ({
+            key,
+            direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+        }));
+    };
+
+    const SortIcon = ({ columnKey }) => {
+        if (sortConfig.key !== columnKey) return <div className="w-4 h-4" />;
+        return sortConfig.direction === 'asc'
+            ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+            : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>;
+    };
 
     // Mutations
     const createMutation = useMutation({
@@ -105,8 +135,24 @@ export default function ClientsTab() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="py-4">Nome</TableHead>
-                                <TableHead className="py-4">Sigla</TableHead>
+                                <TableHead
+                                    className="py-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                                    onClick={() => handleSort('name')}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        Nome
+                                        <SortIcon columnKey="name" />
+                                    </div>
+                                </TableHead>
+                                <TableHead
+                                    className="py-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                                    onClick={() => handleSort('sigla')}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        Sigla
+                                        <SortIcon columnKey="sigla" />
+                                    </div>
+                                </TableHead>
                                 <TableHead className="py-4">Status</TableHead>
                                 <TableHead className="py-4 w-24 text-right">Ações</TableHead>
                             </TableRow>
@@ -118,14 +164,14 @@ export default function ClientsTab() {
                                         <Loader2 className="w-6 h-6 animate-spin mx-auto" />
                                     </TableCell>
                                 </TableRow>
-                            ) : clients.length === 0 ? (
+                            ) : sortedClients.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={4} className="text-center py-8 text-slate-400">
                                         Nenhum cliente cadastrado
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                clients.map(client => (
+                                sortedClients.map(client => (
                                     <TableRow key={client.id} className="hover:bg-slate-50">
                                         <TableCell className="py-3 font-medium">{client.name}</TableCell>
                                         <TableCell className="py-3 text-slate-500">{client.sigla || '-'}</TableCell>

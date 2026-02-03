@@ -194,76 +194,116 @@ export default function UserManagement({ isEmbedded = false }) {
         u.role !== 'manager'
     );
 
-    const UserListTable = ({ data, emptyMsg }) => (
-        <Card className="border-0 shadow-lg">
-            <CardContent className="p-0">
-                <Table>
-                    <TableHeader>
-                        <TableRow className="bg-slate-50">
-                            <TableHead>Nome</TableHead>
-                            <TableHead>Email</TableHead>
-                            <TableHead>Área</TableHead>
-                            <TableHead>Perfil</TableHead>
-                            <TableHead>Acesso aos Módulos</TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {isLoading ? (
-                            <TableRow>
-                                <TableCell colSpan={6} className="text-center py-10">
-                                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-600" />
-                                </TableCell>
+    const UserListTable = ({ data, emptyMsg }) => {
+        const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
+
+        const sortedData = React.useMemo(() => {
+            if (!data) return [];
+            const sorted = [...data];
+            sorted.sort((a, b) => {
+                const aValue = (a[sortConfig.key] || '').toString().toLowerCase();
+                const bValue = (b[sortConfig.key] || '').toString().toLowerCase();
+
+                if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+            return sorted;
+        }, [data, sortConfig]);
+
+        const handleSort = (key) => {
+            setSortConfig(current => ({
+                key,
+                direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+            }));
+        };
+
+        const SortIcon = ({ columnKey }) => {
+            if (sortConfig.key !== columnKey) return <div className="w-4 h-4 ml-2" />;
+            return sortConfig.direction === 'asc'
+                ? <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                : <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>;
+        };
+
+        return (
+            <Card className="border-0 shadow-lg">
+                <CardContent className="p-0">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-slate-50">
+                                <TableHead
+                                    className="cursor-pointer hover:bg-slate-100 transition-colors"
+                                    onClick={() => handleSort('name')}
+                                >
+                                    <div className="flex items-center">
+                                        Nome
+                                        <SortIcon columnKey="name" />
+                                    </div>
+                                </TableHead>
+                                <TableHead>Email</TableHead>
+                                <TableHead>Área</TableHead>
+                                <TableHead>Perfil</TableHead>
+                                <TableHead>Acesso aos Módulos</TableHead>
+                                <TableHead className="text-right">Ações</TableHead>
                             </TableRow>
-                        ) : data.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={6} className="text-center py-10 text-slate-500">
-                                    {emptyMsg}
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            data.map((user) => (
-                                <TableRow key={user.id} className="hover:bg-slate-50/50">
-                                    <TableCell className="font-medium text-slate-900">{user.name}</TableCell>
-                                    <TableCell>{user.email}</TableCell>
-                                    <TableCell>
-                                        <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100">
-                                            {user.department || '-'}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline" className="capitalize bg-slate-100">
-                                            {getRoleLabel(user.role)}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-sm text-slate-600">
-                                        {getModuleLabels(user.allowed_modules)}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <Button size="icon" variant="ghost" onClick={() => handleEdit(user)}>
-                                                <Edit className="w-4 h-4 text-slate-600" />
-                                            </Button>
-                                            <Button
-                                                size="icon"
-                                                variant="ghost"
-                                                onClick={() => {
-                                                    if (confirm('Tem certeza que deseja excluir este usuário?')) deleteMutation.mutate(user.id);
-                                                }}
-                                                className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
-                                        </div>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoading ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="text-center py-10">
+                                        <Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-600" />
                                     </TableCell>
                                 </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
-    );
+                            ) : sortedData.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="text-center py-10 text-slate-500">
+                                        {emptyMsg}
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                sortedData.map((user) => (
+                                    <TableRow key={user.id} className="hover:bg-slate-50/50">
+                                        <TableCell className="font-medium text-slate-900">{user.name}</TableCell>
+                                        <TableCell>{user.email}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100">
+                                                {user.department || '-'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className="capitalize bg-slate-100">
+                                                {getRoleLabel(user.role)}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-sm text-slate-600">
+                                            {getModuleLabels(user.allowed_modules)}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <Button size="icon" variant="ghost" onClick={() => handleEdit(user)}>
+                                                    <Edit className="w-4 h-4 text-slate-600" />
+                                                </Button>
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    onClick={() => {
+                                                        if (confirm('Tem certeza que deseja excluir este usuário?')) deleteMutation.mutate(user.id);
+                                                    }}
+                                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        );
+    };
 
     return (
         <div className={cn("space-y-6", !isEmbedded && "p-6 max-w-7xl mx-auto")}>

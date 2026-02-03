@@ -9,7 +9,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, Save, X } from "lucide-react";
+import { CalendarIcon, Save, X, Check, ChevronsUpDown } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 
 const STATUS_LIST = [
@@ -59,6 +60,7 @@ export default function DemandForm({
     });
 
     const [showSupport, setShowSupport] = useState(!!demand?.support_analyst_id);
+    const [openClient, setOpenClient] = useState(false);
 
     const isGestor = userRole === 'admin';
 
@@ -183,20 +185,68 @@ export default function DemandForm({
 
                 <div className="space-y-2">
                     <Label className="text-sm text-slate-600">Cliente</Label>
-                    <Select
-                        value={formData.client_id ? String(formData.client_id) : "none"}
-                        onValueChange={(v) => setFormData({ ...formData, client_id: v === "none" ? "" : v })}
-                    >
-                        <SelectTrigger className="h-10">
-                            <SelectValue placeholder="Selecionar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="none">Nenhum</SelectItem>
-                            {clients.filter(c => c.active !== false).map(c => (
-                                <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <Popover open={openClient} onOpenChange={setOpenClient}>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={openClient}
+                                className="w-full justify-between h-10 font-normal px-3"
+                            >
+                                <span className="truncate">
+                                    {formData.client_id
+                                        ? clients.find((c) => String(c.id) === String(formData.client_id))?.name || "Cliente não encontrado"
+                                        : "Selecionar cliente..."}
+                                </span>
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                            <Command>
+                                <CommandInput placeholder="Buscar cliente..." />
+                                <CommandList>
+                                    <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                                    <CommandGroup>
+                                        <CommandItem
+                                            value="none"
+                                            onSelect={() => {
+                                                setFormData({ ...formData, client_id: "" });
+                                                setOpenClient(false);
+                                            }}
+                                        >
+                                            <Check
+                                                className={cn(
+                                                    "mr-2 h-4 w-4",
+                                                    !formData.client_id ? "opacity-100" : "opacity-0"
+                                                )}
+                                            />
+                                            Nenhum
+                                        </CommandItem>
+                                        {clients.filter(c => c.active !== false).map((client) => (
+                                            <CommandItem
+                                                key={client.id}
+                                                value={client.name}
+                                                onSelect={(currentValue) => {
+                                                    // current value comes lowercased from cmdk sometimes, but we used client.name as value
+                                                    // safer to use closure client.id
+                                                    setFormData({ ...formData, client_id: String(client.id) });
+                                                    setOpenClient(false);
+                                                }}
+                                            >
+                                                <Check
+                                                    className={cn(
+                                                        "mr-2 h-4 w-4",
+                                                        String(formData.client_id) === String(client.id) ? "opacity-100" : "opacity-0"
+                                                    )}
+                                                />
+                                                {client.name}
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
                 </div>
 
                 <div className="space-y-2">
