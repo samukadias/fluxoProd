@@ -31,6 +31,18 @@ export default function StatsCard({
                     iconBg: 'bg-amber-400/30',
                     text: 'text-white'
                 };
+            case 'info':
+                return {
+                    bg: 'bg-gradient-to-br from-cyan-500 to-cyan-600',
+                    iconBg: 'bg-cyan-400/30',
+                    text: 'text-white'
+                };
+            case 'purple':
+                return {
+                    bg: 'bg-gradient-to-br from-purple-500 to-purple-600',
+                    iconBg: 'bg-purple-400/30',
+                    text: 'text-white'
+                };
             default: // Blue/Indigo
                 return {
                     bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600',

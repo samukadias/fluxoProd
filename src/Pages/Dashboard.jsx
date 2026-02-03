@@ -3,7 +3,7 @@ import { fluxoApi } from '@/api/fluxoClient';
 import { useQuery } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Clock, AlertTriangle, CheckCircle2, TrendingUp } from "lucide-react";
+import { FileText, Clock, AlertTriangle, CheckCircle2, TrendingUp, Layers, Briefcase } from "lucide-react";
 import StatsCard from '@/components/dashboard/StatsCard';
 import BottleneckChart from '@/components/dashboard/BottleneckChart';
 import BottleneckBarChart from '@/components/dashboard/BottleneckBarChart';
@@ -23,6 +23,15 @@ const ACTIVE_STATUSES = [
     "PENDÊNCIA DOP E DDS",
     "PENDÊNCIA COMERCIAL",
     "PENDÊNCIA FORNECEDOR"
+];
+
+const TRATATIVA_STATUSES = [
+    "EM ANDAMENTO",
+    "PENDÊNCIA COMERCIAL",
+    "PENDÊNCIA FORNECEDOR",
+    "PENDÊNCIA DDS",
+    "PENDÊNCIA DOP",
+    "PENDÊNCIA DOP E DDS"
 ];
 
 const CLOSED_STATUSES = ["ENTREGUE", "CANCELADA", "TRIAGEM NÃO ELEGÍVEL"];
@@ -138,7 +147,22 @@ export default function DashboardPage() {
 
     const stats = useMemo(() => {
         const total = filteredDemands.length;
-        const open = filteredDemands.filter(d => ACTIVE_STATUSES.includes(d.status)).length;
+
+        // Backlog: PENDENTE TRIAGEM, TRIAGEM NÃO ELEGÍVEL, DESIGNADA
+        const backlog = filteredDemands.filter(d =>
+            ["PENDENTE TRIAGEM", "TRIAGEM NÃO ELEGÍVEL", "DESIGNADA"].includes(d.status)
+        ).length;
+
+        // Em Tratativa
+        const tratativa = filteredDemands.filter(d =>
+            TRATATIVA_STATUSES.includes(d.status)
+        ).length;
+
+        // Open: Active Statuses AND NOT CONGELADA
+        const open = filteredDemands.filter(d =>
+            ACTIVE_STATUSES.includes(d.status) && d.status !== 'CONGELADA'
+        ).length;
+
         const overdue = filteredDemands.filter(d =>
             d.expected_delivery_date &&
             ACTIVE_STATUSES.includes(d.status) &&
@@ -146,7 +170,7 @@ export default function DashboardPage() {
         ).length;
         const delivered = filteredDemands.filter(d => d.status === 'ENTREGUE').length;
 
-        return { total, open, overdue, delivered };
+        return { total, backlog, tratativa, open, overdue, delivered };
     }, [filteredDemands]);
 
     const bottleneckData = useMemo(() => {
@@ -240,12 +264,24 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
                     <StatsCard
                         title="Total de Demandas"
                         value={stats.total}
                         icon={FileText}
                         type="default"
+                    />
+                    <StatsCard
+                        title="Backlog"
+                        value={stats.backlog}
+                        icon={Layers}
+                        type="info"
+                    />
+                    <StatsCard
+                        title="Em Tratativa"
+                        value={stats.tratativa}
+                        icon={Briefcase}
+                        type="purple"
                     />
                     <StatsCard
                         title="Em Aberto"
