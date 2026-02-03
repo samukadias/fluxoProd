@@ -106,6 +106,7 @@ export default function ClientsTab() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="py-4">Nome</TableHead>
+                                <TableHead className="py-4">Sigla</TableHead>
                                 <TableHead className="py-4">Status</TableHead>
                                 <TableHead className="py-4 w-24 text-right">Ações</TableHead>
                             </TableRow>
@@ -113,13 +114,13 @@ export default function ClientsTab() {
                         <TableBody>
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={3} className="text-center py-8 text-slate-400">
+                                    <TableCell colSpan={4} className="text-center py-8 text-slate-400">
                                         <Loader2 className="w-6 h-6 animate-spin mx-auto" />
                                     </TableCell>
                                 </TableRow>
                             ) : clients.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={3} className="text-center py-8 text-slate-400">
+                                    <TableCell colSpan={4} className="text-center py-8 text-slate-400">
                                         Nenhum cliente cadastrado
                                     </TableCell>
                                 </TableRow>
@@ -127,6 +128,7 @@ export default function ClientsTab() {
                                 clients.map(client => (
                                     <TableRow key={client.id} className="hover:bg-slate-50">
                                         <TableCell className="py-3 font-medium">{client.name}</TableCell>
+                                        <TableCell className="py-3 text-slate-500">{client.sigla || '-'}</TableCell>
                                         <TableCell className="py-3">
                                             {client.active !== false
                                                 ? <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-0">Ativo</Badge>
@@ -171,6 +173,14 @@ export default function ClientsTab() {
                                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                                 placeholder="Nome da empresa"
                                 autoFocus
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Sigla</Label>
+                            <Input
+                                value={formData.sigla || ''}
+                                onChange={e => setFormData({ ...formData, sigla: e.target.value })}
+                                placeholder="Ex: SP, RJ, MS..."
                             />
                         </div>
                         <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-lg border border-slate-100">

@@ -2,8 +2,16 @@ import axios from 'axios';
 
 // Creating a standard axios instance
 // You should update the baseURL to match your backend server URL
+// Dynamically determine the base URL based on the current hostname
+const getBaseUrl = () => {
+    if (typeof window !== 'undefined') {
+        return `http://${window.location.hostname}:3000`;
+    }
+    return 'http://localhost:3000';
+};
+
 export const fluxClient = axios.create({
-    baseURL: 'http://localhost:3000', // External Access URL
+    baseURL: getBaseUrl(), // Dynamic URL
     headers: {
         'Content-Type': 'application/json',
     },
@@ -43,7 +51,7 @@ export const fluxoApi = {
         Cycle: createCrud('cycles'),
         Requester: createCrud('requesters'),
         User: createCrud('users'),
-        Contract: createCrud('contracts'), // Legado - manter para compatibilidade
+        Contract: createCrud('deadline_contracts'), // Alterado para apontar para a tabela correta do módulo de prazos
         FinanceContract: createCrud('finance_contracts'), // Módulo Financeiro
         DeadlineContract: createCrud('deadline_contracts'), // Módulo Prazos
         Invoice: createCrud('invoices'),
