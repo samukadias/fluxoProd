@@ -65,7 +65,7 @@ export default function StatsCard({
                 <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                         <div>
-                            <p className={`text-sm font-medium ${styles.text} opacity-80`}>
+                            <p className={`text-sm font-medium ${styles.text} opacity-80 h-10 flex items-center`}>
                                 {title}
                             </p>
                             <p className={`text-3xl font-bold ${styles.text} mt-2`}>
