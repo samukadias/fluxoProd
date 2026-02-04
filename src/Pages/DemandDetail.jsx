@@ -411,6 +411,7 @@ export default function DemandDetailPage() {
                         <DialogTitle>Editar Demanda</DialogTitle>
                     </DialogHeader>
                     <DemandForm
+                        key={demand?.updated_at || 'form'}
                         demand={demand}
                         onSave={(data) => updateMutation.mutate(data)}
                         onCancel={() => setShowEditForm(false)}

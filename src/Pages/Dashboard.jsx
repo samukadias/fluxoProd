@@ -3,7 +3,7 @@ import { fluxoApi } from '@/api/fluxoClient';
 import { useQuery } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Clock, AlertTriangle, CheckCircle2, TrendingUp, Layers, Briefcase } from "lucide-react";
+import { FileText, Clock, AlertTriangle, CheckCircle2, TrendingUp, Layers, Briefcase, Timer } from "lucide-react";
 import StatsCard from '@/components/dashboard/StatsCard';
 import BottleneckChart from '@/components/dashboard/BottleneckChart';
 import BottleneckBarChart from '@/components/dashboard/BottleneckBarChart';
@@ -222,6 +222,52 @@ export default function DashboardPage() {
         return averages;
     }, [filteredDemands, holidays]);
 
+    // SLA Metrics
+    const slaData = useMemo(() => {
+        // SLA por Status: Average minutes per status
+        const statusAvg = {};
+        bottleneckData.forEach(d => {
+            statusAvg[d.status] = d.count > 0 ? Math.round(d.total_minutes / d.count) : 0;
+        });
+
+        // SLA Geral: Avg days from qualification_date to delivery_date (delivered only)
+        // Fallback: use status_history to find when status changed to ENTREGUE
+        const allDelivered = filteredDemands.filter(d => d.status === 'ENTREGUE');
+
+        const delivered = allDelivered.filter(d => {
+            // Must have qualification_date
+            if (!d.qualification_date) return false;
+            // Must have delivery_date OR we can find it in history
+            if (d.delivery_date) return true;
+            // Check history for ENTREGUE transition
+            const demandHistory = history.filter(h => h.demand_id === d.id && h.to_status === 'ENTREGUE');
+            return demandHistory.length > 0;
+        });
+
+        let avgDeliveryDays = 0;
+        if (delivered.length > 0) {
+            const totalDays = delivered.reduce((sum, d) => {
+                // Get delivery date from field or fallback to history
+                let deliveryDateStr = d.delivery_date;
+                if (!deliveryDateStr) {
+                    const demandHistory = history.filter(h => h.demand_id === d.id && h.to_status === 'ENTREGUE');
+                    if (demandHistory.length > 0) {
+                        // Use the timestamp of the ENTREGUE transition
+                        deliveryDateStr = demandHistory[demandHistory.length - 1].changed_at;
+                    }
+                }
+                if (!deliveryDateStr) return sum;
+
+                const workDays = calculateWorkDays(d.qualification_date, deliveryDateStr, holidays);
+                const frozenDays = Math.floor((d.frozen_time_minutes || 0) / (60 * 24));
+                return sum + Math.max(0, workDays - frozenDays);
+            }, 0);
+            avgDeliveryDays = Math.round(totalDays / delivered.length * 10) / 10;
+        }
+
+        return { statusAvg, avgDeliveryDays, deliveredCount: delivered.length };
+    }, [bottleneckData, filteredDemands, holidays, history]);
+
     const isManager = user?.role === 'manager' || user?.perfil === 'GESTOR' || user?.department === 'GOR' || (user?.department === 'CDPC' && user?.role === 'manager');
     const isRequester = user?.role === 'requester';
 
@@ -302,6 +348,65 @@ export default function DashboardPage() {
                         type="success"
                     />
                 </div>
+
+                {/* SLA Section - Visible to all (non-requesters) */}
+                {!isRequester && (
+                    <Card className="mb-8">
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <Timer className="w-5 h-5 text-indigo-600" />
+                                Análise de SLA
+                            </CardTitle>
+                            <p className="text-sm text-slate-500">
+                                Tempo médio em cada status e tempo médio de entrega
+                            </p>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* SLA Geral */}
+                                <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white">
+                                    <p className="text-sm font-medium opacity-80">SLA Geral (Média de Entrega)</p>
+                                    <p className="text-4xl font-bold mt-2">
+                                        {slaData.avgDeliveryDays} <span className="text-lg font-normal">dias úteis</span>
+                                    </p>
+                                    <p className="text-xs opacity-70 mt-2">
+                                        Baseado em {slaData.deliveredCount} demandas entregues
+                                    </p>
+                                </div>
+
+                                {/* SLA por Status */}
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="text-xs text-slate-600 uppercase bg-slate-100">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left">Status</th>
+                                                <th className="px-3 py-2 text-right">Tempo Médio</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {Object.entries(slaData.statusAvg)
+                                                .sort((a, b) => b[1] - a[1])
+                                                .slice(0, 8)
+                                                .map(([status, minutes]) => (
+                                                    <tr key={status} className="border-b hover:bg-slate-50">
+                                                        <td className="px-3 py-2 font-medium text-slate-700">{status}</td>
+                                                        <td className="px-3 py-2 text-right text-slate-500">
+                                                            {minutes >= 1440
+                                                                ? `${Math.round(minutes / 1440)} dias`
+                                                                : minutes >= 60
+                                                                    ? `${Math.round(minutes / 60)} horas`
+                                                                    : `${minutes} min`
+                                                            }
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {!isRequester && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">

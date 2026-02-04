@@ -50,6 +50,8 @@ export default function DemandForm({
         complexity: demand?.complexity || 'Média',
         qualification_date: demand?.qualification_date || '',
         expected_delivery_date: demand?.expected_delivery_date || '',
+        delivery_date: demand?.delivery_date || '',
+        delivery_date_change_reason: '',
         status: demand?.status || 'PENDENTE TRIAGEM',
         observation: demand?.observation || '',
         client_id: demand?.client_id || '',
@@ -59,13 +61,25 @@ export default function DemandForm({
         support_analyst_id: demand?.support_analyst_id || ''
     });
 
+    const isGestor = ['admin', 'manager'].includes(userRole);
+
+    const originalDeliveryDate = demand?.delivery_date || '';
+    const deliveryDateChanged = formData.delivery_date !== originalDeliveryDate;
+    // Only require reason if the demand was ALREADY delivered and the date is being changed
+    const isAlreadyDelivered = demand?.status === 'ENTREGUE';
+    const showReasonField = isGestor && isAlreadyDelivered && deliveryDateChanged;
+
     const [showSupport, setShowSupport] = useState(!!demand?.support_analyst_id);
     const [openClient, setOpenClient] = useState(false);
 
-    const isGestor = userRole === 'admin';
-
     const handleSubmit = (e) => {
         e.preventDefault();
+
+        // Validate delivery_date change reason
+        if (showReasonField && !formData.delivery_date_change_reason.trim()) {
+            alert('Por favor, informe o motivo da alteração da data de entrega.');
+            return;
+        }
 
         // Sanitize data: convert empty strings to null for ID fields
         const cleanedData = {
@@ -351,11 +365,39 @@ export default function DemandForm({
                     onChange={(v) => setFormData({ ...formData, expected_delivery_date: v })}
                 />
 
+                {isGestor && (
+                    <DatePicker
+                        label="Data de Entrega"
+                        value={formData.delivery_date}
+                        onChange={(v) => setFormData({ ...formData, delivery_date: v })}
+                    />
+                )}
+
+                {showReasonField && (
+                    <div className="space-y-2 lg:col-span-2">
+                        <Label className="text-sm text-red-600">Motivo da Alteração da Data de Entrega *</Label>
+                        <Input
+                            value={formData.delivery_date_change_reason}
+                            onChange={(e) => setFormData({ ...formData, delivery_date_change_reason: e.target.value })}
+                            placeholder="Informe o motivo da alteração..."
+                            className="h-10 border-red-300 focus:border-red-500"
+                            required
+                        />
+                    </div>
+                )}
+
                 <div className="space-y-2">
                     <Label className="text-sm text-slate-600">Status</Label>
                     <Select
                         value={formData.status}
-                        onValueChange={(v) => setFormData({ ...formData, status: v })}
+                        onValueChange={(v) => {
+                            const updates = { status: v };
+                            // Auto-set delivery_date when status changes to ENTREGUE
+                            if (v === 'ENTREGUE' && !formData.delivery_date) {
+                                updates.delivery_date = format(new Date(), 'yyyy-MM-dd');
+                            }
+                            setFormData({ ...formData, ...updates });
+                        }}
                     >
                         <SelectTrigger className="h-10">
                             <SelectValue />
