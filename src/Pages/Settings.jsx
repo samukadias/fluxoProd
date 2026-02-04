@@ -22,7 +22,7 @@ export default function SettingsPage() {
         }
     }, []);
 
-    const isAdmin = user?.role === 'admin' || user?.role === 'manager' || user?.department === 'GOR';
+    const isAdmin = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'general_manager' || user?.department === 'GOR';
 
     if (!isAdmin) {
         return (

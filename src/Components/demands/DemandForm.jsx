@@ -61,7 +61,7 @@ export default function DemandForm({
         support_analyst_id: demand?.support_analyst_id || ''
     });
 
-    const isGestor = ['admin', 'manager'].includes(userRole);
+    const isGestor = ['admin', 'manager', 'general_manager'].includes(userRole);
 
     const originalDeliveryDate = demand?.delivery_date || '';
     const deliveryDateChanged = formData.delivery_date !== originalDeliveryDate;

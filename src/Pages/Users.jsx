@@ -40,10 +40,11 @@ const DEPARTMENTS = [
 
 const ROLES = [
     { value: 'manager', label: 'Gestor' },
+    { value: 'general_manager', label: 'Gerente' },
+    { value: 'admin', label: 'Administrador' },
     { value: 'analyst', label: 'Analista' },
     { value: 'requester', label: 'Solicitante' },
-    { value: 'client', label: 'Cliente' },
-    { value: 'admin', label: 'Administrador' }
+    { value: 'client', label: 'Cliente' }
 ];
 
 export default function UserManagement({ isEmbedded = false }) {

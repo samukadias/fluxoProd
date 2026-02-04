@@ -66,7 +66,7 @@ export default function DashboardPage() {
 
     const analysts = useMemo(() => {
         return users.filter(u =>
-            ['analyst', 'manager', 'admin'].includes(u.role) &&
+            ['analyst', 'manager', 'admin', 'general_manager'].includes(u.role) &&
             (!u.department || u.department === 'CDPC')
         );
     }, [users]);
