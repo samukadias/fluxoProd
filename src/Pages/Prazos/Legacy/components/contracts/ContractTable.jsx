@@ -1,8 +1,9 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/Components/ui/table";
+import { Badge } from "@/Components/ui/badge";
+import { Button } from "@/Components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
@@ -22,7 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Contract } from "@/entities/Contract";
+import { Contract } from "@/Entities/Contract";
 
 const statusColors = {
   "Ativo": "bg-green-100 text-green-800",
@@ -52,7 +53,7 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
 
 
 
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = React.useState(10);
 
   // Reset page when contracts change (e.g. filtering)
   React.useEffect(() => {
@@ -360,10 +361,29 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
         </div>
 
         {/* Pagination Controls */}
-        {totalPages > 1 && (
+        {totalPages >= 1 && (
           <div className="flex items-center justify-between px-4 py-4 border-t">
-            <div className="text-sm text-gray-500">
-              Mostrando {startIndex + 1} a {Math.min(endIndex, contracts.length)} de {contracts.length} contratos
+            <div className="flex items-center gap-4 text-sm text-gray-500">
+              <span>Mostrando {Math.min(startIndex + 1, contracts.length)} a {Math.min(endIndex, contracts.length)} de {contracts.length} contratos</span>
+
+              <div className="flex items-center gap-2">
+                <span>Linhas por página:</span>
+                <Select value={String(itemsPerPage)} onValueChange={(v) => {
+                  setItemsPerPage(Number(v));
+                  setCurrentPage(1);
+                }}>
+                  <SelectTrigger className="w-[70px] h-8">
+                    <SelectValue placeholder={itemsPerPage} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="30">30</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="flex gap-2">
               <Button

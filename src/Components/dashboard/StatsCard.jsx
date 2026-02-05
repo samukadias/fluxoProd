@@ -61,7 +61,8 @@ export default function StatsCard({
             transition={{ duration: 0.3 }}
             className="h-full"
         >
-            <Card className={`${styles.bg} border-0 shadow-xl overflow-hidden h-full`}>
+            <Card className={`${styles.bg} border-0 shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 overflow-hidden h-full relative group`}>
+                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all pointer-events-none" />
                 <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                         <div>

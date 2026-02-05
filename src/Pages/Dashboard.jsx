@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { fluxoApi } from '@/api/fluxoClient';
 import { useQuery } from '@tanstack/react-query';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 import { FileText, Clock, AlertTriangle, CheckCircle2, TrendingUp, Layers, Briefcase, Timer } from "lucide-react";
-import StatsCard from '@/components/dashboard/StatsCard';
-import BottleneckChart from '@/components/dashboard/BottleneckChart';
-import BottleneckBarChart from '@/components/dashboard/BottleneckBarChart';
-import ComplexityChart from '@/components/dashboard/ComplexityChart';
-import QualifiedDemandsChart from '@/components/dashboard/QualifiedDemandsChart';
-import { calculateWorkDays } from '@/components/demands/EffortCalculator';
+import StatsCard from '@/Components/dashboard/StatsCard';
+import BottleneckChart from '@/Components/dashboard/BottleneckChart';
+import BottleneckBarChart from '@/Components/dashboard/BottleneckBarChart';
+import ComplexityChart from '@/Components/dashboard/ComplexityChart';
+import QualifiedDemandsChart from '@/Components/dashboard/QualifiedDemandsChart';
+import { calculateWorkDays } from '@/Components/demands/EffortCalculator';
 import { isAfter, parseISO, format, getYear } from 'date-fns';
 
 const ACTIVE_STATUSES = [
@@ -272,7 +272,7 @@ export default function DashboardPage() {
     const isRequester = user?.role === 'requester';
 
     return (
-        <div className="p-6 bg-slate-50 min-h-screen">
+        <div className="p-6 min-h-screen bg-slate-50 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-100/50 via-slate-50 to-slate-100">
             <div className="max-w-7xl mx-auto">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
                     <div>

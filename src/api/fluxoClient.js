@@ -4,6 +4,9 @@ import axios from 'axios';
 // You should update the baseURL to match your backend server URL
 // Dynamically determine the base URL based on the current hostname
 const getBaseUrl = () => {
+    if (import.meta.env.VITE_API_URL) {
+        return import.meta.env.VITE_API_URL;
+    }
     if (typeof window !== 'undefined') {
         return `http://${window.location.hostname}:3000`;
     }

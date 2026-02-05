@@ -688,7 +688,10 @@ app.post('/integrations/email', (req, res) => {
     res.json({ success: true, message: 'Email sent (mock)' });
 });
 
+const backupService = require('./services/backupService');
+
 app.listen(PORT, async () => {
     await initDb();
+    backupService.init();
     console.log(`Server running on port ${PORT} `);
 });
