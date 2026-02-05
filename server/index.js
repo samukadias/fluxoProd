@@ -448,7 +448,7 @@ const initDb = async () => {
         await db.query(`
             CREATE TABLE IF NOT EXISTS monthly_attestations (
                 id SERIAL PRIMARY KEY,
-                contract_id INTEGER REFERENCES contracts(id),
+                contract_id INTEGER REFERENCES finance_contracts(id),
                 client_name VARCHAR(255),
                 pd_number VARCHAR(50),
                 responsible_analyst VARCHAR(255),
