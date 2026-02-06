@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const db = require('./db');
+const cron = require('node-cron');
 // Import Modules
 const financeiroRoutes = require('./src/modules/financeiro/routes');
 const prazosRoutes = require('./src/modules/prazos/routes');
@@ -11,10 +12,78 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// JSON parsing error handler (P2 Security)
+app.use((err, req, res, next) => {
+    if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+        return res.status(400).json({ error: 'Invalid JSON in request body' });
+    }
+    next(err);
+});
+
+
+// Whitelist of allowed sort fields per table (SQL Injection Protection)
+const ALLOWED_SORT_FIELDS = {
+    demands: ['id', 'demand_number', 'product', 'status', 'artifact', 'complexity', 'created_date', 'qualification_date', 'expected_delivery_date', 'delivery_date', 'stage'],
+    clients: ['id', 'name', 'sigla', 'created_at'],
+    analysts: ['id', 'name', 'email', 'created_at'],
+    users: ['id', 'name', 'email', 'role', 'department'],
+    monthly_attestations: ['id', 'reference_month', 'client_name', 'pd_number', 'responsible_analyst', 'report_generation_date'],
+    status_history: ['id', 'demand_id', 'changed_at', 'from_status', 'to_status'],
+    stage_history: ['id', 'demand_id', 'stage', 'entered_at', 'exited_at', 'duration_minutes'],
+    finance_contracts: ['id', 'client_name', 'pd_number', 'responsible_analyst', 'created_at'],
+    deadline_contracts: ['id', 'cliente', 'contrato', 'data_inicio_efetividade', 'data_fim_efetividade', 'status'],
+    cycles: ['id', 'name'],
+    requesters: ['id', 'name', 'email'],
+    holidays: ['id', 'date', 'name'],
+    attestations: ['id', 'reference_month', 'client_name', 'pd_number'],
+};
+
+// Validation Middleware (P2 Security)
+const validatePagination = (req, res, next) => {
+    const { page, limit } = req.query;
+
+    if (page !== undefined) {
+        const pageNum = parseInt(page);
+        if (isNaN(pageNum) || pageNum < 1) {
+            return res.status(400).json({ error: 'Invalid page number. Must be positive integer.' });
+        }
+        if (pageNum > 10000) {
+            return res.status(400).json({ error: 'Page number too large. Maximum is 10000.' });
+        }
+        req.query.page = pageNum;
+    }
+
+    if (limit !== undefined) {
+        const limitNum = parseInt(limit);
+        if (isNaN(limitNum) || limitNum < 1) {
+            return res.status(400).json({ error: 'Invalid limit. Must be positive integer.' });
+        }
+        if (limitNum > 1000) {
+            return res.status(400).json({ error: 'Limit too large. Maximum is 1000.' });
+        }
+        req.query.limit = limitNum;
+    }
+
+    next();
+};
+
+// Error Handler Utility (P2 Security - Sanitize errors in production)
+const handleError = (err, res, context = 'Operation') => {
+    console.error(`[ERROR ${context}]:`, err);
+
+    const isDev = process.env.NODE_ENV !== 'production';
+    const message = isDev ? err.message : `${context} failed`;
+
+    res.status(500).json({
+        error: message,
+        ...(isDev && { stack: err.stack })
+    });
+};
+
 // Helper function for CRUD operations
 const createCrudRoutes = (resource, tableName) => {
     // List
-    app.get(`/${resource}`, async (req, res) => {
+    app.get(`/${resource}`, validatePagination, async (req, res) => {
         try {
             const { sort, page, limit, ...filters } = req.query;
             let query = `SELECT * FROM ${tableName}`;
@@ -32,6 +101,15 @@ const createCrudRoutes = (resource, tableName) => {
             if (sort) {
                 const direction = sort.startsWith('-') ? 'DESC' : 'ASC';
                 const field = sort.startsWith('-') ? sort.substring(1) : sort;
+
+                // SQL Injection Protection: Validate field against whitelist
+                const allowedFields = ALLOWED_SORT_FIELDS[tableName] || [];
+                if (!allowedFields.includes(field)) {
+                    return res.status(400).json({
+                        error: `Invalid sort field: "${field}". Allowed fields: ${allowedFields.join(', ')}`
+                    });
+                }
+
                 query += ` ORDER BY ${field} ${direction}`;
             }
 
@@ -42,18 +120,17 @@ const createCrudRoutes = (resource, tableName) => {
                 query += ` LIMIT ${limitVal} OFFSET ${offsetVal}`;
             }
 
-            // Get total count
-            const countResult = await db.query(countQuery, values);
-            const totalCount = parseInt(countResult.rows[0].count);
+            // Only run count query if pagination is requested (P3 Optimization)
+            if (page && limit) {
+                const countResult = await db.query(countQuery, values);
+                const totalCount = parseInt(countResult.rows[0].count);
+                res.setHeader('X-Total-Count', totalCount);
+            }
 
             const result = await db.query(query, values);
-
-            // Send total count in header
-            res.setHeader('X-Total-Count', totalCount);
             res.json(result.rows);
         } catch (err) {
-            console.error(err);
-            res.status(500).json({ error: err.message });
+            handleError(err, res, `List ${resource}`);
         }
     });
 
@@ -64,8 +141,7 @@ const createCrudRoutes = (resource, tableName) => {
             if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
             res.json(result.rows[0]);
         } catch (err) {
-            console.error(err);
-            res.status(500).json({ error: err.message });
+            handleError(err, res, `Get ${resource}`);
         }
     });
 
@@ -90,8 +166,7 @@ const createCrudRoutes = (resource, tableName) => {
             const result = await db.query(query, values);
             res.status(201).json(result.rows[0]);
         } catch (err) {
-            console.error(err);
-            res.status(500).json({ error: err.message });
+            handleError(err, res, `Create ${resource}`);
         }
     });
 
@@ -116,8 +191,7 @@ const createCrudRoutes = (resource, tableName) => {
             if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
             res.json(result.rows[0]);
         } catch (err) {
-            console.error(err);
-            res.status(500).json({ error: err.message });
+            handleError(err, res, `Update ${resource}`);
         }
     });
 
@@ -128,8 +202,7 @@ const createCrudRoutes = (resource, tableName) => {
             if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
             res.json({ message: 'Deleted successfully' });
         } catch (err) {
-            console.error(err);
-            res.status(500).json({ error: err.message });
+            handleError(err, res, `Delete ${resource}`);
         }
     });
 };
@@ -212,9 +285,10 @@ const initDb = async () => {
       
       -- Migrations for existing tables
       ALTER TABLE demands ADD COLUMN IF NOT EXISTS support_analyst_id INTEGER;
+      ALTER TABLE demands ADD COLUMN IF NOT EXISTS stage VARCHAR(50); -- Nova coluna de Etapas CDPC
       ALTER TABLE users ADD COLUMN IF NOT EXISTS allowed_modules TEXT[] DEFAULT '{flow}';
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(50); -- Nova coluna de departamento
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_type VARCHAR(50); -- Para diferenciar Gestor/Analista explicitamente se necessario
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(50);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_type VARCHAR(50);
       ALTER TABLE clients ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
       ALTER TABLE analysts ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
     `);
@@ -228,6 +302,19 @@ const initDb = async () => {
         to_status VARCHAR(50),
         changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         time_in_previous_status_minutes INTEGER,
+        changed_by VARCHAR(255)
+      )
+    `);
+
+        // Stage History (New CDPC Flow)
+        await db.query(`
+      CREATE TABLE IF NOT EXISTS stage_history (
+        id SERIAL PRIMARY KEY,
+        demand_id INTEGER REFERENCES demands(id),
+        stage VARCHAR(50),
+        entered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        exited_at TIMESTAMP,
+        duration_minutes INTEGER,
         changed_by VARCHAR(255)
       )
     `);
@@ -631,83 +718,142 @@ const handleEntityWithUserCreation = async (req, res, tableName, role) => {
 
 app.post('/analysts', (req, res) => handleEntityWithUserCreation(req, res, 'analysts', 'analyst'));
 app.post('/requesters', (req, res) => handleEntityWithUserCreation(req, res, 'requesters', 'requester'));
+app.post('/clients', (req, res) => handleEntityWithUserCreation(req, res, 'clients', 'client'));
 
-// Custom DELETE for demands to handle Cascade manually (since DB might lack ON DELETE CASCADE)
-app.delete('/demands/:id', async (req, res) => {
+// Clear status history for a demand
+app.delete('/demands/:id/history', async (req, res) => {
     try {
-        await db.query('BEGIN');
-        // 1. Delete dependent history
-        await db.query('DELETE FROM status_history WHERE demand_id = $1', [req.params.id]);
-        // 2. Delete the demand
-        const result = await db.query('DELETE FROM demands WHERE id = $1 RETURNING *', [req.params.id]);
-
-        await db.query('COMMIT');
-
-        if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
-        res.json({ message: 'Deleted successfully w/ cascade' });
+        console.log(`[DELETE HISTORY] Clearing history for demand ${req.params.id}`);
+        const result = await db.query('DELETE FROM status_history WHERE demand_id = $1', [req.params.id]);
+        console.log(`[DELETE HISTORY] Deleted ${result.rowCount} rows`);
+        res.json({ message: 'History cleared successfully', count: result.rowCount });
     } catch (err) {
-        await db.query('ROLLBACK');
-        console.error('Delete demand error:', err);
+        console.error('Clear history error:', err);
         res.status(500).json({ error: err.message });
     }
 });
 
 // Routes
-// Note: Custom routes must define BEFORE generic createCrudRoutes if they overlap, 
-// BUT createCrudRoutes registers routes immediately. So we must place this custom route BEFORE calling createCrudRoutes('demands') below.
-// Actually Express matches in order. So we are good placing it here above.
-createCrudRoutes('demands', 'demands');
-createCrudRoutes('status_history', 'status_history');
-createCrudRoutes('analysts', 'analysts');
-createCrudRoutes('clients', 'clients');
-createCrudRoutes('cycles', 'cycles');
-createCrudRoutes('requesters', 'requesters');
-createCrudRoutes('holidays', 'holidays');
-createCrudRoutes('users', 'users'); // Allow listing users
-createCrudRoutes('contracts', 'contracts'); // Legado - manter para compatibilidade
-createCrudRoutes('finance_contracts', 'finance_contracts'); // Módulo Financeiro
-createCrudRoutes('deadline_contracts', 'deadline_contracts'); // Módulo Prazos
-createCrudRoutes('invoices', 'invoices');
-createCrudRoutes('monthly_attestations', 'monthly_attestations');
-createCrudRoutes('clients', 'clients');
-createCrudRoutes('analysts', 'analysts');
-createCrudRoutes('termos_confirmacao', 'termos_confirmacao');
+// Custom route for demands UPDATE (must come BEFORE createCrudRoutes)
+// This handles stage and status history tracking
+app.put('/demands/:id', async (req, res) => {
+    const client = await db.connect(); // Get connection from pool for transaction
 
-// Register Module Routes
-app.use('/api/financeiro', financeiroRoutes);
-app.use('/api/prazos', prazosRoutes);
-
-// Auth Routes
-app.post('/auth/login', async (req, res) => {
-    const { email, password } = req.body;
     try {
-        const result = await db.query('SELECT * FROM users WHERE email = $1 AND password = $2', [email, password]);
-        if (result.rows.length > 0) {
-            const user = result.rows[0];
-            const { password, ...userWithoutPassword } = user;
-            res.json(userWithoutPassword);
-        } else {
-            res.status(401).json({ error: 'Invalid credentials' });
+        await client.query('BEGIN'); // Start transaction (P3 - Data Consistency)
+
+        const body = { ...req.body };
+        // Sanitização básica
+        Object.keys(body).forEach(key => {
+            if (body[key] === '') body[key] = null;
+        });
+
+        const keys = Object.keys(body);
+        const values = Object.values(body);
+
+        if (keys.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'No fields to update' });
         }
+
+        const { stage, status } = body;
+
+        // Debug logging (P3 - Conditional logging)
+        const isDev = process.env.NODE_ENV !== 'production';
+        if (isDev) {
+            console.log(`[PUT /demands/${req.params.id}] Body:`, JSON.stringify(body));
+        }
+
+        // Fetch current state once (using transaction client)
+        const currentRes = await client.query('SELECT stage, status FROM demands WHERE id = $1', [req.params.id]);
+        const currentDemand = currentRes.rows[0];
+
+        if (!currentDemand) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Demand not found' });
+        }
+
+        const oldStage = currentDemand.stage;
+        const oldStatus = currentDemand.status;
+
+        if (isDev) {
+            console.log(`[DEBUG] Status Check: New='${status}', Old='${oldStatus}' | Different? ${status && status !== oldStatus}`);
+        }
+
+        // STAGE HISTORY LOGIC
+        if (stage && stage !== oldStage) {
+            const now = new Date();
+            // Close previous stage history
+            await client.query(`
+                UPDATE stage_history 
+                SET exited_at = $1, duration_minutes = EXTRACT(EPOCH FROM ($1 - entered_at))/60 
+                WHERE demand_id = $2 AND stage = $3 AND exited_at IS NULL
+           `, [now, req.params.id, oldStage]);
+
+            // Start new stage history
+            await client.query(`
+                INSERT INTO stage_history (demand_id, stage, entered_at)
+                VALUES ($1, $2, $3)
+           `, [req.params.id, stage, now]);
+        } else if (!oldStage && stage) {
+            // First stage set
+            await client.query(`
+                INSERT INTO stage_history (demand_id, stage, entered_at)
+                VALUES ($1, $2, NOW())
+           `, [req.params.id, stage]);
+        }
+
+        // STATUS HISTORY LOGIC
+        // Only insert if status is provided AND DIFFERENT from old status (Normalizing to avoid case/trim issues)
+        const newStatusNorm = status ? status.trim().toUpperCase() : null;
+        const oldStatusNorm = oldStatus ? oldStatus.trim().toUpperCase() : null;
+
+        if (newStatusNorm && newStatusNorm !== oldStatusNorm) {
+            const now = new Date();
+            // Insert into status_history
+            await client.query(`
+                INSERT INTO status_history (demand_id, from_status, to_status, changed_at, changed_by)
+                VALUES ($1, $2, $3, $4, $5)
+             `, [req.params.id, oldStatus, status, now, 'System']);
+        }
+
+        // Update the demand
+        const setClause = keys.map((key, i) => `${key} = $${i + 2}`).join(', ');
+        const query = `UPDATE demands SET ${setClause} WHERE id = $1 RETURNING *`;
+
+        const result = await client.query(query, [req.params.id, ...values]);
+
+        await client.query('COMMIT'); // Commit all changes if successful
+        res.json(result.rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        await client.query('ROLLBACK'); // Rollback on any error
+        handleError(err, res, 'Update demand');
+    } finally {
+        client.release(); // Always release connection back to pool
     }
 });
 
-app.get('/auth/me', (req, res) => {
-    res.status(401).json({ error: 'Not implemented, use local state' });
+createCrudRoutes('users', 'users');
+createCrudRoutes('demands', 'demands');
+createCrudRoutes('status_history', 'status_history');
+createCrudRoutes('stage_history', 'stage_history'); // Adicionado
+createCrudRoutes('finance_contracts', 'finance_contracts');
+createCrudRoutes('deadline_contracts', 'deadline_contracts');
+createCrudRoutes('clients', 'clients');
+createCrudRoutes('analysts', 'analysts');
+createCrudRoutes('cycles', 'cycles');
+createCrudRoutes('requesters', 'requesters');
+createCrudRoutes('holidays', 'holidays');
+createCrudRoutes('attestations', 'monthly_attestations'); // Route 'attestations' maps to table 'monthly_attestations'
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+    // Start backup routine
+    cron.schedule('0 23 * * *', () => {
+        console.log('Running daily backup...');
+        // Implement backup logic here
+    });
 });
 
-// Email Mock
-app.post('/integrations/email', (req, res) => {
-    console.log('Sending email:', req.body);
-    res.json({ success: true, message: 'Email sent (mock)' });
-});
 
-const backupService = require('./services/backupService');
-
-app.listen(PORT, async () => {
-    await initDb();
-    backupService.init();
-    console.log(`Server running on port ${PORT} `);
-});

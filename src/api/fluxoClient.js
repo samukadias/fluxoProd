@@ -61,10 +61,11 @@ export const fluxoApi = {
         FinanceContract: createCrud('finance_contracts'), // Módulo Financeiro
         DeadlineContract: createCrud('deadline_contracts'), // Módulo Prazos
         Invoice: createCrud('invoices'),
-        MonthlyAttestation: createCrud('monthly_attestations'),
+        MonthlyAttestation: createCrud('attestations'),
         Client: createCrud('clients'),
         Analyst: createCrud('analysts'),
         TermoConfirmacao: createCrud('termos_confirmacao'),
+        StageHistory: createCrud('stage_history'),
     },
     auth: {
         login: (email, password) => fluxClient.post('/auth/login', { email, password }).then(res => res.data),

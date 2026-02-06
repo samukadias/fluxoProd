@@ -10,7 +10,7 @@ import BottleneckChart from '@/Components/dashboard/BottleneckChart';
 import BottleneckBarChart from '@/Components/dashboard/BottleneckBarChart';
 import ComplexityChart from '@/Components/dashboard/ComplexityChart';
 import QualifiedDemandsChart from '@/Components/dashboard/QualifiedDemandsChart';
-import { calculateWorkDays } from '@/Components/demands/EffortCalculator';
+import { calculateWorkDays } from '@/components/demands/EffortCalculator';
 import { isAfter, parseISO, format, getYear } from 'date-fns';
 
 const ACTIVE_STATUSES = [
@@ -59,6 +59,11 @@ export default function DashboardPage() {
     const { data: history = [] } = useQuery({
         queryKey: ['all-history'],
         queryFn: () => fluxoApi.entities.StatusHistory.list()
+    });
+
+    const { data: stageHistory = [] } = useQuery({
+        queryKey: ['stage-history'],
+        queryFn: () => fluxoApi.entities.StageHistory.list()
     });
 
     const { data: users = [] } = useQuery({
@@ -312,6 +317,32 @@ export default function DashboardPage() {
         return { statusAvg, avgDeliveryDays, deliveredCount: delivered.length };
     }, [bottleneckData, filteredDemands, holidays, history]);
 
+    // CDPC Stage SLA
+    const stageSlaData = useMemo(() => {
+        const stageTotals = {}; // { StageName: { totalMinutes: 0, count: 0 } }
+
+        stageHistory.forEach(h => {
+            if (h.stage && h.duration_minutes) {
+                if (!stageTotals[h.stage]) {
+                    stageTotals[h.stage] = { totalMinutes: 0, count: 0 };
+                }
+                stageTotals[h.stage].totalMinutes += h.duration_minutes;
+                stageTotals[h.stage].count += 1;
+            }
+        });
+
+        const averages = Object.entries(stageTotals).map(([stage, data]) => ({
+            stage,
+            avgDays: data.count > 0 ? (data.totalMinutes / 1440).toFixed(1) : 0
+        })).sort((a, b) => {
+            // Sort by logical order if possible
+            const order = ["Triagem", "Qualificação", "PO", "OO", "RT", "KIT"];
+            return order.indexOf(a.stage) - order.indexOf(b.stage);
+        });
+
+        return averages;
+    }, [stageHistory]);
+
     const isManager = user?.role === 'manager' || user?.perfil === 'GESTOR' || user?.department === 'GOR' || (user?.department === 'CDPC' && user?.role === 'manager');
     const isRequester = user?.role === 'requester';
     const isAnalystCDPC = (user?.role === 'analyst' || user?.perfil === 'ANALISTA') && user?.department === 'CDPC';
@@ -531,6 +562,35 @@ export default function DashboardPage() {
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* CDPC Stage SLA */}
+                {!isRequester && stageSlaData.length > 0 && (
+                    <Card className="mb-8">
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <Layers className="w-5 h-5 text-indigo-600" />
+                                SLA por Etapa (CDPC)
+                            </CardTitle>
+                            <p className="text-sm text-slate-500">
+                                Tempo médio de permanência em cada etapa do fluxo
+                            </p>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+                                {stageSlaData.map((item) => (
+                                    <div key={item.stage} className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                        <div className="text-xs text-slate-500 uppercase tracking-wider mb-1 truncate" title={item.stage}>
+                                            {item.stage}
+                                        </div>
+                                        <div className="text-xl font-bold text-slate-700">
+                                            {item.avgDays} <span className="text-sm font-normal text-slate-400">dias</span>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </CardContent>
                     </Card>
