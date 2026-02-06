@@ -157,16 +157,18 @@ export default function Contracts() {
                         <h1 className="text-3xl font-bold text-slate-900">Contratos</h1>
                         <p className="text-slate-600 mt-1">Gerencie os contratos da empresa</p>
                     </div>
-                    <Button
-                        onClick={() => {
-                            setEditingContract(null);
-                            setShowForm(true);
-                        }}
-                        className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20"
-                    >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Novo Contrato
-                    </Button>
+                    {!selectedClient && (
+                        <Button
+                            onClick={() => {
+                                setEditingContract(null);
+                                setShowForm(true);
+                            }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Novo Contrato
+                        </Button>
+                    )}
                 </div>
 
                 {/* Seleção de Cliente */}
@@ -189,8 +191,8 @@ export default function Contracts() {
                                                 <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
                                                     <Building2 className="w-6 h-6 text-blue-600" />
                                                 </div>
-                                                <div className="flex-1">
-                                                    <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="text-lg font-semibold text-slate-900 mb-2 truncate" title={client}>
                                                         {client}
                                                     </h3>
                                                     <p className="text-sm text-slate-600">
@@ -289,8 +291,8 @@ export default function Contracts() {
                                                                 <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
                                                                     <Building2 className="w-6 h-6 text-blue-600" />
                                                                 </div>
-                                                                <div className="flex-1">
-                                                                    <h3 className="text-lg font-semibold text-slate-900 mb-1">
+                                                                <div className="flex-1 min-w-0">
+                                                                    <h3 className="text-lg font-semibold text-slate-900 mb-1 truncate" title={contract.client_name || contract.company_name}>
                                                                         {contract.client_name || contract.company_name}
                                                                     </h3>
                                                                     <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">

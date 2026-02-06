@@ -4,13 +4,16 @@ import axios from 'axios';
 // You should update the baseURL to match your backend server URL
 // Dynamically determine the base URL based on the current hostname
 const getBaseUrl = () => {
-    if (import.meta.env.VITE_API_URL) {
-        return import.meta.env.VITE_API_URL;
-    }
-    if (typeof window !== 'undefined') {
-        return `http://${window.location.hostname}:3000`;
-    }
-    return 'http://localhost:3000';
+    const url = (() => {
+        // Prioritize dynamic hostname to fix LAN access when .env has localhost hardcoded
+        if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            return `http://${window.location.hostname}:3000`;
+        }
+        if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+        return 'http://localhost:3000';
+    })();
+    console.log('FluxoAPI Base URL:', url);
+    return url;
 };
 
 export const fluxClient = axios.create({

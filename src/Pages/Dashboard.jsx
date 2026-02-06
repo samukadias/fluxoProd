@@ -314,14 +314,20 @@ export default function DashboardPage() {
 
     const isManager = user?.role === 'manager' || user?.perfil === 'GESTOR' || user?.department === 'GOR' || (user?.department === 'CDPC' && user?.role === 'manager');
     const isRequester = user?.role === 'requester';
+    const isAnalystCDPC = (user?.role === 'analyst' || user?.perfil === 'ANALISTA') && user?.department === 'CDPC';
 
     return (
         <div className="p-6 min-h-screen bg-slate-50 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-100/50 via-slate-50 to-slate-100">
             <div className="max-w-7xl mx-auto">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                             Dashboard CDPC
+                            {(user?.name || user?.full_name) && (
+                                <span className="text-lg sm:text-2xl font-normal text-slate-500">
+                                    | Olá, <span className="text-indigo-600">{(user.name || user.full_name).split(' ')[0]}</span>
+                                </span>
+                            )}
                         </h1>
                         <p className="text-slate-500 mt-1">
                             {isRequester ? "Minossas Solicitações" : "Visão geral e análise de gargalos"}
@@ -354,7 +360,7 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
+                <div className={`grid grid-cols-1 sm:grid-cols-2 ${isAnalystCDPC ? 'lg:grid-cols-5' : 'lg:grid-cols-6'} gap-4 mb-8`}>
                     <StatsCard
                         title="Total de Demandas"
                         value={stats.total}
@@ -362,13 +368,16 @@ export default function DashboardPage() {
                         type="default"
                         onClick={() => setSelectedFilter(selectedFilter === 'total' ? null : 'total')}
                     />
-                    <StatsCard
-                        title="Backlog"
-                        value={stats.backlog}
-                        icon={Layers}
-                        type="info"
-                        onClick={() => setSelectedFilter(selectedFilter === 'backlog' ? null : 'backlog')}
-                    />
+                    {/* Hide Backlog for Analyst CDPC */}
+                    {!isAnalystCDPC && (
+                        <StatsCard
+                            title="Backlog"
+                            value={stats.backlog}
+                            icon={Layers}
+                            type="info"
+                            onClick={() => setSelectedFilter(selectedFilter === 'backlog' ? null : 'backlog')}
+                        />
+                    )}
                     <StatsCard
                         title="Em Tratativa"
                         value={stats.tratativa}

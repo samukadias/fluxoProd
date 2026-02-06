@@ -139,9 +139,9 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
                                     <SelectValue placeholder="Selecione um cliente" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {clients.map((client) => (
-                                        <SelectItem key={client.id} value={client.name}>
-                                            {client.name}
+                                    {[...new Set(prazosContracts.map(c => c.cliente).filter(Boolean))].sort().map((clientName) => (
+                                        <SelectItem key={clientName} value={clientName}>
+                                            {clientName}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

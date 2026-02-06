@@ -12,7 +12,10 @@ import { toast } from "sonner";
 
 export default function DemandsPage() {
     const queryClient = useQueryClient();
-    const [user, setUser] = useState(null);
+    const [user, setUser] = useState(() => {
+        const stored = localStorage.getItem('fluxo_user');
+        return stored ? JSON.parse(stored) : null;
+    });
     const [showForm, setShowForm] = useState(false);
     const [viewMode, setViewMode] = useState('grid');
     const [filters, setFilters] = useState({
@@ -23,13 +26,6 @@ export default function DemandsPage() {
         cycle_id: 'all',
         complexity: 'all'
     });
-
-    useEffect(() => {
-        const stored = localStorage.getItem('fluxo_user');
-        if (stored) {
-            setUser(JSON.parse(stored));
-        }
-    }, []);
 
     const { data: demands = [], isLoading: loadingDemands } = useQuery({
         queryKey: ['demands'],

@@ -13,12 +13,15 @@ export default function LoginPage() {
     const { login } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setError('');
 
         if (!email || !password) {
+            setError("Por favor, preencha todos os campos.");
             toast.error("Por favor, preencha todos os campos.");
             return;
         }
@@ -27,9 +30,13 @@ export default function LoginPage() {
 
         try {
             const success = await login(email, password);
+            if (!success) {
+                setError("Email ou senha incorretos.");
+            }
             // Context handles navigation on success
         } catch (error) {
             console.error(error);
+            setError("Erro ao conectar ao servidor.");
         } finally {
             setIsLoading(false);
         }
@@ -68,6 +75,11 @@ export default function LoginPage() {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
+                        {error && (
+                            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm font-medium animate-in fade-in slide-in-from-top-1">
+                                {error}
+                            </div>
+                        )}
                         <div className="space-y-2">
                             <Label htmlFor="email">Email Corporativo</Label>
                             <div className="relative group">
@@ -78,7 +90,10 @@ export default function LoginPage() {
                                     placeholder="nome@empresa.com"
                                     className="pl-10 h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all"
                                     value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
+                                    onChange={(e) => {
+                                        setEmail(e.target.value);
+                                        setError('');
+                                    }}
                                     disabled={isLoading}
                                     required
                                 />
@@ -100,7 +115,10 @@ export default function LoginPage() {
                                     placeholder="••••••••"
                                     className="pl-10 h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all"
                                     value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
+                                    onChange={(e) => {
+                                        setPassword(e.target.value);
+                                        setError('');
+                                    }}
                                     disabled={isLoading}
                                     required
                                 />
