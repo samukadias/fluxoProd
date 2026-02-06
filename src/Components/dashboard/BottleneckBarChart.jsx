@@ -59,9 +59,35 @@ export default function BottleneckBarChart({ data = [] }) {
     };
 
     if (chartData.length === 0) {
+        // Show empty chart structure with message
+        const emptyData = Array(5).fill(null).map((_, i) => ({
+            status: `Status ${i + 1}`,
+            total_minutes: 0,
+            count: 0
+        }));
+
         return (
-            <div className="h-[300px] flex items-center justify-center text-slate-400">
-                <p className="text-sm">Sem dados de histórico disponíveis</p>
+            <div className="relative w-full h-[300px]">
+                <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
+                    <div className="text-center p-4 bg-white/90 rounded-lg shadow-sm border border-slate-100">
+                        <p className="text-sm font-medium text-slate-500">Sem dados de histórico disponíveis</p>
+                        <p className="text-xs text-slate-400 mt-1">O gráfico aparecerá aqui quando houver movimentações.</p>
+                    </div>
+                </div>
+                <div className="opacity-30 blur-[1px] pointer-events-none">
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart
+                            data={emptyData}
+                            layout="vertical"
+                            margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+                            <XAxis type="number" hide />
+                            <YAxis type="category" dataKey="status" width={110} tick={{ fill: '#cbd5e1' }} />
+                            <Bar dataKey="total_minutes" fill="#e2e8f0" />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
             </div>
         );
     }

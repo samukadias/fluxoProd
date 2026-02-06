@@ -453,6 +453,8 @@ const initDb = async () => {
                 pd_number VARCHAR(50),
                 responsible_analyst VARCHAR(255),
                 esp_number VARCHAR(50),
+                sei_process_number VARCHAR(50), 
+                sei_send_area VARCHAR(100),
                 reference_month VARCHAR(10),
                 report_generation_date DATE,
                 report_send_date DATE,
@@ -466,6 +468,20 @@ const initDb = async () => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        // Migration for existing table
+        const attestationCols = [
+            'ADD COLUMN IF NOT EXISTS sei_process_number VARCHAR(50)',
+            'ADD COLUMN IF NOT EXISTS sei_send_area VARCHAR(100)'
+        ];
+
+        for (const col of attestationCols) {
+            try {
+                await db.query(`ALTER TABLE monthly_attestations ${col}`);
+            } catch (e) {
+                console.log('Attestation col error:', e.message);
+            }
+        }
 
         // Clients (Finance Module)
         await db.query(`

@@ -3,7 +3,8 @@ import { fluxoApi } from '@/api/fluxoClient';
 import { useQuery } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
-import { FileText, Clock, AlertTriangle, CheckCircle2, TrendingUp, Layers, Briefcase, Timer } from "lucide-react";
+import { FileText, Clock, AlertTriangle, CheckCircle2, TrendingUp, Layers, Briefcase, Timer, List } from "lucide-react";
+import { Button } from "@/Components/ui/button";
 import StatsCard from '@/Components/dashboard/StatsCard';
 import BottleneckChart from '@/Components/dashboard/BottleneckChart';
 import BottleneckBarChart from '@/Components/dashboard/BottleneckBarChart';
@@ -40,6 +41,7 @@ export default function DashboardPage() {
     const currentYear = getYear(new Date());
     const [selectedYear, setSelectedYear] = useState(String(currentYear));
     const [selectedAnalyst, setSelectedAnalyst] = useState('all');
+    const [selectedFilter, setSelectedFilter] = useState(null); // 'backlog', 'tratativa', 'open', 'overdue', 'delivered', 'total'
     const [user, setUser] = useState(null);
 
     useEffect(() => {
@@ -144,6 +146,48 @@ export default function DashboardPage() {
             return true;
         });
     }, [demands, selectedYear, selectedAnalyst, currentAnalyst, currentRequester, user]);
+
+    // Map for quick lookup
+    const usersMap = useMemo(() => {
+        return users.reduce((acc, u) => {
+            acc[u.id] = u.name;
+            return acc;
+        }, {});
+    }, [users]);
+
+    const detailedDemands = useMemo(() => {
+        if (!selectedFilter) return [];
+
+        return filteredDemands.filter(d => {
+            switch (selectedFilter) {
+                case 'backlog':
+                    return ["PENDENTE TRIAGEM", "TRIAGEM NÃO ELEGÍVEL", "DESIGNADA"].includes(d.status);
+                case 'tratativa':
+                    return TRATATIVA_STATUSES.includes(d.status);
+                case 'open':
+                    return ACTIVE_STATUSES.includes(d.status) && d.status !== 'CONGELADA';
+                case 'overdue':
+                    return d.expected_delivery_date &&
+                        ACTIVE_STATUSES.includes(d.status) &&
+                        isAfter(new Date(), parseISO(d.expected_delivery_date));
+                case 'delivered':
+                    return d.status === 'ENTREGUE';
+                default: // 'total'
+                    return true;
+            }
+        });
+    }, [filteredDemands, selectedFilter]);
+
+    const getFilterTitle = () => {
+        switch (selectedFilter) {
+            case 'backlog': return 'Demandas em Backlog';
+            case 'tratativa': return 'Demandas em Tratativa';
+            case 'open': return 'Demandas em Aberto';
+            case 'overdue': return 'Demandas Atrasadas';
+            case 'delivered': return 'Demandas Entregues';
+            default: return 'Todas as Demandas';
+        }
+    };
 
     const stats = useMemo(() => {
         const total = filteredDemands.length;
@@ -316,38 +360,118 @@ export default function DashboardPage() {
                         value={stats.total}
                         icon={FileText}
                         type="default"
+                        onClick={() => setSelectedFilter(selectedFilter === 'total' ? null : 'total')}
                     />
                     <StatsCard
                         title="Backlog"
                         value={stats.backlog}
                         icon={Layers}
                         type="info"
+                        onClick={() => setSelectedFilter(selectedFilter === 'backlog' ? null : 'backlog')}
                     />
                     <StatsCard
                         title="Em Tratativa"
                         value={stats.tratativa}
                         icon={Briefcase}
                         type="purple"
+                        onClick={() => setSelectedFilter(selectedFilter === 'tratativa' ? null : 'tratativa')}
                     />
                     <StatsCard
                         title="Em Aberto"
                         value={stats.open}
                         icon={Clock}
                         type="warning"
+                        onClick={() => setSelectedFilter(selectedFilter === 'open' ? null : 'open')}
                     />
                     <StatsCard
                         title="Atrasadas"
                         value={stats.overdue}
                         icon={AlertTriangle}
                         type="danger"
+                        onClick={() => setSelectedFilter(selectedFilter === 'overdue' ? null : 'overdue')}
                     />
                     <StatsCard
                         title="Entregues"
                         value={stats.delivered}
                         icon={CheckCircle2}
                         type="success"
+                        onClick={() => setSelectedFilter(selectedFilter === 'delivered' ? null : 'delivered')}
                     />
                 </div>
+
+                {/* Filtered Demands List (Drill Down) */}
+                {selectedFilter && (
+                    <Card className="mb-8 border-slate-200 shadow-md animate-in fade-in slide-in-from-top-4 duration-300">
+                        <CardHeader className="flex flex-row items-center justify-between pb-2 bg-slate-50/50 border-b border-slate-100">
+                            <div>
+                                <CardTitle className="text-lg text-slate-800 flex items-center gap-2">
+                                    <List className="w-5 h-5 text-indigo-600" />
+                                    {getFilterTitle()}
+                                </CardTitle>
+                                <p className="text-sm text-slate-500 mt-1">
+                                    Exibindo {detailedDemands.length} registros
+                                </p>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedFilter(null)}
+                                className="text-slate-400 hover:text-slate-600"
+                            >
+                                Fechar
+                            </Button>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <div className="overflow-x-auto max-h-[400px]">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="text-xs text-slate-700 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm">
+                                        <tr>
+                                            <th className="px-6 py-3">ID</th>
+                                            <th className="px-6 py-3">Produto / Demanda</th>
+                                            <th className="px-6 py-3">Status</th>
+                                            <th className="px-6 py-3">Responsável</th>
+                                            <th className="px-6 py-3">Previsão</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {detailedDemands.length > 0 ? detailedDemands.map(d => (
+                                            <tr key={d.id} className="hover:bg-slate-50/80 transition-colors">
+                                                <td className="px-6 py-4 font-medium text-slate-900 w-[100px]">
+                                                    #{d.id}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="font-medium text-slate-800">{d.product}</div>
+                                                    <div className="text-xs text-slate-500 mt-0.5">{d.title || d.project_name || 'Sem título'}</div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold
+                                                        ${d.status === 'ENTREGUE' ? 'bg-emerald-100 text-emerald-700' :
+                                                            d.status === 'CANCELADA' ? 'bg-slate-100 text-slate-600' :
+                                                                d.status === 'ATRASADA' || (d.expected_delivery_date && isAfter(new Date(), parseISO(d.expected_delivery_date)) && ACTIVE_STATUSES.includes(d.status)) ? 'bg-red-100 text-red-700' :
+                                                                    'bg-blue-100 text-blue-700'}`}>
+                                                        {d.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-600">
+                                                    {usersMap[d.analyst_id] || '-'}
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-600 font-mono text-xs">
+                                                    {d.expected_delivery_date ? format(parseISO(d.expected_delivery_date), 'dd/MM/yyyy') : '-'}
+                                                </td>
+                                            </tr>
+                                        )) : (
+                                            <tr>
+                                                <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                                                    Nenhuma demanda encontrada para este filtro.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* SLA Section - Visible to all (non-requesters) */}
                 {!isRequester && (
@@ -391,12 +515,7 @@ export default function DashboardPage() {
                                                     <tr key={status} className="border-b hover:bg-slate-50">
                                                         <td className="px-3 py-2 font-medium text-slate-700">{status}</td>
                                                         <td className="px-3 py-2 text-right text-slate-500">
-                                                            {minutes >= 1440
-                                                                ? `${Math.round(minutes / 1440)} dias`
-                                                                : minutes >= 60
-                                                                    ? `${Math.round(minutes / 60)} horas`
-                                                                    : `${minutes} min`
-                                                            }
+                                                            {(minutes / 1440).toFixed(1)} dias
                                                         </td>
                                                     </tr>
                                                 ))}

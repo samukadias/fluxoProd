@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { fluxoApi } from '@/api/fluxoClient';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -16,8 +17,11 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
     });
 
     const { data: analysts = [] } = useQuery({
-        queryKey: ['analysts'],
-        queryFn: () => fluxoApi.entities.Analyst.list('-created_at')
+        queryKey: ['cvac-analysts'],
+        queryFn: () => fluxoApi.entities.User.list({
+            role: 'analyst',
+            department: 'CVAC'
+        })
     });
 
     // Buscar contratos de Prazos para obter PDs por cliente
@@ -30,13 +34,13 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
         }
     });
 
+    const { user } = useAuth();
+
     const [formData, setFormData] = useState({
         client_name: '',
         pd_number: '',
-        responsible_analyst: '',
-        esps: [],
-        sei_process_number: '',
-        sei_send_area: ''
+        responsible_analyst: user?.name || user?.full_name || '',
+        esps: []
     });
 
     const [availablePDs, setAvailablePDs] = useState([]);
@@ -58,12 +62,22 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
                 client_name: contract.client_name || '',
                 pd_number: contract.pd_number || '',
                 responsible_analyst: contract.responsible_analyst || '',
-                esps: parsedEsps,
-                sei_process_number: contract.sei_process_number || '',
-                sei_send_area: contract.sei_send_area || ''
+                esps: parsedEsps
+            });
+        } else if (user) {
+            // Se for novo contrato (não tem contract prop), preenche com o usuário logado
+            // Mas só se o campo ainda estiver vazio
+            setFormData(prev => {
+                if (!prev.responsible_analyst) {
+                    return {
+                        ...prev,
+                        responsible_analyst: user.full_name || user.name || ''
+                    };
+                }
+                return prev;
             });
         }
-    }, [contract]);
+    }, [contract, user]);
 
     // Atualizar PDs disponíveis quando o cliente mudar
     useEffect(() => {
@@ -183,6 +197,12 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
                                     <SelectValue placeholder="Selecione um analista" />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    {/* Adicionar usuário logado se não estiver na lista e tiver nome */}
+                                    {user && (user.name || user.full_name) && !analysts.find(a => a.name === (user.name || user.full_name)) && (
+                                        <SelectItem value={user.name || user.full_name}>
+                                            {user.name || user.full_name}
+                                        </SelectItem>
+                                    )}
                                     {analysts.map((analyst) => (
                                         <SelectItem key={analyst.id} value={analyst.name}>
                                             {analyst.name}
@@ -195,42 +215,7 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
                 </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
-                <CardHeader className="border-b border-slate-100 pb-4">
-                    <CardTitle className="flex items-center gap-2 text-slate-800">
-                        <FileText className="w-5 h-5 text-blue-600" />
-                        Informações do SEI
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <Label htmlFor="sei_process_number" className="text-slate-700">
-                                Número do Processo no SEI
-                            </Label>
-                            <Input
-                                id="sei_process_number"
-                                value={formData.sei_process_number}
-                                onChange={(e) => updateField('sei_process_number', e.target.value)}
-                                placeholder="Ex: 00000.000000/0000-00"
-                                className="mt-1"
-                            />
-                        </div>
-                        <div>
-                            <Label htmlFor="sei_send_area" className="text-slate-700">
-                                Área de Envio no SEI
-                            </Label>
-                            <Input
-                                id="sei_send_area"
-                                value={formData.sei_send_area}
-                                onChange={(e) => updateField('sei_send_area', e.target.value)}
-                                placeholder="Ex: Coordenação Financeira"
-                                className="mt-1"
-                            />
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+
 
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
                 <CardHeader className="border-b border-slate-100 pb-4">

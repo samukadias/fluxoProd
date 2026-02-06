@@ -31,9 +31,31 @@ export default function ComplexityChart({ data = [] }) {
     };
 
     if (chartData.length === 0) {
+        // Show empty structure
+        const emptyData = [
+            { complexity: 'Baixa', days: 0 },
+            { complexity: 'Média', days: 0 },
+            { complexity: 'Alta', days: 0 }
+        ];
+
         return (
-            <div className="h-[200px] flex items-center justify-center text-slate-400">
-                <p className="text-sm">Sem dados de conclusão disponíveis</p>
+            <div className="relative w-full h-[200px]">
+                <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
+                    <div className="text-center p-4 bg-white/90 rounded-lg shadow-sm border border-slate-100">
+                        <p className="text-sm font-medium text-slate-500">Sem dados de conclusão</p>
+                        <p className="text-xs text-slate-400 mt-1">Necessário demandas entregues para cálculo.</p>
+                    </div>
+                </div>
+                <div className="opacity-30 blur-[1px] pointer-events-none">
+                    <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={emptyData} margin={{ top: 10, right: 20, left: 20, bottom: 10 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                            <XAxis dataKey="complexity" tick={{ fontSize: 12, fill: '#cbd5e1' }} axisLine={{ stroke: '#e2e8f0' }} />
+                            <YAxis tick={false} axisLine={{ stroke: '#e2e8f0' }} />
+                            <Bar dataKey="days" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
             </div>
         );
     }

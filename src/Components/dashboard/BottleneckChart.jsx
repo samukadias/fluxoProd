@@ -80,8 +80,30 @@ export default function BottleneckChart({ data = [] }) {
 
     if (chartData.length === 0) {
         return (
-            <div className="h-[300px] flex items-center justify-center text-slate-400">
-                <p className="text-sm">Sem dados de histórico disponíveis</p>
+            <div className="relative w-full h-[300px]">
+                <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
+                    <div className="text-center p-4 bg-white/90 rounded-lg shadow-sm border border-slate-100">
+                        <p className="text-sm font-medium text-slate-500">Sem dados de histórico</p>
+                        <p className="text-xs text-slate-400 mt-1">O gráfico de dispersão aparecerá aqui.</p>
+                    </div>
+                </div>
+                {/* Visual placeholder axis */}
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 -rotate-90 text-[10px] font-medium text-slate-200 tracking-wider pointer-events-none">
+                    LENTIDÃO (TEMPO MÉDIO)
+                </div>
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] font-medium text-slate-200 tracking-wider pointer-events-none">
+                    VOLUME (QUANTIDADE)
+                </div>
+                <div className="opacity-30 blur-[1px] pointer-events-none h-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                            <XAxis type="number" dataKey="x" tick={{ fill: '#cbd5e1' }} axisLine={{ stroke: '#e2e8f0' }} />
+                            <YAxis type="number" dataKey="y" tick={{ fill: '#cbd5e1' }} axisLine={{ stroke: '#e2e8f0' }} />
+                            <Scatter name="Placeholder" data={[{ x: 0, y: 0 }]} fill="#e2e8f0" />
+                        </ScatterChart>
+                    </ResponsiveContainer>
+                </div>
             </div>
         );
     }

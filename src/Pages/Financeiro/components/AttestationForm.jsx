@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Save, Calendar, DollarSign, AlertCircle } from "lucide-react";
+import { Save, Calendar, DollarSign, AlertCircle, FileText } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function AttestationForm({ attestation, contract, onSubmit, isLoading }) {
@@ -22,6 +22,8 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
         pd_number: '',
         responsible_analyst: '',
         esp_number: '',
+        sei_process_number: '',
+        sei_send_area: '',
         reference_month: '',
         report_generation_date: '',
         report_send_date: '',
@@ -44,6 +46,8 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                 pd_number: attestation.pd_number || '',
                 responsible_analyst: attestation.responsible_analyst || '',
                 esp_number: attestation.esp_number || '',
+                sei_process_number: attestation.sei_process_number || '',
+                sei_send_area: attestation.sei_send_area || '',
                 reference_month: attestation.reference_month || '',
                 report_generation_date: attestation.report_generation_date ? attestation.report_generation_date.split('T')[0] : '',
                 report_send_date: attestation.report_send_date ? attestation.report_send_date.split('T')[0] : '',
@@ -203,6 +207,38 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                                     )) : <SelectItem value="custom" disabled>Nenhuma ESP disponível</SelectItem>}
                                 </SelectContent>
                             </Select>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* SEI Information Block */}
+            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
+                <CardHeader className="border-b border-slate-100 pb-4">
+                    <CardTitle className="flex items-center gap-2 text-slate-800">
+                        <FileText className="w-5 h-5 text-blue-600" />
+                        Informações do SEI
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <Label className="text-slate-700">Número do Processo no SEI</Label>
+                            <Input
+                                value={formData.sei_process_number}
+                                onChange={(e) => updateField('sei_process_number', e.target.value)}
+                                placeholder="Ex: 00000.000000/0000-00"
+                                className="mt-1"
+                            />
+                        </div>
+                        <div>
+                            <Label className="text-slate-700">Área de Envio no SEI</Label>
+                            <Input
+                                value={formData.sei_send_area}
+                                onChange={(e) => updateField('sei_send_area', e.target.value)}
+                                placeholder="Ex: Coordenação Financeira"
+                                className="mt-1"
+                            />
                         </div>
                     </div>
                 </CardContent>
