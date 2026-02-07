@@ -4,11 +4,24 @@ import axios from 'axios';
 // You should update the baseURL to match your backend server URL
 // Dynamically determine the base URL based on the current hostname
 const getBaseUrl = () => {
-    const url = (() => {
-        // Prioritize dynamic hostname to fix LAN access when .env has localhost hardcoded
-        if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-            return `http://${window.location.hostname}:3000`;
+    // Force IPv4 for local development to avoid [::1] issues
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        console.log('FluxoAPI Base URL: http://127.0.0.1:3000');
+        return 'http://127.0.0.1:3000';
+    }
+
+    // If we are on a remote machine (LAN), use that IP!
+    if (typeof window !== 'undefined') {
+        const hostname = window.location.hostname;
+        // If it's a LAN IP or specific hostname, assume API is on port 3000 of same host
+        if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+            console.log(`FluxoAPI Base URL (LAN): http://${hostname}:3000`);
+            return `http://${hostname}:3000`;
         }
+    }
+
+    // Fallback/Default logic
+    const url = (() => {
         if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
         return 'http://localhost:3000';
     })();
@@ -57,7 +70,7 @@ export const fluxoApi = {
         Cycle: createCrud('cycles'),
         Requester: createCrud('requesters'),
         User: createCrud('users'),
-        Contract: createCrud('deadline_contracts'), // Alterado para apontar para a tabela correta do módulo de prazos
+        Contract: createCrud('contracts'), // Alterado para apontar para a tabela correta conforme solicitação do usuário
         FinanceContract: createCrud('finance_contracts'), // Módulo Financeiro
         DeadlineContract: createCrud('deadline_contracts'), // Módulo Prazos
         Invoice: createCrud('invoices'),

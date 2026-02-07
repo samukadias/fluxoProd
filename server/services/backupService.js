@@ -9,7 +9,9 @@ const BACKUP_DIR = path.join(__dirname, '../backups');
 const DB_NAME = 'fluxo_prod';
 const DB_USER = 'postgres';
 const DB_HOST = '127.0.0.1';
-const MAX_BACKUPS = 7;
+const MAX_BACKUPS = 21; // 3 backups per day * 7 days
+
+// ... (rest of configuration code if any)
 
 // Ensure backup directory exists
 if (!fs.existsSync(BACKUP_DIR)) {
@@ -69,10 +71,10 @@ const cleanOldBackups = () => {
 };
 
 const init = () => {
-    console.log('[Backup] Service initialized. Schedule: 0 23 * * * (Daily at 23:00)');
+    console.log('[Backup] Service initialized. Schedule: 13:00, 18:00, 23:00 (Retention: 7 days)');
 
-    // Schedule task to run at 23:00 every day
-    cron.schedule('0 23 * * *', () => {
+    // Schedule task to run at 13:00, 18:00, and 23:00 every day
+    cron.schedule('0 13,18,23 * * *', () => {
         createBackup();
     });
 

@@ -62,15 +62,12 @@ export default function EditContract() {
 
         console.log('Buscando contrato com ID:', contractId);
 
-        const [allContracts, allUsers, loggedUser, allTCs] = await Promise.all([
-          Contract.list(),
+        const [contractData, allUsers, loggedUser, allTCs] = await Promise.all([
+          Contract.get(contractId),
           User.list(),
           User.me(),
           TermoConfirmacao.list()
         ]);
-
-        const contractData = allContracts.find(c => String(c.id) === String(contractId));
-
         if (!contractData) {
           console.error('Contrato não encontrado:', contractId);
           setContract(null);

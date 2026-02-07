@@ -117,7 +117,9 @@ export class User {
                 id: '1',
                 email: 'gestor@fluxo.com',
                 full_name: 'Gestor Fluxo',
-                perfil: 'MANAGER'
+                role: 'manager',
+                perfil: 'GESTOR',
+                department: 'GOR'
             };
         }
     }

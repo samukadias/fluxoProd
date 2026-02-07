@@ -2,6 +2,20 @@ const express = require('express');
 const cors = require('cors');
 const db = require('./db');
 const cron = require('node-cron');
+const fs = require('fs'); // Added for debugging
+
+// Global Error Handler for Crash Debugging
+process.on('uncaughtException', (err) => {
+    try {
+        fs.appendFileSync('debug.log', `[${new Date().toISOString()}] CRASH: ${err.stack}\n`);
+    } catch (e) {
+        console.error('Failed to write crash log', e);
+    }
+    process.exit(1);
+});
+
+fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Server starting...\n`);
+
 // Import Modules
 const financeiroRoutes = require('./src/modules/financeiro/routes');
 const prazosRoutes = require('./src/modules/prazos/routes');
@@ -42,6 +56,8 @@ const ALLOWED_SORT_FIELDS = {
     requesters: ['id', 'name', 'email'],
     holidays: ['id', 'date', 'name'],
     attestations: ['id', 'reference_month', 'client_name', 'pd_number'],
+    confirmation_terms: ['id', 'created_at', 'updated_at', 'numero_tc', 'contrato_associado_pd'],
+    contracts: ['id', 'cliente', 'contrato', 'data_inicio_efetividade', 'data_fim_efetividade', 'status', 'created_at'],
 };
 
 // Validation Middleware (P2 Security)
@@ -95,13 +111,47 @@ const createCrudRoutes = (resource, tableName) => {
             let query = `SELECT * FROM ${tableName}`;
             let countQuery = `SELECT COUNT(*) FROM ${tableName}`;
             const values = [];
+            const whereConditions = [];
 
-            if (Object.keys(filters).length > 0) {
-                const clauses = Object.keys(filters).map((key, i) => `${key} = $${i + 1}`);
-                const whereClause = ` WHERE ${clauses.join(' AND ')}`;
+            // Special logic for Demands
+            if (tableName === 'demands') {
+                // Status filtering
+                if (filters.status === 'active') {
+                    whereConditions.push(`status NOT IN ('ENTREGUE', 'CANCELADA')`);
+                    delete filters.status;
+                } else if (filters.status === 'all') {
+                    delete filters.status;
+                }
+
+                // Search filtering (Fuzzy search)
+                if (filters.search) {
+                    const searchParamIndex = values.length + 1;
+                    whereConditions.push(`(product ILIKE $${searchParamIndex} OR demand_number ILIKE $${searchParamIndex})`);
+                    values.push(`%${filters.search}%`);
+                }
+
+                // Always delete search to prevent it from being treated as a column
+                delete filters.search;
+            } else {
+                if (filters.status === 'all') delete filters.status;
+            }
+
+            // Clean up 'all' from other filters
+            Object.keys(filters).forEach(key => {
+                if (filters[key] === 'all') delete filters[key];
+            });
+
+            // Generic filters
+            Object.keys(filters).forEach((key) => {
+                const paramIndex = values.length + 1;
+                whereConditions.push(`${key} = $${paramIndex}`);
+                values.push(filters[key]);
+            });
+
+            if (whereConditions.length > 0) {
+                const whereClause = ` WHERE ${whereConditions.join(' AND ')}`;
                 query += whereClause;
                 countQuery += whereClause;
-                values.push(...Object.values(filters));
             }
 
             if (sort) {
@@ -213,6 +263,24 @@ const createCrudRoutes = (resource, tableName) => {
     });
 };
 
+// Mock Auth Route for Development/LAN
+app.get('/auth/me', async (req, res) => {
+    try {
+        // Return a default manager user to unblock frontend
+        // In real prod, this would decode JWT
+        const user = await db.query("SELECT * FROM users WHERE email = 'gestor@fluxo.com'");
+        if (user.rows.length > 0) {
+            res.json(user.rows[0]);
+        } else {
+            // Fallback if seed didn't run
+            res.json({ id: 1, name: 'Gestor Fluxo', email: 'gestor@fluxo.com', role: 'manager', department: 'GOR' });
+        }
+    } catch (e) {
+        console.error('Auth Me Error:', e);
+        res.status(500).json({ error: 'Auth failed' });
+    }
+});
+
 // Initialize Database Tables
 const initDb = async () => {
     try {
@@ -243,6 +311,17 @@ const initDb = async () => {
         status VARCHAR(50) DEFAULT 'active'
       )
     `);
+
+        // Confirmation Terms (Added for Prazos Module)
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS confirmation_terms (
+                id SERIAL PRIMARY KEY,
+                contrato_associado_pd VARCHAR(255),
+                valor_total DECIMAL(15, 2) DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
 
         // Analysts
         await db.query(`
@@ -844,6 +923,7 @@ createCrudRoutes('demands', 'demands');
 createCrudRoutes('status_history', 'status_history');
 createCrudRoutes('stage_history', 'stage_history'); // Adicionado
 createCrudRoutes('finance_contracts', 'finance_contracts');
+createCrudRoutes('contracts', 'contracts'); // Added to support legacy endpoint if needed
 createCrudRoutes('deadline_contracts', 'deadline_contracts');
 createCrudRoutes('clients', 'clients');
 createCrudRoutes('analysts', 'analysts');
@@ -851,6 +931,8 @@ createCrudRoutes('cycles', 'cycles');
 createCrudRoutes('requesters', 'requesters');
 createCrudRoutes('holidays', 'holidays');
 createCrudRoutes('attestations', 'monthly_attestations'); // Route 'attestations' maps to table 'monthly_attestations'
+createCrudRoutes('termos_confirmacao', 'confirmation_terms'); // Added missing route
+
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {

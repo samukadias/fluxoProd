@@ -48,7 +48,7 @@ export default function DemandsPage() {
         queryFn: () => fluxoApi.entities.Cycle.list()
     });
 
-    // Filtra usuários para CDPC (ampliando para Gestores/Admins poderem ser responsáveis/solicitantes)
+    // Filtra usuários para CDPC
     const analysts = users.filter(u =>
         ['analyst', 'manager', 'admin'].includes(u.role) &&
         (!u.department || u.department === 'CDPC')
@@ -86,7 +86,6 @@ export default function DemandsPage() {
                     }
                 }
             }
-
             return demand;
         },
         onSuccess: () => {
@@ -129,6 +128,7 @@ export default function DemandsPage() {
             }
         }
 
+        // Client-side Filters
         if (filters.search) {
             const search = filters.search.toLowerCase();
             if (!d.product?.toLowerCase().includes(search) &&
@@ -142,10 +142,12 @@ export default function DemandsPage() {
         } else if (filters.status !== 'all' && d.status !== filters.status) {
             return false;
         }
+
         if (filters.analyst_id !== 'all' && d.analyst_id !== filters.analyst_id) return false;
         if (filters.client_id !== 'all' && d.client_id !== filters.client_id) return false;
         if (filters.cycle_id !== 'all' && d.cycle_id !== filters.cycle_id) return false;
         if (filters.complexity !== 'all' && d.complexity !== filters.complexity) return false;
+
         return true;
     });
 
