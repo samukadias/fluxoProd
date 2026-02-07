@@ -4,6 +4,7 @@ import axios from 'axios';
 // You should update the baseURL to match your backend server URL
 // Dynamically determine the base URL based on the current hostname
 const getBaseUrl = () => {
+<<<<<<< HEAD
     const url = (() => {
         // Prioritize dynamic hostname to fix LAN access when .env has localhost hardcoded
         if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
@@ -14,6 +15,12 @@ const getBaseUrl = () => {
     })();
     console.log('FluxoAPI Base URL:', url);
     return url;
+=======
+    if (typeof window !== 'undefined') {
+        return `http://${window.location.hostname}:3000`;
+    }
+    return 'http://localhost:3000';
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
 };
 
 export const fluxClient = axios.create({
@@ -61,11 +68,18 @@ export const fluxoApi = {
         FinanceContract: createCrud('finance_contracts'), // Módulo Financeiro
         DeadlineContract: createCrud('deadline_contracts'), // Módulo Prazos
         Invoice: createCrud('invoices'),
+<<<<<<< HEAD
         MonthlyAttestation: createCrud('attestations'),
         Client: createCrud('clients'),
         Analyst: createCrud('analysts'),
         TermoConfirmacao: createCrud('termos_confirmacao'),
         StageHistory: createCrud('stage_history'),
+=======
+        MonthlyAttestation: createCrud('monthly_attestations'),
+        Client: createCrud('clients'),
+        Analyst: createCrud('analysts'),
+        TermoConfirmacao: createCrud('termos_confirmacao'),
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
     },
     auth: {
         login: (email, password) => fluxClient.post('/auth/login', { email, password }).then(res => res.data),

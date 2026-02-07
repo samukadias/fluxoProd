@@ -80,6 +80,7 @@ export default function BottleneckChart({ data = [] }) {
 
     if (chartData.length === 0) {
         return (
+<<<<<<< HEAD
             <div className="relative w-full h-[300px]">
                 <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
                     <div className="text-center p-4 bg-white/90 rounded-lg shadow-sm border border-slate-100">
@@ -104,6 +105,10 @@ export default function BottleneckChart({ data = [] }) {
                         </ScatterChart>
                     </ResponsiveContainer>
                 </div>
+=======
+            <div className="h-[300px] flex items-center justify-center text-slate-400">
+                <p className="text-sm">Sem dados de histórico disponíveis</p>
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
             </div>
         );
     }

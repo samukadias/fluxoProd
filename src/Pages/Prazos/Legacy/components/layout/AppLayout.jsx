@@ -1,4 +1,11 @@
+<<<<<<< HEAD
 import logo from '@/assets/logo.svg';
+=======
+import React, { useState } from 'react';
+import { Sidebar } from './Sidebar';
+import { Menu } from 'lucide-react';
+import { Button } from '../ui/button';
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
 
 export default function AppLayout({ children }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -23,8 +30,12 @@ export default function AppLayout({ children }) {
                         >
                             <Menu className="w-6 h-6" />
                         </Button>
+<<<<<<< HEAD
                         <img src={logo} alt="GOR Logo" className="w-8 h-8" />
                         <span className="font-bold text-lg">GOR</span>
+=======
+                        <span className="font-bold text-lg">ContractPro</span>
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                     </div>
                 </div>
 

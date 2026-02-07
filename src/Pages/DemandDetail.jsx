@@ -10,7 +10,10 @@ import { ArrowLeft, Edit2, Clock, Calendar, User, Building2, Layers, AlertTriang
 import StatusBadge from '@/components/demands/StatusBadge';
 import PriorityBadge from '@/components/demands/PriorityBadge';
 import StatusTimeline from '@/components/demands/StatusTimeline';
+<<<<<<< HEAD
 import { StageStepper } from '@/components/demands/StageStepper';
+=======
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
 import DemandForm from '@/components/demands/DemandForm';
 import { calculateWorkDays, calculateSLA } from '@/components/demands/EffortCalculator';
 import { format, parseISO, isAfter } from 'date-fns';
@@ -74,12 +77,15 @@ export default function DemandDetailPage() {
         queryFn: () => fluxoApi.entities.Holiday.list()
     });
 
+<<<<<<< HEAD
     const { data: stageHistory = [] } = useQuery({
         queryKey: ['stage-history', demandId],
         queryFn: () => fluxoApi.entities.StageHistory.list({ demand_id: demandId }),
         enabled: !!demandId
     });
 
+=======
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
     const { data: users = [] } = useQuery({
         queryKey: ['users'],
         queryFn: () => fluxoApi.entities.User.list()
@@ -110,12 +116,53 @@ export default function DemandDetailPage() {
 
     const updateMutation = useMutation({
         mutationFn: async (data) => {
+<<<<<<< HEAD
             // Notificações
             if (data.status) {
                 const oldStatus = demand?.status;
                 const newStatus = data.status;
 
                 // Notificar requester se demanda foi entregue ou cancelada
+=======
+            const oldStatus = demand?.status;
+            const newStatus = data.status;
+
+            // Calcular tempo no status anterior
+            let timeInPreviousStatus = 0;
+            if (oldStatus !== newStatus) {
+                const lastHistoryEntry = history[history.length - 1];
+                if (lastHistoryEntry) {
+                    const lastChange = new Date(lastHistoryEntry.changed_at);
+                    const now = new Date();
+                    timeInPreviousStatus = Math.round((now - lastChange) / (1000 * 60));
+                }
+
+                // Lógica de congelamento
+                if (oldStatus === 'CONGELADA' && newStatus !== 'CONGELADA') {
+                    // Descongelando - calcular tempo congelado
+                    if (demand.last_frozen_at) {
+                        const frozenSince = new Date(demand.last_frozen_at);
+                        const additionalFrozenMinutes = Math.round((new Date() - frozenSince) / (1000 * 60));
+                        data.frozen_time_minutes = (demand.frozen_time_minutes || 0) + additionalFrozenMinutes;
+                        data.last_frozen_at = null;
+                    }
+                } else if (newStatus === 'CONGELADA' && oldStatus !== 'CONGELADA') {
+                    // Congelando
+                    data.last_frozen_at = new Date().toISOString();
+                }
+
+                // Registrar histórico
+                await fluxoApi.entities.StatusHistory.create({
+                    demand_id: demandId,
+                    from_status: oldStatus,
+                    to_status: newStatus,
+                    changed_at: new Date().toISOString(),
+                    time_in_previous_status_minutes: timeInPreviousStatus,
+                    changed_by: user?.email
+                });
+
+                // Notificações
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                 if (newStatus === 'ENTREGUE' || newStatus === 'CANCELADA') {
                     const requester = requesters.find(r => r.id === demand.requester_id);
                     if (requester?.email) {
@@ -130,6 +177,7 @@ export default function DemandDetailPage() {
                         }
                     }
                 }
+<<<<<<< HEAD
             }
 
             // Notificar analista se mudou
@@ -144,6 +192,22 @@ export default function DemandDetailPage() {
                         });
                     } catch (e) {
                         console.log('Erro ao enviar notificação:', e);
+=======
+
+                // Notificar analista se mudou
+                if (data.analyst_id && data.analyst_id !== demand.analyst_id) {
+                    const analyst = analysts.find(a => a.id === data.analyst_id);
+                    if (analyst?.email) {
+                        try {
+                            await fluxoApi.integrations.Core.SendEmail({
+                                to: analyst.email,
+                                subject: `Nova demanda designada: ${demand.product}`,
+                                body: `Você foi designado como responsável pela demanda "${demand.product}".\n\nAcesse o sistema para mais detalhes.`
+                            });
+                        } catch (e) {
+                            console.log('Erro ao enviar notificação:', e);
+                        }
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                     }
                 }
             }
@@ -172,6 +236,7 @@ export default function DemandDetailPage() {
         }
     });
 
+<<<<<<< HEAD
     const [showClearHistoryDialog, setShowClearHistoryDialog] = useState(false);
 
     const clearHistoryMutation = useMutation({
@@ -193,6 +258,8 @@ export default function DemandDetailPage() {
         }
     });
 
+=======
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
     if (loadingDemand) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 p-8">
@@ -268,6 +335,7 @@ export default function DemandDetailPage() {
                         )}
                     </div>
                 </div>
+<<<<<<< HEAD
                 <div className="mb-8">
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                         <h3 className="text-sm font-semibold text-slate-500 mb-4 uppercase tracking-wider">Fluxo de Etapas (CDPC)</h3>
@@ -284,6 +352,8 @@ export default function DemandDetailPage() {
                     </div>
                 </div>
 
+=======
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 space-y-6">
@@ -403,11 +473,16 @@ export default function DemandDetailPage() {
 
                     <div className="space-y-6">
                         <Card className="border-0 shadow-lg rounded-2xl">
+<<<<<<< HEAD
                             <CardHeader className="pb-2 flex flex-row items-center justify-between">
+=======
+                            <CardHeader className="pb-2">
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                                 <CardTitle className="text-lg flex items-center gap-2">
                                     <Clock className="w-5 h-5 text-indigo-600" />
                                     Linha do Tempo
                                 </CardTitle>
+<<<<<<< HEAD
                                 {user?.role === 'admin' && (
                                     <Button
                                         variant="ghost"
@@ -419,6 +494,8 @@ export default function DemandDetailPage() {
                                         <Trash2 className="w-4 h-4" />
                                     </Button>
                                 )}
+=======
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                             </CardHeader>
                             <CardContent>
                                 <StatusTimeline history={history} currentStatus={demand.status} />
@@ -428,6 +505,7 @@ export default function DemandDetailPage() {
                 </div>
             </div>
 
+<<<<<<< HEAD
             <AlertDialog open={showClearHistoryDialog} onOpenChange={setShowClearHistoryDialog}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -448,6 +526,8 @@ export default function DemandDetailPage() {
                 </AlertDialogContent>
             </AlertDialog>
 
+=======
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
             <Dialog open={showEditForm} onOpenChange={setShowEditForm}>
                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>

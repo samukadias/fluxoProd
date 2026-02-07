@@ -36,8 +36,11 @@ const menuItems = [
 
 import { X } from 'lucide-react';
 
+<<<<<<< HEAD
 import logo from '@/assets/logo.svg';
 
+=======
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
 export function Sidebar({ isOpen, onClose }) {
     const location = useLocation();
     const { user, logout } = useAuth();
@@ -64,12 +67,20 @@ export function Sidebar({ isOpen, onClose }) {
                 <div className="p-6 flex justify-between items-start">
                     <div>
                         <div className="flex items-center gap-3 mb-1">
+<<<<<<< HEAD
                             {/* <div className="bg-blue-600 p-2 rounded-lg">
                                 <Building2 className="w-6 h-6 text-white" />
                             </div> */}
                             <img src={logo} alt="GOR Logo" className="w-8 h-8" />
                             <div>
                                 <h1 className="font-bold text-gray-900 text-lg leading-none">GOR</h1>
+=======
+                            <div className="bg-blue-600 p-2 rounded-lg">
+                                <Building2 className="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                                <h1 className="font-bold text-gray-900 text-lg leading-none">ContractPro</h1>
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                                 <span className="text-xs text-gray-500">Gestão de Contratos</span>
                             </div>
                         </div>

@@ -154,7 +154,10 @@ export default function EditContract() {
   };
 
   const handleRenewContract = async () => {
+<<<<<<< HEAD
     console.log("Iniciando renovação do contrato...", contract);
+=======
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
     if (!newContractNumber.trim()) {
       toast.error("Informe o número do novo contrato.");
       return;
@@ -165,6 +168,7 @@ export default function EditContract() {
       // 1. Prepare data for NEW contract (Clone existing but reset financials/status)
       const newContractData = {
         ...contract, // Copy all fields
+<<<<<<< HEAD
       };
       
       // Explicitly remove ID and timestamps to ensure creation of a NEW record
@@ -194,16 +198,46 @@ export default function EditContract() {
 
       // 3. Update the OLD contract
       console.log(`Atualizando status do contrato anterior (ID: ${contract.id})...`);
+=======
+        id: undefined, // Let DB generate new ID
+        created_at: undefined,
+        updated_at: undefined,
+
+        contrato: newContractNumber.toUpperCase(), // The new number
+        contrato_anterior: contract.contrato, // Link to old
+        contrato_novo: null, // New one has no successor yet
+
+        status: "Ativo", // Start fresh
+        status_vencimento: "Em dia",
+
+        // Reset financials
+        valor_faturado: 0,
+        valor_cancelado: 0,
+        valor_a_faturar: contract.valor_contrato, // Starts full? Or maybe 0? Usually renewed contracts maintain value logic, let's assume full value for now or user adjusts. 
+        // Actually, if it's a renewal, the value might change. For safety, we keep the old value as default but reset execution.
+
+        // Dates usually change, but we'll keep them for the user to edit as they are likely different.
+      };
+
+      // 2. Create the NEW contract
+      const createdContract = await Contract.create(newContractData);
+
+      // 3. Update the OLD contract
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
       await Contract.update(contract.id, {
         status: "Renovado",
         contrato_novo: newContractNumber.toUpperCase()
       });
+<<<<<<< HEAD
       console.log("Contrato anterior atualizado com sucesso.");
+=======
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
 
       toast.success("Contrato renovado com sucesso!");
       setIsRenewDialogOpen(false);
 
       // 4. Redirect to the NEW contract's edit page
+<<<<<<< HEAD
       console.log(`Redirecionando para o novo contrato: ${createdContract.id}`);
       navigate(`${createPageUrl("EditContract")}/${createdContract.id}`);
 
@@ -211,6 +245,14 @@ export default function EditContract() {
       console.error("Erro FATAL ao renovar contrato:", error);
       const errorMessage = error.response?.data?.error || error.message || "Erro desconhecido";
       toast.error(`Erro ao renovar contrato: ${errorMessage}`);
+=======
+      // We need to wait a moment or just navigate
+      navigate(`${createPageUrl("EditContract")}/${createdContract.id}`);
+
+    } catch (error) {
+      console.error("Erro ao renovar contrato:", error);
+      toast.error("Erro ao renovar contrato.");
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
     } finally {
       setIsRenewing(false);
     }

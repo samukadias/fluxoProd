@@ -31,6 +31,7 @@ export default function ComplexityChart({ data = [] }) {
     };
 
     if (chartData.length === 0) {
+<<<<<<< HEAD
         // Show empty structure
         const emptyData = [
             { complexity: 'Baixa', days: 0 },
@@ -56,6 +57,11 @@ export default function ComplexityChart({ data = [] }) {
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
+=======
+        return (
+            <div className="h-[200px] flex items-center justify-center text-slate-400">
+                <p className="text-sm">Sem dados de conclusão disponíveis</p>
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
             </div>
         );
     }

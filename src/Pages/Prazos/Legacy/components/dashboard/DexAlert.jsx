@@ -31,10 +31,13 @@ export default function DexAlert({ contracts, isLoading }) {
 
     const dexAlerts = getDexAlerts();
 
+<<<<<<< HEAD
     if (!isLoading && dexAlerts.length === 0) {
         return null;
     }
 
+=======
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
     return (
         <Card className="border-orange-200 bg-orange-50">
             <CardHeader>

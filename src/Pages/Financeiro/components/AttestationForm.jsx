@@ -5,7 +5,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+<<<<<<< HEAD
 import { Save, Calendar, DollarSign, AlertCircle, FileText } from "lucide-react";
+=======
+import { Save, Calendar, DollarSign, AlertCircle } from "lucide-react";
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function AttestationForm({ attestation, contract, onSubmit, isLoading }) {
@@ -22,8 +26,11 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
         pd_number: '',
         responsible_analyst: '',
         esp_number: '',
+<<<<<<< HEAD
         sei_process_number: '',
         sei_send_area: '',
+=======
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
         reference_month: '',
         report_generation_date: '',
         report_send_date: '',
@@ -46,8 +53,11 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                 pd_number: attestation.pd_number || '',
                 responsible_analyst: attestation.responsible_analyst || '',
                 esp_number: attestation.esp_number || '',
+<<<<<<< HEAD
                 sei_process_number: attestation.sei_process_number || '',
                 sei_send_area: attestation.sei_send_area || '',
+=======
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                 reference_month: attestation.reference_month || '',
                 report_generation_date: attestation.report_generation_date ? attestation.report_generation_date.split('T')[0] : '',
                 report_send_date: attestation.report_send_date ? attestation.report_send_date.split('T')[0] : '',
@@ -212,6 +222,7 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                 </CardContent>
             </Card>
 
+<<<<<<< HEAD
             {/* SEI Information Block */}
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
                 <CardHeader className="border-b border-slate-100 pb-4">
@@ -244,6 +255,8 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                 </CardContent>
             </Card>
 
+=======
+>>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
                 <CardHeader className="border-b border-slate-100 pb-4">
                     <CardTitle className="flex items-center gap-2 text-slate-800">
