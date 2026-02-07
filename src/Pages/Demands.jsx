@@ -12,14 +12,10 @@ import { toast } from "sonner";
 
 export default function DemandsPage() {
     const queryClient = useQueryClient();
-<<<<<<< HEAD
     const [user, setUser] = useState(() => {
         const stored = localStorage.getItem('fluxo_user');
         return stored ? JSON.parse(stored) : null;
     });
-=======
-    const [user, setUser] = useState(null);
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
     const [showForm, setShowForm] = useState(false);
     const [viewMode, setViewMode] = useState('grid');
     const [filters, setFilters] = useState({
@@ -31,16 +27,7 @@ export default function DemandsPage() {
         complexity: 'all'
     });
 
-<<<<<<< HEAD
-=======
-    useEffect(() => {
-        const stored = localStorage.getItem('fluxo_user');
-        if (stored) {
-            setUser(JSON.parse(stored));
-        }
-    }, []);
 
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
     const { data: demands = [], isLoading: loadingDemands } = useQuery({
         queryKey: ['demands'],
         queryFn: () => fluxoApi.entities.Demand.list('-created_date')

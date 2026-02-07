@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { fluxoApi } from '@/api/fluxoClient';
 import { useQuery } from '@tanstack/react-query';
-<<<<<<< HEAD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 import { FileText, Clock, AlertTriangle, CheckCircle2, TrendingUp, Layers, Briefcase, Timer, List } from "lucide-react";
@@ -11,16 +10,6 @@ import BottleneckChart from '@/Components/dashboard/BottleneckChart';
 import BottleneckBarChart from '@/Components/dashboard/BottleneckBarChart';
 import ComplexityChart from '@/Components/dashboard/ComplexityChart';
 import QualifiedDemandsChart from '@/Components/dashboard/QualifiedDemandsChart';
-=======
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Clock, AlertTriangle, CheckCircle2, TrendingUp, Layers, Briefcase, Timer } from "lucide-react";
-import StatsCard from '@/components/dashboard/StatsCard';
-import BottleneckChart from '@/components/dashboard/BottleneckChart';
-import BottleneckBarChart from '@/components/dashboard/BottleneckBarChart';
-import ComplexityChart from '@/components/dashboard/ComplexityChart';
-import QualifiedDemandsChart from '@/components/dashboard/QualifiedDemandsChart';
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
 import { calculateWorkDays } from '@/components/demands/EffortCalculator';
 import { isAfter, parseISO, format, getYear } from 'date-fns';
 
@@ -52,10 +41,7 @@ export default function DashboardPage() {
     const currentYear = getYear(new Date());
     const [selectedYear, setSelectedYear] = useState(String(currentYear));
     const [selectedAnalyst, setSelectedAnalyst] = useState('all');
-<<<<<<< HEAD
     const [selectedFilter, setSelectedFilter] = useState(null); // 'backlog', 'tratativa', 'open', 'overdue', 'delivered', 'total'
-=======
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
     const [user, setUser] = useState(null);
 
     useEffect(() => {
@@ -75,14 +61,11 @@ export default function DashboardPage() {
         queryFn: () => fluxoApi.entities.StatusHistory.list()
     });
 
-<<<<<<< HEAD
     const { data: stageHistory = [] } = useQuery({
         queryKey: ['stage-history'],
         queryFn: () => fluxoApi.entities.StageHistory.list()
     });
 
-=======
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
     const { data: users = [] } = useQuery({
         queryKey: ['users'],
         queryFn: () => fluxoApi.entities.User.list()
@@ -169,7 +152,6 @@ export default function DashboardPage() {
         });
     }, [demands, selectedYear, selectedAnalyst, currentAnalyst, currentRequester, user]);
 
-<<<<<<< HEAD
     // Map for quick lookup
     const usersMap = useMemo(() => {
         return users.reduce((acc, u) => {
@@ -212,8 +194,6 @@ export default function DashboardPage() {
         }
     };
 
-=======
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
     const stats = useMemo(() => {
         const total = filteredDemands.length;
 
@@ -337,7 +317,6 @@ export default function DashboardPage() {
         return { statusAvg, avgDeliveryDays, deliveredCount: delivered.length };
     }, [bottleneckData, filteredDemands, holidays, history]);
 
-<<<<<<< HEAD
     // CDPC Stage SLA
     const stageSlaData = useMemo(() => {
         const stageTotals = {}; // { StageName: { totalMinutes: 0, count: 0 } }
@@ -380,18 +359,6 @@ export default function DashboardPage() {
                                     | Olá, <span className="text-indigo-600">{(user.name || user.full_name).split(' ')[0]}</span>
                                 </span>
                             )}
-=======
-    const isManager = user?.role === 'manager' || user?.perfil === 'GESTOR' || user?.department === 'GOR' || (user?.department === 'CDPC' && user?.role === 'manager');
-    const isRequester = user?.role === 'requester';
-
-    return (
-        <div className="p-6 bg-slate-50 min-h-screen">
-            <div className="max-w-7xl mx-auto">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-                    <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-                            Dashboard CDPC
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                         </h1>
                         <p className="text-slate-500 mt-1">
                             {isRequester ? "Minossas Solicitações" : "Visão geral e análise de gargalos"}
@@ -424,17 +391,12 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-<<<<<<< HEAD
                 <div className={`grid grid-cols-1 sm:grid-cols-2 ${isAnalystCDPC ? 'lg:grid-cols-5' : 'lg:grid-cols-6'} gap-4 mb-8`}>
-=======
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                     <StatsCard
                         title="Total de Demandas"
                         value={stats.total}
                         icon={FileText}
                         type="default"
-<<<<<<< HEAD
                         onClick={() => setSelectedFilter(selectedFilter === 'total' ? null : 'total')}
                     />
                     {/* Hide Backlog for Analyst CDPC */}
@@ -447,51 +409,32 @@ export default function DashboardPage() {
                             onClick={() => setSelectedFilter(selectedFilter === 'backlog' ? null : 'backlog')}
                         />
                     )}
-=======
-                    />
-                    <StatsCard
-                        title="Backlog"
-                        value={stats.backlog}
-                        icon={Layers}
-                        type="info"
-                    />
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                     <StatsCard
                         title="Em Tratativa"
                         value={stats.tratativa}
                         icon={Briefcase}
                         type="purple"
-<<<<<<< HEAD
                         onClick={() => setSelectedFilter(selectedFilter === 'tratativa' ? null : 'tratativa')}
-=======
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                     />
                     <StatsCard
                         title="Em Aberto"
                         value={stats.open}
                         icon={Clock}
                         type="warning"
-<<<<<<< HEAD
                         onClick={() => setSelectedFilter(selectedFilter === 'open' ? null : 'open')}
-=======
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                     />
                     <StatsCard
                         title="Atrasadas"
                         value={stats.overdue}
                         icon={AlertTriangle}
                         type="danger"
-<<<<<<< HEAD
                         onClick={() => setSelectedFilter(selectedFilter === 'overdue' ? null : 'overdue')}
-=======
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                     />
                     <StatsCard
                         title="Entregues"
                         value={stats.delivered}
                         icon={CheckCircle2}
                         type="success"
-<<<<<<< HEAD
                         onClick={() => setSelectedFilter(selectedFilter === 'delivered' ? null : 'delivered')}
                     />
                 </div>
@@ -570,11 +513,6 @@ export default function DashboardPage() {
                     </Card>
                 )}
 
-=======
-                    />
-                </div>
-
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                 {/* SLA Section - Visible to all (non-requesters) */}
                 {!isRequester && (
                     <Card className="mb-8">
@@ -617,16 +555,7 @@ export default function DashboardPage() {
                                                     <tr key={status} className="border-b hover:bg-slate-50">
                                                         <td className="px-3 py-2 font-medium text-slate-700">{status}</td>
                                                         <td className="px-3 py-2 text-right text-slate-500">
-<<<<<<< HEAD
                                                             {(minutes / 1440).toFixed(1)} dias
-=======
-                                                            {minutes >= 1440
-                                                                ? `${Math.round(minutes / 1440)} dias`
-                                                                : minutes >= 60
-                                                                    ? `${Math.round(minutes / 60)} horas`
-                                                                    : `${minutes} min`
-                                                            }
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -638,7 +567,6 @@ export default function DashboardPage() {
                     </Card>
                 )}
 
-<<<<<<< HEAD
                 {/* CDPC Stage SLA */}
                 {!isRequester && stageSlaData.length > 0 && (
                     <Card className="mb-8">
@@ -668,8 +596,6 @@ export default function DashboardPage() {
                     </Card>
                 )}
 
-=======
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                 {!isRequester && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                         <Card>

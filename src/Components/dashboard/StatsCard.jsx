@@ -9,12 +9,8 @@ export default function StatsCard({
     type = 'default',
     icon: Icon,
     trend,
-<<<<<<< HEAD
     trendUp,
     onClick
-=======
-    trendUp
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
 }) {
     const getStyles = () => {
         switch (type) {
@@ -64,7 +60,6 @@ export default function StatsCard({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-<<<<<<< HEAD
             className="h-full"
         >
             <Card
@@ -76,14 +71,6 @@ export default function StatsCard({
                     <div className="flex items-start justify-between">
                         <div>
                             <p className={`text-sm font-medium ${styles.text} opacity-80 h-10 flex items-center`}>
-=======
-        >
-            <Card className={`${styles.bg} border-0 shadow-xl overflow-hidden`}>
-                <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className={`text-sm font-medium ${styles.text} opacity-80`}>
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
                                 {title}
                             </p>
                             <p className={`text-3xl font-bold ${styles.text} mt-2`}>

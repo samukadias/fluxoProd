@@ -1,15 +1,9 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
-<<<<<<< HEAD
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/Components/ui/table";
 import { Badge } from "@/Components/ui/badge";
 import { Button } from "@/Components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
-=======
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
@@ -29,11 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-<<<<<<< HEAD
 import { Contract } from "@/Entities/Contract";
-=======
-import { Contract } from "@/entities/Contract";
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
 
 const statusColors = {
   "Ativo": "bg-green-100 text-green-800",
@@ -63,11 +53,7 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
 
 
 
-<<<<<<< HEAD
   const [itemsPerPage, setItemsPerPage] = React.useState(10);
-=======
-  const itemsPerPage = 10;
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
 
   // Reset page when contracts change (e.g. filtering)
   React.useEffect(() => {
@@ -375,7 +361,6 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
         </div>
 
         {/* Pagination Controls */}
-<<<<<<< HEAD
         {totalPages >= 1 && (
           <div className="flex items-center justify-between px-4 py-4 border-t">
             <div className="flex items-center gap-4 text-sm text-gray-500">
@@ -399,12 +384,6 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
                   </SelectContent>
                 </Select>
               </div>
-=======
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-4 border-t">
-            <div className="text-sm text-gray-500">
-              Mostrando {startIndex + 1} a {Math.min(endIndex, contracts.length)} de {contracts.length} contratos
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
             </div>
             <div className="flex gap-2">
               <Button

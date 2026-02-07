@@ -13,7 +13,6 @@ import { CalendarIcon, Save, X, Check, ChevronsUpDown } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 
-<<<<<<< HEAD
 const STAGES = [
     "Triagem",
     "Qualificação",
@@ -23,8 +22,6 @@ const STAGES = [
     "KIT"
 ];
 
-=======
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
 const STATUS_LIST = [
     "PENDENTE TRIAGEM",
     "TRIAGEM NÃO ELEGÍVEL",
@@ -68,10 +65,7 @@ export default function DemandForm({
         observation: demand?.observation || '',
         client_id: demand?.client_id || '',
         cycle_id: demand?.cycle_id || '',
-<<<<<<< HEAD
         stage: demand?.stage || 'Triagem',
-=======
->>>>>>> b0affbe18c16533c8cdd62eb233f9bbe66e897a1
         analyst_id: demand?.analyst_id || '',
         requester_id: demand?.requester_id || '',
         support_analyst_id: demand?.support_analyst_id || ''
