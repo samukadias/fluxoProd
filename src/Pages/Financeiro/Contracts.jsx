@@ -173,39 +173,54 @@ export default function Contracts() {
 
                 {/* Seleção de Cliente */}
                 {!selectedClient ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <AnimatePresence>
-                            {clientsList.map((client, index) => (
-                                <motion.div
-                                    key={client}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: index * 0.05 }}
-                                >
-                                    <Card
-                                        className="border-0 shadow-lg bg-white hover:shadow-xl transition-all cursor-pointer"
-                                        onClick={() => setSelectedClient(client)}
-                                    >
-                                        <CardContent className="p-6">
-                                            <div className="flex items-start gap-4">
-                                                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                                                    <Building2 className="w-6 h-6 text-blue-600" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <h3 className="text-lg font-semibold text-slate-900 mb-2 truncate" title={client}>
-                                                        {client}
-                                                    </h3>
-                                                    <p className="text-sm text-slate-600">
-                                                        {clientGroups[client].length} contrato(s)
-                                                    </p>
-                                                </div>
-                                                <ChevronRight className="w-5 h-5 text-slate-400" />
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </motion.div>
-                            ))}
-                        </AnimatePresence>
+                    <div className="space-y-6">
+                        {/* Search Bar for Clients */}
+                        <div className="relative max-w-md mx-auto md:mx-0">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                            <Input
+                                placeholder="Pesquisar cliente..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 bg-white shadow-sm border-slate-200"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <AnimatePresence>
+                                {clientsList
+                                    .filter(client => client.toLowerCase().includes(searchTerm.toLowerCase()))
+                                    .map((client, index) => (
+                                        <motion.div
+                                            key={client}
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: index * 0.05 }}
+                                        >
+                                            <Card
+                                                className="border-0 shadow-lg bg-white hover:shadow-xl transition-all cursor-pointer"
+                                                onClick={() => setSelectedClient(client)}
+                                            >
+                                                <CardContent className="p-6">
+                                                    <div className="flex items-start gap-4">
+                                                        <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                                                            <Building2 className="w-6 h-6 text-blue-600" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <h3 className="text-lg font-semibold text-slate-900 mb-2 truncate" title={client}>
+                                                                {client}
+                                                            </h3>
+                                                            <p className="text-sm text-slate-600">
+                                                                {clientGroups[client].length} contrato(s)
+                                                            </p>
+                                                        </div>
+                                                        <ChevronRight className="w-5 h-5 text-slate-400" />
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        </motion.div>
+                                    ))}
+                            </AnimatePresence>
+                        </div>
                     </div>
                 ) : (
                     <>

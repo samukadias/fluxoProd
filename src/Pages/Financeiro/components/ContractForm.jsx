@@ -7,7 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, FileText, Building2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Save, FileText, Building2, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import EspManager from './EspManager';
 
 export default function ContractForm({ contract, onSubmit, isLoading }) {
@@ -44,6 +47,7 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
     });
 
     const [availablePDs, setAvailablePDs] = useState([]);
+    const [openClientCombo, setOpenClientCombo] = useState(false);
 
     useEffect(() => {
         if (contract) {
@@ -116,6 +120,11 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
+    // Obter lista única de clientes dos contratos
+    const availableClients = React.useMemo(() => {
+        return [...new Set(prazosContracts.map(c => c.cliente).filter(Boolean))].sort();
+    }, [prazosContracts]);
+
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
@@ -131,21 +140,49 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
                             <Label htmlFor="client_name" className="text-slate-700">
                                 Cliente *
                             </Label>
-                            <Select
-                                value={formData.client_name}
-                                onValueChange={(value) => updateField('client_name', value)}
-                            >
-                                <SelectTrigger className="mt-1">
-                                    <SelectValue placeholder="Selecione um cliente" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {[...new Set(prazosContracts.map(c => c.cliente).filter(Boolean))].sort().map((clientName) => (
-                                        <SelectItem key={clientName} value={clientName}>
-                                            {clientName}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Popover open={openClientCombo} onOpenChange={setOpenClientCombo}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={openClientCombo}
+                                        className="w-full justify-between h-10 font-normal px-3 mt-1"
+                                    >
+                                        <span className="truncate">
+                                            {formData.client_name || "Selecione um cliente..."}
+                                        </span>
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                    <Command>
+                                        <CommandInput placeholder="Buscar cliente..." />
+                                        <CommandList>
+                                            <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                                            <CommandGroup>
+                                                {availableClients.map((clientName) => (
+                                                    <CommandItem
+                                                        key={clientName}
+                                                        value={clientName}
+                                                        onSelect={() => {
+                                                            updateField('client_name', clientName);
+                                                            setOpenClientCombo(false);
+                                                        }}
+                                                    >
+                                                        <Check
+                                                            className={cn(
+                                                                "mr-2 h-4 w-4",
+                                                                formData.client_name === clientName ? "opacity-100" : "opacity-0"
+                                                            )}
+                                                        />
+                                                        {clientName}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
                         </div>
                         <div>
                             <Label htmlFor="pd_number" className="text-slate-700">

@@ -803,7 +803,7 @@ const handleEntityWithUserCreation = async (req, res, tableName, role) => {
 
 app.post('/analysts', (req, res) => handleEntityWithUserCreation(req, res, 'analysts', 'analyst'));
 app.post('/requesters', (req, res) => handleEntityWithUserCreation(req, res, 'requesters', 'requester'));
-app.post('/clients', (req, res) => handleEntityWithUserCreation(req, res, 'clients', 'client'));
+// app.post('/clients', (req, res) => handleEntityWithUserCreation(req, res, 'clients', 'client')); // Removed: Clients are companies, not users. Use generic CRUD.
 
 // Clear status history for a demand
 app.delete('/demands/:id/history', async (req, res) => {
