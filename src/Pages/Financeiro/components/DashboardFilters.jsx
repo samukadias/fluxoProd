@@ -112,23 +112,25 @@ export default function DashboardFilters({
                             </SelectContent>
                         </Select>
                     </div>
-                    <div>
-                        <Label className="text-xs text-slate-500 mb-1 block">Analista</Label>
-                        <Select
-                            value={filters.analyst}
-                            onValueChange={(value) => onFilterChange({ ...filters, analyst: value })}
-                        >
-                            <SelectTrigger className="bg-white">
-                                <SelectValue placeholder="Todos" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos</SelectItem>
-                                {analysts.map(a => (
-                                    <SelectItem key={a} value={a}>{a}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    {analysts && analysts.length > 0 && (
+                        <div>
+                            <Label className="text-xs text-slate-500 mb-1 block">Analista</Label>
+                            <Select
+                                value={filters.analyst}
+                                onValueChange={(value) => onFilterChange({ ...filters, analyst: value })}
+                            >
+                                <SelectTrigger className="bg-white">
+                                    <SelectValue placeholder="Todos" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos</SelectItem>
+                                    {analysts.map(a => (
+                                        <SelectItem key={a} value={a}>{a}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
                 </div>
             </CardContent>
         </Card>

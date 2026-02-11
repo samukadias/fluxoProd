@@ -216,11 +216,54 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
                                     disabled={!formData.client_name}
                                 />
                             )}
-                            {formData.client_name && availablePDs.length > 0 && (
-                                <p className="text-xs text-slate-500 mt-1">
-                                    {availablePDs.length} PD(s) encontrado(s) em Prazos
-                                </p>
-                            )}
+
+                            {/* Selected Contract Details Card */}
+                            {(() => {
+                                const selectedContract = prazosContracts.find(
+                                    c => c.cliente === formData.client_name && c.contrato === formData.pd_number
+                                );
+
+                                if (selectedContract) {
+                                    return (
+                                        <div className="mt-3 p-3 bg-blue-50/50 border border-blue-100 rounded-lg text-sm space-y-2 animate-in fade-in slide-in-from-top-2">
+                                            <div className="flex items-start justify-between">
+                                                <span className="font-semibold text-blue-900">Resumo do Contrato (COCR)</span>
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold ${selectedContract.status === 'Ativo' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
+                                                    }`}>
+                                                    {selectedContract.status || 'N/A'}
+                                                </span>
+                                            </div>
+
+                                            {selectedContract.objeto && (
+                                                <div className="text-slate-700">
+                                                    <span className="font-medium text-slate-900 block text-xs uppercase tracking-wide opacity-70 mb-0.5">Objeto:</span>
+                                                    <p className="line-clamp-3 leading-relaxed">{selectedContract.objeto}</p>
+                                                </div>
+                                            )}
+
+                                            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-blue-100/50">
+                                                <div>
+                                                    <span className="font-medium text-slate-900 block text-xs uppercase tracking-wide opacity-70">Vigência:</span>
+                                                    <span className="text-slate-600">
+                                                        {selectedContract.data_inicio_efetividade ? new Date(selectedContract.data_inicio_efetividade).toLocaleDateString() : '-'}
+                                                        {' a '}
+                                                        {selectedContract.data_fim_efetividade ? new Date(selectedContract.data_fim_efetividade).toLocaleDateString() : '-'}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span className="font-medium text-slate-900 block text-xs uppercase tracking-wide opacity-70">Valor Global:</span>
+                                                    <span className="text-slate-600">
+                                                        {selectedContract.valor_contrato ?
+                                                            new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedContract.valor_contrato)
+                                                            : '-'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
                         </div>
                         <div>
                             <Label htmlFor="responsible_analyst" className="text-slate-700">
@@ -276,6 +319,6 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
                     {isLoading ? 'Salvando...' : 'Salvar Contrato'}
                 </Button>
             </div>
-        </form>
+        </form >
     );
 }

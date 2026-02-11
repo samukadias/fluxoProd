@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { addMonths, isBefore, startOfDay } from "date-fns";
 import { useContracts } from "@/hooks/useContracts";
 import ContractTable from "../components/contracts/ContractTable";
 import ContractFilters from "../components/contracts/ContractFilters";
@@ -23,7 +24,7 @@ export default function Contracts() {
     search: "",
     status: searchParams.get("status") || "all",
     analista: "all",
-    vencimento: "all"
+    vencimento: searchParams.get("vencimento") || "all"
   });
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
@@ -80,7 +81,17 @@ export default function Contracts() {
 
     const matchesStatus = filters.status === "all" || contract.status === filters.status;
     const matchesAnalista = filters.analista === "all" || contract.analista_responsavel === filters.analista;
-    const matchesVencimento = filters.vencimento === "all" || contract.status_vencimento === filters.vencimento;
+
+    const matchesVencimento = filters.vencimento === "all" || (() => {
+      if (filters.vencimento === "expiring") {
+        if (!contract.data_fim_efetividade || contract.status !== "Ativo") return false;
+        const today = startOfDay(new Date());
+        const endDate = startOfDay(new Date(contract.data_fim_efetividade));
+        const twoMonthsFromNow = addMonths(today, 2);
+        return isBefore(endDate, twoMonthsFromNow) && endDate >= today;
+      }
+      return contract.status_vencimento === filters.vencimento;
+    })();
 
     return matchesSearch && matchesStatus && matchesAnalista && matchesVencimento;
   });

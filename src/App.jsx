@@ -26,6 +26,7 @@ import AnalysisLegacy from "./pages/Prazos/Legacy/pages/Analysis";
 import StageControlLegacy from "./pages/Prazos/Legacy/pages/StageControl";
 import DataManagementLegacy from "./pages/Prazos/Legacy/pages/DataManagement";
 import SearchLegacy from "./pages/Prazos/Legacy/pages/Search";
+import ActivityLog from "./pages/ActivityLog";
 
 // Components
 import UserNotRegisteredError from "./components/UserNotRegisteredError";
@@ -54,7 +55,7 @@ function AppRoutes() {
 
     const getHomeRoute = (user) => {
         if (!user) return "/login";
-        if (user.role === 'requester') return "/demands";
+        if (user.role === 'requester') return "/dashboard";
 
         const modules = user.allowed_modules || ['flow'];
 
@@ -86,6 +87,7 @@ function AppRoutes() {
                 <Route path="demands" element={<Demands />} />
                 <Route path="demand-detail" element={<DemandDetail />} />
                 <Route path="settings" element={<Settings />} />
+                <Route path="atividades" element={<ActivityLog />} />
                 {/* Módulo Financeiro */}
                 <Route path="financeiro">
                     <Route index element={<FinanceiroHome />} />

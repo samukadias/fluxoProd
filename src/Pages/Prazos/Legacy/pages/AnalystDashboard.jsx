@@ -108,7 +108,10 @@ export default function AnalystDashboard() {
                     </CardContent>
                 </Card>
 
-                <Card className="bg-white border-l-4 border-l-orange-500 shadow-sm hover:shadow-md transition-shadow">
+                <Card
+                    className="bg-white border-l-4 border-l-orange-500 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => navigate(createPageUrl("Contracts") + "?vencimento=expiring")}
+                >
                     <CardContent className="p-6">
                         <div className="flex justify-between items-start">
                             <div className="overflow-hidden">

@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { fluxoApi } from '@/api/fluxoClient';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Plus, Search, Building2, ChevronRight,
     Edit, History, Loader2, FolderOpen, Trash2
@@ -38,19 +40,37 @@ export default function Contracts() {
     const [showForm, setShowForm] = useState(false);
     const [editingContract, setEditingContract] = useState(null);
     const [selectedClient, setSelectedClient] = useState(null);
+    const [selectedAnalyst, setSelectedAnalyst] = useState(''); // Filter state
 
-    // Obter usuário do localStorage para verificar permissões
-    const user = JSON.parse(localStorage.getItem('fluxo_user') || localStorage.getItem('user') || '{}');
-    console.log('User status para exclusão:', {
-        role: user?.role,
-        perfil: user?.perfil,
-        profile_type: user?.profile_type
-    });
+    const { user } = useAuth();
 
-    const { data: contracts = [], isLoading } = useQuery({
+    // Detect if user is analyst or manager
+    const userRole = (user?.role || '').toLowerCase();
+    const userProfile = (user?.profile_type || user?.perfil || '').toLowerCase();
+    const isAnalyst = userRole.includes('analyst') || userRole.includes('analista') || userProfile.includes('analista');
+    const userName = user?.full_name || user?.name;
+
+    // Load ALL contracts (no backend filtering)
+    const { data: allContracts = [], isLoading } = useQuery({
         queryKey: ['finance-contracts'],
         queryFn: () => fluxoApi.entities.FinanceContract.list('-created_at')
     });
+
+    // Get unique analysts from contracts
+    const analysts = [...new Set(allContracts.map(c => c.responsible_analyst).filter(Boolean))].sort();
+
+    // Auto-select logged user on first load (analysts only see their own contracts)
+    useEffect(() => {
+        if (isAnalyst && userName && !selectedAnalyst) {
+            // Analysts: auto-select and lock to their name
+            setSelectedAnalyst(userName);
+        }
+    }, [user, isAnalyst, userName, selectedAnalyst]);
+
+    // Filter contracts by selected analyst (or show all if 'all' selected)
+    const contracts = selectedAnalyst && selectedAnalyst !== 'all'
+        ? allContracts.filter(c => c.responsible_analyst === selectedAnalyst)
+        : allContracts;
 
     const createMutation = useMutation({
         mutationFn: async (data) => {
@@ -122,9 +142,10 @@ export default function Contracts() {
         }
     };
 
-    // Agrupar contratos por cliente
+    // Agrupar contratos por cliente (ou por PD se não tiver cliente)
     const clientGroups = contracts.reduce((groups, contract) => {
-        const client = contract.client_name || 'Sem Cliente';
+        // Use client_name if available, otherwise use pd_number as identifier
+        const client = contract.client_name || contract.pd_number || 'Sem Identificação';
         if (!groups[client]) groups[client] = [];
         groups[client].push(contract);
         return groups;
@@ -174,15 +195,46 @@ export default function Contracts() {
                 {/* Seleção de Cliente */}
                 {!selectedClient ? (
                     <div className="space-y-6">
-                        {/* Search Bar for Clients */}
-                        <div className="relative max-w-md mx-auto md:mx-0">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                            <Input
-                                placeholder="Pesquisar cliente..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 bg-white shadow-sm border-slate-200"
-                            />
+                        {/* Analyst Filter Dropdown */}
+                        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                            <div className="relative max-w-md flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                <Input
+                                    placeholder="Pesquisar cliente..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-10 bg-white shadow-sm border-slate-200"
+                                />
+                            </div>
+
+
+                            {/* Analyst Filter - Conditional based on role */}
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm font-medium text-slate-700 whitespace-nowrap">
+                                    Analista Responsável:
+                                </label>
+                                {isAnalyst ? (
+                                    // Analysts: Show read-only badge
+                                    <Badge className="px-3 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-100">
+                                        {userName}
+                                    </Badge>
+                                ) : (
+                                    // Managers: Show dropdown filter
+                                    <Select value={selectedAnalyst} onValueChange={setSelectedAnalyst}>
+                                        <SelectTrigger className="w-[200px] bg-white shadow-sm">
+                                            <SelectValue placeholder="Todos" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Todos os Analistas</SelectItem>
+                                            {analysts.map(analyst => (
+                                                <SelectItem key={analyst} value={analyst}>
+                                                    {analyst}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -212,6 +264,12 @@ export default function Contracts() {
                                                             <p className="text-sm text-slate-600">
                                                                 {clientGroups[client].length} contrato(s)
                                                             </p>
+                                                            {clientGroups[client][0]?.responsible_analyst && (
+                                                                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                                                                    <span className="font-medium text-slate-400">Responsável:</span>
+                                                                    {clientGroups[client][0].responsible_analyst}
+                                                                </p>
+                                                            )}
                                                         </div>
                                                         <ChevronRight className="w-5 h-5 text-slate-400" />
                                                     </div>

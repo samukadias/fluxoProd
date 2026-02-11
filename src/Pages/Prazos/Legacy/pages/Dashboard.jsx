@@ -209,6 +209,7 @@ export default function Dashboard() {
           icon={Calendar}
           color="orange"
           isLoading={isLoading}
+          onClick={() => navigate(createPageUrl("Contracts") + "?vencimento=expiring")}
         />
         <StatsCard
           title="Valor Total dos Contratos"

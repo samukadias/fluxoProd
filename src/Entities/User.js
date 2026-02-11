@@ -103,24 +103,14 @@ export class User {
         }
     }
 
-    // Método para obter o usuário atual (mock - em produção seria autenticação real)
+    // Get current authenticated user data via JWT
     static async me() {
         try {
-            // Endpoint dedicado para dados do usuário atual (se implementado)
-            // ou retornar dados mockados locais já que a auth é feita no Frontend
             const data = await fluxoApi.auth.me();
             return this.mapFromDB(data);
         } catch (error) {
-            // console.error('Erro ao buscar usuário atual:', error);
-            // Fallback
-            return {
-                id: '1',
-                email: 'gestor@fluxo.com',
-                full_name: 'Gestor Fluxo',
-                role: 'manager',
-                perfil: 'GESTOR',
-                department: 'GOR'
-            };
+            console.error('Erro ao buscar usuário atual:', error);
+            return null;
         }
     }
 

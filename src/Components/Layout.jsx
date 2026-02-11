@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, useLocation, Outlet } from 'react-router-dom';
-import { LayoutDashboard, List, Settings, LogOut, Menu, DollarSign, CalendarClock, FileText, UserCog, BarChart3, GitBranch, Database, Search } from 'lucide-react';
+import { LayoutDashboard, List, Settings, LogOut, Menu, DollarSign, CalendarClock, FileText, UserCog, BarChart3, GitBranch, Database, Search, Activity } from 'lucide-react';
+import NotificationCenter from './NotificationCenter';
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -55,8 +56,8 @@ export default function Layout({ onLogout, user }) {
                 {/* Módulo CVAC (Antigo Financeiro) */}
                 {(user?.department === 'GOR' || user?.allowed_modules?.includes('finance') || user?.department === 'CVAC') && (
                     <>
-                        {/* Dashboard CVAC: Visible to Managers (CVAC/GOR) */}
-                        {((user?.department === 'CVAC' && user?.role === 'manager') || user?.department === 'GOR' || user?.perfil === 'GESTOR') && (
+                        {/* Dashboard CVAC: Visible to Managers and Analysts */}
+                        {((user?.department === 'CVAC' && (user?.role === 'manager' || user?.role === 'analyst' || user?.profile_type === 'analista')) || user?.department === 'GOR' || user?.perfil === 'GESTOR') && (
                             <SidebarItem icon={DollarSign} label="Dashboard CVAC" to="/financeiro" onClick={() => setOpen(false)} end />
                         )}
 
@@ -70,13 +71,17 @@ export default function Layout({ onLogout, user }) {
                 {(user?.department === 'GOR' || user?.allowed_modules?.includes('contracts') || user?.department === 'COCR') && (
                     <>
                         <SidebarItem icon={CalendarClock} label="Dashboard COCR" to="/prazos" onClick={() => setOpen(false)} end />
-                        <div className="pl-2 space-y-1 mt-1 border-l sm:ml-4 border-slate-800/50">
-                            <SidebarItem icon={FileText} label="Contratos" to="/prazos/contratos" onClick={() => setOpen(false)} />
-                            <SidebarItem icon={Search} label="Pesquisar" to="/prazos/pesquisa" onClick={() => setOpen(false)} />
-                            <SidebarItem icon={BarChart3} label="Análise" to="/prazos/analise" onClick={() => setOpen(false)} />
-                            <SidebarItem icon={GitBranch} label="Controle de Etapas" to="/prazos/etapas" onClick={() => setOpen(false)} />
-                            <SidebarItem icon={Database} label="Gestão de Dados" to="/prazos/gestao-dados" onClick={() => setOpen(false)} />
-                        </div>
+
+                        {/* Hide extra menus for Client role */}
+                        {user?.role !== 'client' && (
+                            <div className="pl-2 space-y-1 mt-1 border-l sm:ml-4 border-slate-800/50">
+                                <SidebarItem icon={FileText} label="Contratos" to="/prazos/contratos" onClick={() => setOpen(false)} />
+                                <SidebarItem icon={Search} label="Pesquisar" to="/prazos/pesquisa" onClick={() => setOpen(false)} />
+                                <SidebarItem icon={BarChart3} label="Análise" to="/prazos/analise" onClick={() => setOpen(false)} />
+                                <SidebarItem icon={GitBranch} label="Controle de Etapas" to="/prazos/etapas" onClick={() => setOpen(false)} />
+                                <SidebarItem icon={Database} label="Gestão de Dados" to="/prazos/gestao-dados" onClick={() => setOpen(false)} />
+                            </div>
+                        )}
                     </>
                 )}
 
@@ -91,9 +96,25 @@ export default function Layout({ onLogout, user }) {
             <div className="p-4 border-t border-slate-800 bg-slate-900/50">
                 {user && (
                     <div className="mb-4 px-2">
+                        <p className="text-xs text-indigo-400 font-semibold mb-1">
+                            {(() => {
+                                const hour = new Date().getHours();
+                                if (hour < 12) return 'Bom dia,';
+                                if (hour < 18) return 'Boa tarde,';
+                                return 'Boa noite,';
+                            })()}
+                        </p>
                         <p className="text-sm font-medium text-white truncate">{user.name}</p>
                         <p className="text-xs text-slate-400 truncate">{user.email}</p>
                     </div>
+                )}
+                {(user?.role === 'admin') && (
+                    <div className="px-3 py-2">
+                        <NotificationCenter />
+                    </div>
+                )}
+                {(user?.role === 'admin') && (
+                    <SidebarItem icon={Activity} label="Histórico" to="/atividades" onClick={() => setOpen(false)} />
                 )}
                 <Button
                     variant="ghost"
@@ -120,6 +141,11 @@ export default function Layout({ onLogout, user }) {
                     <img src={logo} alt="GOR Logo" className="w-8 h-8" />
                     <span className="font-bold text-white">GOR</span>
                 </div>
+                {user?.role === 'admin' && (
+                    <div className="flex items-center gap-2">
+                        <NotificationCenter />
+                    </div>
+                )}
                 <Sheet open={open} onOpenChange={setOpen}>
                     <SheetTrigger asChild>
                         <Button variant="ghost" size="icon">

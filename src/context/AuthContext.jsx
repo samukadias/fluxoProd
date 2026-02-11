@@ -1,62 +1,80 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { User } from '../entities/User';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { fluxoApi, fluxClient } from '@/api/fluxoClient';
 
 const AuthContext = createContext({});
+
+const TOKEN_KEY = 'fluxo_token';
+const USER_KEY = 'fluxo_user';
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // Restore session from stored token on mount
     useEffect(() => {
-        // Verificar se já existe um usuário salvo no localStorage ao carregar
-        const storedUser = localStorage.getItem('fluxo_user');
-        if (storedUser) {
-            try {
-                const userData = JSON.parse(storedUser);
-                // Adaptador para compatibilidade com sistema legado
-                if (!userData.full_name && userData.name) {
-                    userData.full_name = userData.name;
+        const restoreSession = async () => {
+            const token = localStorage.getItem(TOKEN_KEY);
+            const storedUser = localStorage.getItem(USER_KEY);
+
+            if (token && storedUser) {
+                try {
+                    const userData = JSON.parse(storedUser);
+                    // Compatibility adapter
+                    if (!userData.full_name && userData.name) {
+                        userData.full_name = userData.name;
+                    }
+                    if (!userData.perfil && userData.role) {
+                        userData.perfil = userData.role.toUpperCase();
+                    }
+                    setUser(userData);
+                } catch (e) {
+                    console.error("Erro ao recuperar sessão:", e);
+                    localStorage.removeItem(TOKEN_KEY);
+                    localStorage.removeItem(USER_KEY);
                 }
-                if (!userData.perfil && userData.role) {
-                    // Mapear roles se necessário (manager -> MANAGER, etc)
-                    userData.perfil = userData.role.toUpperCase();
-                }
-                setUser(userData);
-            } catch (e) {
-                console.error("Erro ao recuperar sessão:", e);
-                localStorage.removeItem('fluxo_user');
             }
-        }
-        setLoading(false);
+            setLoading(false);
+        };
+
+        restoreSession();
     }, []);
 
     const login = async (email, password) => {
         try {
             setLoading(true);
-            // Buscar usuário pelo email na nossa tabela de usuários
-            const userFound = await User.getByEmail(email);
 
-            if (!userFound) {
-                toast.error('Usuário não encontrado. Verifique o email.');
+            // Call the real JWT login endpoint
+            const response = await fluxoApi.auth.login(email, password);
+
+            if (!response || !response.token) {
+                toast.error('Erro ao realizar login.');
                 return false;
             }
 
-            // Verificar senha (comparação simples por enquanto)
-            if (userFound.password !== password) {
-                toast.error('Senha incorreta.');
-                return false;
-            }
+            const { token, user: userData } = response;
 
-            // Salvar usuário no estado e no localStorage
-            setUser(userFound);
-            localStorage.setItem('fluxo_user', JSON.stringify(userFound));
-            toast.success(`Bem-vindo, ${userFound.full_name}!`);
+            // Store JWT token
+            localStorage.setItem(TOKEN_KEY, token);
+
+            // Build user object with compatibility fields
+            const userObj = {
+                ...userData,
+                full_name: userData.full_name || userData.name,
+                perfil: userData.perfil || (userData.role ? userData.role.toUpperCase() : 'USER'),
+            };
+
+            // Store user data (no password!)
+            setUser(userObj);
+            localStorage.setItem(USER_KEY, JSON.stringify(userObj));
+
+            toast.success(`Bem-vindo, ${userObj.full_name || userObj.name}!`);
             return true;
         } catch (error) {
             console.error('Erro no login:', error);
-            toast.error('Erro ao realizar login.');
+            const message = error.response?.data?.error || 'Erro ao realizar login.';
+            toast.error(message);
             return false;
         } finally {
             setLoading(false);
@@ -65,39 +83,33 @@ export const AuthProvider = ({ children }) => {
 
     const logout = () => {
         setUser(null);
-        localStorage.removeItem('fluxo_user');
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
     };
 
-    // Auto-logout por inatividade (20 minutos) - Otimizado
+    // Auto-logout on inactivity (20 minutes)
     const lastActivityRef = useRef(Date.now());
 
     useEffect(() => {
-        if (!user) return; // Só ativa se logado
+        if (!user) return;
 
-        const INACTIVITY_LIMIT = 20 * 60 * 1000; // 20 minutos
-        const CHECK_INTERVAL = 60 * 1000; // Checa a cada 1 minuto
+        const INACTIVITY_LIMIT = 20 * 60 * 1000;
+        const CHECK_INTERVAL = 60 * 1000;
 
-        // Função ultra-leve chamada nos eventos
         const updateActivity = () => {
             lastActivityRef.current = Date.now();
         };
 
-        // Eventos a monitorar
-        // Removi mousemove para evitar overhead, mas em computadores modernos é ok com essa lógica leve.
-        // Vou manter mousemove pois o usuário espera isso.
         const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove'];
         events.forEach(event => document.addEventListener(event, updateActivity));
 
-        // Intervalo de verificação periódica
         const intervalId = setInterval(() => {
-            const now = Date.now();
-            if (now - lastActivityRef.current > INACTIVITY_LIMIT) {
+            if (Date.now() - lastActivityRef.current > INACTIVITY_LIMIT) {
                 toast.warning("Sessão encerrada por inatividade (20min).");
                 logout();
             }
         }, CHECK_INTERVAL);
 
-        // Reset inicial
         lastActivityRef.current = Date.now();
 
         return () => {
@@ -114,3 +126,4 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+export const getToken = () => localStorage.getItem(TOKEN_KEY);
