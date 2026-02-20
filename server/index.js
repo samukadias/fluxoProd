@@ -44,14 +44,14 @@ if (process.env.LAN_ORIGIN) {
 
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, curl, etc.) or from allowed list
-        if (!origin || allowedOrigins.some(o => origin.startsWith(o.replace(/:\d+$/, '')))) {
-            callback(null, true);
-        } else {
-            callback(null, true); // In dev, allow all; in production tighten this
-        }
+        // Allow all origins in this development/intranet environment to prevent CORS blocks
+        callback(null, true);
     },
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['X-Total-Count'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
 }));
 
 app.use(express.json({ limit: '10mb' }));
@@ -161,8 +161,29 @@ for (const [resource, table] of crudEntities) {
 const port = process.env.PORT || 3000;
 
 const start = async () => {
-    await initDb();
-    await seedUsers();
+    let retries = 5;
+    while (retries > 0) {
+        try {
+            await initDb();
+            console.log("✅ Database initialized successfully");
+            break;
+        } catch (error) {
+            console.error(`❌ Database connection failed: ${error.message}`);
+            retries -= 1;
+            if (retries === 0) {
+                console.error("❌ Max retries reached. Exiting...");
+                process.exit(1);
+            }
+            console.log(`⏳ Retrying in 5 seconds... (${retries} retries left)`);
+            await new Promise(res => setTimeout(res, 5000));
+        }
+    }
+
+    try {
+        await seedUsers();
+    } catch (seedError) {
+        console.error(`⚠️ Warning: Failed to seed users: ${seedError.message}`);
+    }
 
     app.listen(port, () => {
         console.log(`✅ Server running on port ${port}`);

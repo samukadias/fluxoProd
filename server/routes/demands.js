@@ -125,4 +125,34 @@ router.delete('/:id/history', async (req, res) => {
     }
 });
 
+/**
+ * DELETE /demands/:id
+ * Delete a demand and all related records (cascade)
+ */
+router.delete('/:id', async (req, res) => {
+    const client = await db.connect();
+    try {
+        await client.query('BEGIN');
+
+        await client.query('DELETE FROM status_history WHERE demand_id = $1', [req.params.id]);
+        await client.query('DELETE FROM stage_history WHERE demand_id = $1', [req.params.id]);
+        await client.query("DELETE FROM activity_log WHERE entity = 'demands' AND entity_id = $1", [String(req.params.id)]);
+
+        const result = await client.query('DELETE FROM demands WHERE id = $1 RETURNING *', [req.params.id]);
+
+        if (result.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Demand not found' });
+        }
+
+        await client.query('COMMIT');
+        res.json({ message: 'Deleted successfully' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        handleError(err, res, 'Delete demand');
+    } finally {
+        client.release();
+    }
+});
+
 module.exports = router;

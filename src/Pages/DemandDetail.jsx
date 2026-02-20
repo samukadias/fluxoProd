@@ -7,12 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ArrowLeft, Edit2, Clock, Calendar, User, Building2, Layers, AlertTriangle, Trash2, Timer } from "lucide-react";
-import StatusBadge from '@/components/demands/StatusBadge';
-import PriorityBadge from '@/components/demands/PriorityBadge';
-import StatusTimeline from '@/components/demands/StatusTimeline';
-import { StageStepper } from '@/components/demands/StageStepper';
-import DemandForm from '@/components/demands/DemandForm';
-import { calculateWorkDays, calculateSLA } from '@/components/demands/EffortCalculator';
+import StatusBadge from '@/Components/demands/StatusBadge';
+import PriorityBadge from '@/Components/demands/PriorityBadge';
+import StatusTimeline from '@/Components/demands/StatusTimeline';
+import { StageStepper } from '@/Components/demands/StageStepper';
+import DemandForm from '@/Components/demands/DemandForm';
+import { calculateWorkDays, calculateSLA } from '@/Components/demands/EffortCalculator';
 import { format, parseISO, isAfter, differenceInCalendarDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from "sonner";
@@ -38,6 +38,7 @@ const ACTIVE_STATUSES = [
     "PENDÊNCIA DOP",
     "PENDÊNCIA DOP E DDS",
     "PENDÊNCIA COMERCIAL",
+    "PENDÊNCIA SUPRIMENTOS",
     "PENDÊNCIA FORNECEDOR"
 ];
 

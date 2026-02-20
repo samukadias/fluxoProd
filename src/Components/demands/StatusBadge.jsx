@@ -11,6 +11,7 @@ const statusStyles = {
     "PENDÊNCIA DOP": "bg-orange-50 text-orange-700 border-orange-200",
     "PENDÊNCIA DOP E DDS": "bg-orange-50 text-orange-700 border-orange-200",
     "PENDÊNCIA COMERCIAL": "bg-rose-50 text-rose-700 border-rose-200",
+    "PENDÊNCIA SUPRIMENTOS": "bg-teal-50 text-teal-700 border-teal-200",
     "PENDÊNCIA FORNECEDOR": "bg-red-50 text-red-700 border-red-200",
     "CONGELADA": "bg-cyan-50 text-cyan-700 border-cyan-200",
     "ENTREGUE": "bg-emerald-50 text-emerald-700 border-emerald-200",

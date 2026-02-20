@@ -29,6 +29,7 @@ const statusColors = {
     "PENDÊNCIA DOP": "bg-orange-500",
     "PENDÊNCIA DOP E DDS": "bg-orange-500",
     "PENDÊNCIA COMERCIAL": "bg-rose-500",
+    "PENDÊNCIA SUPRIMENTOS": "bg-teal-500",
     "PENDÊNCIA FORNECEDOR": "bg-red-500",
     "CONGELADA": "bg-cyan-500",
     "CORREÇÃO": "bg-yellow-500",

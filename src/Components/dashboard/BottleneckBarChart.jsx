@@ -11,6 +11,7 @@ const STATUS_COLORS = {
     "PENDÊNCIA DOP": "#f97316",
     "PENDÊNCIA DOP E DDS": "#f97316",
     "PENDÊNCIA COMERCIAL": "#f43f5e",
+    "PENDÊNCIA SUPRIMENTOS": "#14b8a6",
     "PENDÊNCIA FORNECEDOR": "#ef4444",
     "CONGELADA": "#06b6d4",
     "ENTREGUE": "#10b981",

@@ -23,12 +23,14 @@ const ACTIVE_STATUSES = [
     "PENDÊNCIA DOP",
     "PENDÊNCIA DOP E DDS",
     "PENDÊNCIA COMERCIAL",
+    "PENDÊNCIA SUPRIMENTOS",
     "PENDÊNCIA FORNECEDOR"
 ];
 
 const TRATATIVA_STATUSES = [
     "EM ANDAMENTO",
     "PENDÊNCIA COMERCIAL",
+    "PENDÊNCIA SUPRIMENTOS",
     "PENDÊNCIA FORNECEDOR",
     "PENDÊNCIA DDS",
     "PENDÊNCIA DOP",
@@ -116,8 +118,9 @@ export default function ManagerDashboard() {
     const years = useMemo(() => {
         const yearsSet = new Set();
         demands.forEach(d => {
-            if (d.created_date) {
-                yearsSet.add(String(getYear(parseISO(d.created_date))));
+            const refDate = d.qualification_date || d.created_date;
+            if (refDate) {
+                yearsSet.add(String(getYear(parseISO(refDate))));
             }
         });
         yearsSet.add(String(currentYear));
@@ -126,8 +129,9 @@ export default function ManagerDashboard() {
 
     const filteredDemands = useMemo(() => {
         return demands.filter(d => {
-            if (d.created_date) {
-                const demandYear = String(getYear(parseISO(d.created_date)));
+            const refDate = d.qualification_date || d.created_date;
+            if (refDate) {
+                const demandYear = String(getYear(parseISO(refDate)));
                 if (demandYear !== selectedYear) return false;
             }
 
@@ -502,7 +506,7 @@ export default function ManagerDashboard() {
                                 <table className="w-full text-sm text-left">
                                     <thead className="text-xs text-slate-700 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm">
                                         <tr>
-                                            <th className="px-6 py-3">ID</th>
+                                            <th className="px-6 py-3">Nº Demanda</th>
                                             <th className="px-6 py-3">Produto / Demanda</th>
                                             <th className="px-6 py-3">Status</th>
                                             <th className="px-6 py-3">Responsável</th>
@@ -512,8 +516,8 @@ export default function ManagerDashboard() {
                                     <tbody className="divide-y divide-slate-100">
                                         {detailedDemands.length > 0 ? detailedDemands.map(d => (
                                             <tr key={d.id} className="hover:bg-slate-50/80 transition-colors">
-                                                <td className="px-6 py-4 font-medium text-slate-900 w-[100px]">
-                                                    #{d.id}
+                                                <td className="px-6 py-4 font-medium text-slate-900 w-[120px]">
+                                                    #{d.demand_number || d.id}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="font-medium text-slate-800">{d.product}</div>
