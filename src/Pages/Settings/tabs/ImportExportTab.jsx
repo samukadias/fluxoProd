@@ -49,6 +49,98 @@ const cleanCurrency = (val) => {
     return parseFloat(String(val).replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
 };
 
+// ExportCard component for data export
+const ExportCard = ({ title, description, fetchFn, filename, sheetName, columnMap, isProcessing, setIsProcessing }) => {
+    const [exporting, setExporting] = useState(false);
+    const [recordCount, setRecordCount] = useState(null);
+
+    const handleExport = async () => {
+        setExporting(true);
+        setIsProcessing(true);
+        try {
+            const data = await fetchFn();
+            if (!data || data.length === 0) {
+                toast.warning(`Nenhum registro encontrado para "${title}".`);
+                return;
+            }
+
+            const exportData = data.map(row => {
+                const newRow = {};
+                Object.entries(columnMap).forEach(([key, displayName]) => {
+                    let value = row[key];
+                    // Format dates
+                    if (value && typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}/)) {
+                        try { value = new Date(value).toLocaleDateString('pt-BR'); } catch (e) { /* keep */ }
+                    }
+                    // Format booleans
+                    if (typeof value === 'boolean') value = value ? 'Sim' : 'Não';
+                    newRow[displayName] = value ?? '';
+                });
+                return newRow;
+            });
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            // Auto-size columns
+            const colWidths = Object.keys(exportData[0] || {}).map(key => ({
+                wch: Math.max(key.length, ...exportData.slice(0, 100).map(row => String(row[key] || '').length)) + 2
+            }));
+            ws['!cols'] = colWidths;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            XLSX.writeFile(wb, `${filename}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+
+            setRecordCount(data.length);
+            toast.success(`${data.length} registros exportados com sucesso!`);
+        } catch (err) {
+            console.error('Export error:', err);
+            toast.error(`Erro ao exportar "${title}": ${err.message}`);
+        } finally {
+            setExporting(false);
+            setIsProcessing(false);
+        }
+    };
+
+    return (
+        <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-2">
+                    <div>
+                        <h4 className="text-sm font-semibold text-slate-800">{title}</h4>
+                        <p className="text-xs text-slate-500 mt-0.5">{description}</p>
+                    </div>
+                    <FileDown className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-3 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                    onClick={handleExport}
+                    disabled={exporting || isProcessing}
+                >
+                    {exporting ? (
+                        <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Exportando...
+                        </>
+                    ) : (
+                        <>
+                            <Download className="w-4 h-4 mr-2" />
+                            Exportar Excel
+                        </>
+                    )}
+                </Button>
+                {recordCount !== null && (
+                    <p className="text-xs text-emerald-600 text-center mt-2 flex items-center justify-center">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        {recordCount} registros exportados
+                    </p>
+                )}
+            </CardContent>
+        </Card>
+    );
+};
+
 export default function ImportExportTab() {
     const [importType, setImportType] = useState('demands');
     const [fileData, setFileData] = useState([]);
@@ -532,6 +624,127 @@ export default function ImportExportTab() {
                         )}
                     </CardContent>
                 </Card>
+            </div>
+
+            {/* ===================== EXPORTAÇÃO ===================== */}
+            <div className="pt-6 border-t border-slate-200">
+                <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                    <FileDown className="w-5 h-5 text-emerald-600" />
+                    Exportação de Dados
+                </h3>
+                <p className="text-sm text-slate-500 mb-4">Exporte os dados do sistema para planilhas Excel (.xlsx).</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <ExportCard
+                        title="Demandas (CDPC)"
+                        description="Todas as demandas com status, responsáveis e datas"
+                        fetchFn={() => fluxoApi.entities.Demand.list()}
+                        filename="demandas_cdpc"
+                        sheetName="Demandas"
+                        columnMap={{
+                            demand_number: 'Nº Demanda',
+                            product: 'Produto',
+                            status: 'Status',
+                            stage: 'Etapa',
+                            complexity: 'Complexidade',
+                            artifact: 'Artefato',
+                            created_date: 'Data Criação',
+                            qualification_date: 'Data Qualificação',
+                            expected_delivery_date: 'Previsão Entrega',
+                            delivery_date: 'Data Entrega',
+                            observation: 'Observação',
+                        }}
+                        isProcessing={isProcessing}
+                        setIsProcessing={setIsProcessing}
+                    />
+                    <ExportCard
+                        title="Clientes"
+                        description="Base geral de clientes cadastrados"
+                        fetchFn={() => fluxoApi.entities.Client.list()}
+                        filename="clientes"
+                        sheetName="Clientes"
+                        columnMap={{
+                            id: 'ID',
+                            name: 'Nome',
+                            sigla: 'Sigla',
+                            active: 'Ativo',
+                        }}
+                        isProcessing={isProcessing}
+                        setIsProcessing={setIsProcessing}
+                    />
+                    <ExportCard
+                        title="Contratos COCR (Prazos)"
+                        description="Todos os contratos do módulo de prazos"
+                        fetchFn={() => fluxoApi.entities.Contract.list()}
+                        filename="contratos_cocr"
+                        sheetName="Contratos COCR"
+                        columnMap={{
+                            contrato: 'Contrato',
+                            termo: 'Termo',
+                            objeto: 'Objeto',
+                            cliente: 'Cliente',
+                            analista_responsavel: 'Analista Responsável',
+                            status: 'Status',
+                            data_inicio_efetividade: 'Início Vigência',
+                            data_fim_efetividade: 'Fim Vigência',
+                            valor_contrato: 'Valor Contrato',
+                            valor_faturado: 'Valor Faturado',
+                            valor_a_faturar: 'Valor a Faturar',
+                            numero_processo_sei_nosso: 'Processo SEI',
+                        }}
+                        isProcessing={isProcessing}
+                        setIsProcessing={setIsProcessing}
+                    />
+                    <ExportCard
+                        title="Contratos CVAC (Financeiro)"
+                        description="Todos os contratos financeiros"
+                        fetchFn={() => fluxoApi.entities.FinanceContract.list()}
+                        filename="contratos_cvac"
+                        sheetName="Contratos CVAC"
+                        columnMap={{
+                            pd_number: 'Nº PD',
+                            client_name: 'Cliente',
+                            responsible_analyst: 'Analista Responsável',
+                            sei_process_number: 'Processo SEI',
+                            created_at: 'Data Cadastro',
+                        }}
+                        isProcessing={isProcessing}
+                        setIsProcessing={setIsProcessing}
+                    />
+                    <ExportCard
+                        title="Atestações Mensais"
+                        description="Histórico de atestações dos contratos financeiros"
+                        fetchFn={() => fluxoApi.entities.MonthlyAttestation.list()}
+                        filename="atestacoes_mensais"
+                        sheetName="Atestações"
+                        columnMap={{
+                            reference_month: 'Mês Referência',
+                            client_name: 'Cliente',
+                            pd_number: 'Nº PD',
+                            responsible_analyst: 'Analista',
+                            report_generation_date: 'Data Relatório',
+                            status: 'Status',
+                        }}
+                        isProcessing={isProcessing}
+                        setIsProcessing={setIsProcessing}
+                    />
+                    <ExportCard
+                        title="Usuários"
+                        description="Lista de todos os usuários do sistema"
+                        fetchFn={() => fluxoApi.entities.User.list()}
+                        filename="usuarios"
+                        sheetName="Usuários"
+                        columnMap={{
+                            id: 'ID',
+                            name: 'Nome',
+                            email: 'Email',
+                            role: 'Perfil',
+                            department: 'Departamento',
+                        }}
+                        isProcessing={isProcessing}
+                        setIsProcessing={setIsProcessing}
+                    />
+                </div>
             </div>
 
             {/* Danger Zone */}

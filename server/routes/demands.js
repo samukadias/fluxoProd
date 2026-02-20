@@ -68,10 +68,32 @@ router.put('/:id', async (req, res) => {
         if (newStatusNorm && newStatusNorm !== oldStatusNorm) {
             const now = new Date();
             const changedBy = req.user ? req.user.name || req.user.email : 'System';
+
+            // Calculate time spent in previous status
+            let timeInPreviousMinutes = null;
+            const lastHistoryRes = await client.query(
+                'SELECT changed_at FROM status_history WHERE demand_id = $1 ORDER BY changed_at DESC LIMIT 1',
+                [req.params.id]
+            );
+            if (lastHistoryRes.rows.length > 0) {
+                const lastChangedAt = new Date(lastHistoryRes.rows[0].changed_at);
+                timeInPreviousMinutes = Math.round((now - lastChangedAt) / 60000);
+            } else {
+                // First status change — use demand created_date as reference
+                const demandRes = await client.query(
+                    'SELECT created_date FROM demands WHERE id = $1',
+                    [req.params.id]
+                );
+                if (demandRes.rows[0]?.created_date) {
+                    const createdAt = new Date(demandRes.rows[0].created_date);
+                    timeInPreviousMinutes = Math.round((now - createdAt) / 60000);
+                }
+            }
+
             await client.query(`
-                INSERT INTO status_history (demand_id, from_status, to_status, changed_at, changed_by)
-                VALUES ($1, $2, $3, $4, $5)
-            `, [req.params.id, oldStatus, status, now, changedBy]);
+                INSERT INTO status_history (demand_id, from_status, to_status, changed_at, time_in_previous_status_minutes, changed_by)
+                VALUES ($1, $2, $3, $4, $5, $6)
+            `, [req.params.id, oldStatus, status, now, timeInPreviousMinutes, changedBy]);
         }
 
         // Update the demand

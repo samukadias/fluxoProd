@@ -244,9 +244,14 @@ const createCrudRoutes = (app, resource, tableName) => {
         }
     });
 
-    // Delete
+    // Delete (with cascade for related records)
     app.delete(`/${resource}/:id`, async (req, res) => {
         try {
+            // Cascade delete: remove related records first
+            if (tableName === 'finance_contracts') {
+                await db.query(`DELETE FROM monthly_attestations WHERE contract_id = $1`, [req.params.id]);
+            }
+
             const result = await db.query(`DELETE FROM ${tableName} WHERE id = $1 RETURNING *`, [req.params.id]);
             if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
             res.json({ message: 'Deleted successfully' });

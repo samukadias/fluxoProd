@@ -73,60 +73,38 @@ export default function Contracts() {
         : allContracts;
 
     const createMutation = useMutation({
-        mutationFn: async (data) => {
-            console.log('=== CRIANDO CONTRATO FINANCEIRO ===');
-            console.log('Dados enviados:', data);
-
-            return toast.promise(
-                fluxoApi.entities.FinanceContract.create(data),
-                {
-                    loading: 'Criando contrato...',
-                    success: 'Contrato criado com sucesso!',
-                    error: (err) => `Erro: ${err.response?.data?.error || err.message}`
-                }
-            );
-        },
+        mutationFn: (data) => fluxoApi.entities.FinanceContract.create(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['finance-contracts'] });
             setShowForm(false);
+            toast.success('Contrato criado com sucesso!');
+        },
+        onError: (err) => {
+            toast.error(`Erro: ${err.response?.data?.error || err.message}`);
         }
     });
 
     const updateMutation = useMutation({
-        mutationFn: async ({ id, data }) => {
-            console.log('=== ATUALIZANDO CONTRATO ===');
-            console.log('ID:', id);
-            return toast.promise(
-                fluxoApi.entities.FinanceContract.update(id, data),
-                {
-                    loading: 'Atualizando contrato...',
-                    success: 'Contrato atualizado com sucesso!',
-                    error: (err) => `Erro: ${err.response?.data?.error || err.message}`
-                }
-            );
-        },
+        mutationFn: ({ id, data }) => fluxoApi.entities.FinanceContract.update(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['finance-contracts'] });
             setShowForm(false);
             setEditingContract(null);
+            toast.success('Contrato atualizado com sucesso!');
+        },
+        onError: (err) => {
+            toast.error(`Erro: ${err.response?.data?.error || err.message}`);
         }
     });
 
     const deleteMutation = useMutation({
-        mutationFn: async (id) => {
-            console.log('=== EXCLUINDO CONTRATO ===');
-            return toast.promise(
-                fluxoApi.entities.FinanceContract.delete(id),
-                {
-                    loading: 'Excluindo contrato...',
-                    success: 'Contrato excluído com sucesso!',
-                    error: (err) => `Erro: ${err.response?.data?.error || err.message}`
-                }
-            );
-        },
+        mutationFn: (id) => fluxoApi.entities.FinanceContract.delete(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['finance-contracts'] });
-            // Se deletou, o useEffect lá em baixo vai cuidar do redirect se precisar
+            toast.success('Contrato excluído com sucesso!');
+        },
+        onError: (err) => {
+            toast.error(`Erro: ${err.response?.data?.error || err.message}`);
         }
     });
 
@@ -162,8 +140,7 @@ export default function Contracts() {
     // Auto-redirect quando todos os contratos de um cliente são excluídos
     useEffect(() => {
         // Se um cliente está selecionado mas não tem mais contratos (após exclusão)
-        if (selectedClient && clientGroups[selectedClient]?.length === 0) {
-            console.log('Cliente sem contratos detectado, voltando para lista de clientes...');
+        if (selectedClient && (!clientGroups[selectedClient] || clientGroups[selectedClient].length === 0)) {
             setSelectedClient(null);
             setSearchTerm('');
         }

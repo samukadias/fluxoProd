@@ -6,14 +6,14 @@ import { createPageUrl } from '@/utils';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Edit2, Clock, Calendar, User, Building2, Layers, AlertTriangle, Trash2 } from "lucide-react";
+import { ArrowLeft, Edit2, Clock, Calendar, User, Building2, Layers, AlertTriangle, Trash2, Timer } from "lucide-react";
 import StatusBadge from '@/components/demands/StatusBadge';
 import PriorityBadge from '@/components/demands/PriorityBadge';
 import StatusTimeline from '@/components/demands/StatusTimeline';
 import { StageStepper } from '@/components/demands/StageStepper';
 import DemandForm from '@/components/demands/DemandForm';
 import { calculateWorkDays, calculateSLA } from '@/components/demands/EffortCalculator';
-import { format, parseISO, isAfter } from 'date-fns';
+import { format, parseISO, isAfter, differenceInCalendarDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -235,6 +235,20 @@ export default function DemandDetailPage() {
         ACTIVE_STATUSES.includes(demand.status) &&
         isAfter(new Date(), parseISO(demand.expected_delivery_date));
 
+    // Calcular tempo total da demanda em dias
+    const FINAL_STATUSES = ['ENTREGUE', 'CANCELADA'];
+    const sortedHistory = [...history].sort((a, b) => new Date(a.changed_at) - new Date(b.changed_at));
+    let totalDemandDays = 0;
+    if (demand.created_date) {
+        const startDate = new Date(demand.created_date);
+        if (FINAL_STATUSES.includes(demand.status) && sortedHistory.length > 0) {
+            const lastChanged = new Date(sortedHistory[sortedHistory.length - 1].changed_at);
+            totalDemandDays = Math.max(0, differenceInCalendarDays(lastChanged, startDate));
+        } else {
+            totalDemandDays = Math.max(0, differenceInCalendarDays(new Date(), startDate));
+        }
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -407,6 +421,12 @@ export default function DemandDetailPage() {
                                 <CardTitle className="text-lg flex items-center gap-2">
                                     <Clock className="w-5 h-5 text-indigo-600" />
                                     Linha do Tempo
+                                    {totalDemandDays > 0 && (
+                                        <span className="inline-flex items-center gap-1 ml-1 px-2.5 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-sm">
+                                            <Timer className="w-3 h-3" />
+                                            {totalDemandDays} {totalDemandDays === 1 ? 'dia' : 'dias'}
+                                        </span>
+                                    )}
                                 </CardTitle>
                                 {user?.role === 'admin' && (
                                     <Button
@@ -421,7 +441,7 @@ export default function DemandDetailPage() {
                                 )}
                             </CardHeader>
                             <CardContent>
-                                <StatusTimeline history={history} currentStatus={demand.status} />
+                                <StatusTimeline history={history} currentStatus={demand.status} demandCreatedAt={demand.created_date} />
                             </CardContent>
                         </Card>
                     </div>

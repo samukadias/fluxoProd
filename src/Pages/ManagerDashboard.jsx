@@ -43,6 +43,7 @@ export default function ManagerDashboard() {
     const [selectedYear, setSelectedYear] = useState(String(currentYear));
     const [selectedAnalyst, setSelectedAnalyst] = useState('all');
     const [selectedFilter, setSelectedFilter] = useState(null); // 'backlog', 'tratativa', 'open', 'overdue', 'delivered', 'total'
+    const [selectedHeatmapStatus, setSelectedHeatmapStatus] = useState(null);
     const [user, setUser] = useState(null);
 
     useEffect(() => {
@@ -227,15 +228,49 @@ export default function ManagerDashboard() {
         const demandIds = new Set(filteredDemands.map(d => d.id));
         const filteredHistory = history.filter(h => demandIds.has(h.demand_id));
 
-        const statusTotals = {};
+        // Group history by demand to compute durations from timestamps
+        const byDemand = {};
         filteredHistory.forEach(h => {
-            if (h.from_status && h.time_in_previous_status_minutes) {
-                if (!statusTotals[h.from_status]) {
-                    statusTotals[h.from_status] = { total_minutes: 0, count: 0 };
+            if (!byDemand[h.demand_id]) byDemand[h.demand_id] = [];
+            byDemand[h.demand_id].push(h);
+        });
+
+        const statusTotals = {};
+
+        Object.values(byDemand).forEach(demandHistory => {
+            // Sort by changed_at ascending
+            const sorted = [...demandHistory].sort((a, b) => new Date(a.changed_at) - new Date(b.changed_at));
+
+            sorted.forEach((h, i) => {
+                if (!h.from_status) return;
+
+                let minutes = h.time_in_previous_status_minutes;
+
+                // Fallback: compute from timestamps if field is null
+                if (!minutes || minutes <= 0) {
+                    if (i > 0) {
+                        const prevDate = new Date(sorted[i - 1].changed_at);
+                        const currDate = new Date(h.changed_at);
+                        minutes = Math.round((currDate - prevDate) / 60000);
+                    } else {
+                        // First entry — try using demand created_date
+                        const demand = filteredDemands.find(d => d.id === h.demand_id);
+                        if (demand?.created_date) {
+                            const createdDate = new Date(demand.created_date);
+                            const currDate = new Date(h.changed_at);
+                            minutes = Math.round((currDate - createdDate) / 60000);
+                        }
+                    }
                 }
-                statusTotals[h.from_status].total_minutes += h.time_in_previous_status_minutes;
-                statusTotals[h.from_status].count += 1;
-            }
+
+                if (minutes && minutes > 0) {
+                    if (!statusTotals[h.from_status]) {
+                        statusTotals[h.from_status] = { total_minutes: 0, count: 0 };
+                    }
+                    statusTotals[h.from_status].total_minutes += minutes;
+                    statusTotals[h.from_status].count += 1;
+                }
+            });
         });
 
         return Object.entries(statusTotals).map(([status, data]) => ({
@@ -702,7 +737,65 @@ export default function ManagerDashboard() {
                                 </p>
                             </CardHeader>
                             <CardContent>
-                                <BottleneckBarChart data={bottleneckData} />
+                                <BottleneckBarChart data={bottleneckData} onBarClick={(status) => setSelectedHeatmapStatus(selectedHeatmapStatus === status ? null : status)} />
+
+                                {selectedHeatmapStatus && (() => {
+                                    // Find demands that had this status in their history
+                                    const demandIdsWithStatus = new Set();
+                                    history.forEach(h => {
+                                        if (h.from_status === selectedHeatmapStatus || h.to_status === selectedHeatmapStatus) {
+                                            demandIdsWithStatus.add(h.demand_id);
+                                        }
+                                    });
+                                    const matchingDemands = filteredDemands.filter(d => demandIdsWithStatus.has(d.id));
+
+                                    return (
+                                        <div className="mt-4 border-t pt-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h4 className="text-sm font-semibold text-slate-700">
+                                                    Demandas que passaram por <span className="text-indigo-600">{selectedHeatmapStatus}</span>
+                                                    <span className="ml-2 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">{matchingDemands.length}</span>
+                                                </h4>
+                                                <Button variant="ghost" size="sm" onClick={() => setSelectedHeatmapStatus(null)} className="text-slate-400 hover:text-slate-600 text-xs">
+                                                    Fechar
+                                                </Button>
+                                            </div>
+                                            <div className="overflow-x-auto max-h-[300px]">
+                                                <table className="w-full text-sm text-left">
+                                                    <thead className="text-xs text-slate-600 uppercase bg-slate-50 sticky top-0">
+                                                        <tr>
+                                                            <th className="px-3 py-2">ID</th>
+                                                            <th className="px-3 py-2">Produto</th>
+                                                            <th className="px-3 py-2">Status Atual</th>
+                                                            <th className="px-3 py-2">Responsável</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-100">
+                                                        {matchingDemands.length > 0 ? matchingDemands.map(d => (
+                                                            <tr key={d.id} className="hover:bg-slate-50/80 transition-colors">
+                                                                <td className="px-3 py-2 font-medium text-slate-900">#{d.demand_number || d.id}</td>
+                                                                <td className="px-3 py-2 text-slate-700">{d.product}</td>
+                                                                <td className="px-3 py-2">
+                                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold
+                                                                        ${d.status === 'ENTREGUE' ? 'bg-emerald-100 text-emerald-700' :
+                                                                            d.status === 'CANCELADA' ? 'bg-slate-100 text-slate-600' :
+                                                                                'bg-blue-100 text-blue-700'}`}>
+                                                                        {d.status}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-3 py-2 text-slate-600">{usersMap[d.analyst_id] || '-'}</td>
+                                                            </tr>
+                                                        )) : (
+                                                            <tr>
+                                                                <td colSpan={4} className="px-3 py-6 text-center text-slate-400">Nenhuma demanda encontrada.</td>
+                                                            </tr>
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </CardContent>
                         </Card>
 

@@ -27,7 +27,7 @@ function formatDuration(minutes) {
     return `${days}d`;
 }
 
-export default function BottleneckBarChart({ data = [] }) {
+export default function BottleneckBarChart({ data = [], onBarClick }) {
     const chartData = data
         .filter(d => d.total_minutes > 0)
         .sort((a, b) => b.total_minutes - a.total_minutes)
@@ -114,7 +114,7 @@ export default function BottleneckBarChart({ data = [] }) {
                     width={110}
                 />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="total_minutes" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="total_minutes" radius={[0, 4, 4, 0]} cursor={onBarClick ? 'pointer' : 'default'} onClick={(data) => onBarClick && onBarClick(data.status)}>
                     {chartData.map((entry, index) => (
                         <Cell
                             key={`cell-${index}`}

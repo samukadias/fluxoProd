@@ -36,25 +36,25 @@ export default function DemandCard({ demand, analyst, client, onDelete }) {
                     isDelivered ? "border-emerald-200 bg-emerald-50/40 hover:border-emerald-300 hover:shadow-emerald-100" :
                         "border-slate-200 hover:border-indigo-200"
             )}>
-                <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-start justify-between gap-2 mb-3 flex-wrap">
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span className="text-xs font-mono text-slate-500">
                                 #{demand.demand_number || demand.id?.slice(-6)}
                             </span>
                             {isOverdue && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 bg-red-100 px-1.5 py-0.5 rounded">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 bg-red-100 px-1.5 py-0.5 rounded shrink-0">
                                     <AlertTriangle className="w-3 h-3" />
                                     ATRASADA
                                 </span>
                             )}
+                            <StatusBadge status={demand.status} size="sm" />
                         </div>
                         <h3 className="font-semibold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
                             {demand.product}
                         </h3>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <StatusBadge status={demand.status} size="sm" />
+                    <div className="flex items-center gap-2 shrink-0">
                         {onDelete && (
                             <button
                                 onClick={(e) => {
