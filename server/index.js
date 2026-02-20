@@ -22,6 +22,9 @@ const demandRoutes = require('./routes/demands');
 const { router: notificationRoutes, generateExpiringContractNotifications } = require('./routes/notifications');
 const activityRoutes = require('./routes/activity');
 
+// Services
+const backupService = require('./services/backupService');
+
 const app = express();
 
 // ========================================
@@ -170,6 +173,9 @@ const start = async () => {
         console.log('[CRON] Generating expiring contract notifications...');
         await generateExpiringContractNotifications();
     });
+
+    // Backup service: runs at 13:00, 18:00, 23:00 daily (local + network)
+    backupService.init();
 };
 
 start();
