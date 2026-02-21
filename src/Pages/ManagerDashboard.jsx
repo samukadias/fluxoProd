@@ -137,13 +137,13 @@ export default function ManagerDashboard() {
 
             // PERMISSÕES:
             // Analista: Apenas suas demandas
-            // Se for analista (role ou perfil), OBRIGATORIAMENTE filtra
-            if (user?.role === 'analyst' || user?.perfil === 'ANALISTA') {
+            // Se for analista, OBRIGATORIAMENTE filtra
+            if (user?.role === 'analyst') {
                 if (currentAnalyst) {
                     return d.analyst_id === currentAnalyst.id;
                 }
                 // Se é analista mas não achamos o cadastro dele na tabela 'analysts', 
-                // por segurança não mostra nada (ou vaza tudo)
+                // por segurança não mostra nada
                 return false;
             }
 
@@ -385,7 +385,7 @@ export default function ManagerDashboard() {
 
     const isManager = user?.role === 'manager' || user?.perfil === 'GESTOR' || user?.department === 'GOR' || (user?.department === 'CDPC' && user?.role === 'manager');
     const isRequester = user?.role === 'requester';
-    const isAnalystCDPC = (user?.role === 'analyst' || user?.perfil === 'ANALISTA') && user?.department === 'CDPC';
+    const isAnalystCDPC = user?.role === 'analyst' && user?.department === 'CDPC';
 
     return (
         <div className="p-6 min-h-screen bg-slate-50 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-100/50 via-slate-50 to-slate-100">
