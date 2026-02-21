@@ -76,7 +76,7 @@ export default function DemandCard({ demand, analyst, client, onDelete }) {
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded">
                         {demand.artifact}
                     </span>
-                    <PriorityBadge weight={demand.weight} complexity={demand.complexity} />
+                    <PriorityBadge weight={demand.weight} />
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500">

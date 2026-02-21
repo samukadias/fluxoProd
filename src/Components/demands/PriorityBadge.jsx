@@ -1,38 +1,39 @@
 import React from 'react';
 import { cn } from "@/lib/utils";
 
+// Maintained for backward compatibility or potential future use, 
+// but now priority is directly driven by 'weight' (0 is highest, 4 is lowest).
 export function calculatePriority(weight, complexity) {
-    const complexityMultiplier = {
-        'Baixa': 1,
-        'Média': 2,
-        'Alta': 3
-    };
-    return (weight || 0) * (complexityMultiplier[complexity] || 1);
+    return weight || 0;
 }
 
-export default function PriorityBadge({ weight, complexity }) {
-    const priority = calculatePriority(weight, complexity);
+export default function PriorityBadge({ weight }) {
+    // If weight format is missing, default to 4 (lowest priority)
+    const priority = weight !== undefined && weight !== null ? weight : 4;
 
     let style = "bg-slate-100 text-slate-600";
-    let label = "Baixa";
+    let label = "Fim da fila 🐌";
 
-    if (priority >= 9) {
-        style = "bg-red-100 text-red-700";
-        label = "Crítica";
-    } else if (priority >= 6) {
-        style = "bg-orange-100 text-orange-700";
-        label = "Alta";
-    } else if (priority >= 3) {
-        style = "bg-amber-100 text-amber-700";
-        label = "Média";
+    if (priority === 0) {
+        style = "bg-rose-100 text-rose-700 font-bold border border-rose-200 shadow-sm";
+        label = "FOCO TOTAL 🚀";
+    } else if (priority === 1) {
+        style = "bg-orange-100 text-orange-700 font-semibold border border-orange-200";
+        label = "Alta Prioridade 🔥";
+    } else if (priority === 2) {
+        style = "bg-amber-100 text-amber-700 font-medium border border-amber-200";
+        label = "Importante ⚡";
+    } else if (priority === 3) {
+        style = "bg-blue-50 text-blue-600 border border-blue-100";
+        label = "Faz quando der 🐢";
     }
 
     return (
         <span className={cn(
-            "inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full",
+            "inline-flex items-center px-2.5 py-1 text-xs rounded-full whitespace-nowrap",
             style
         )}>
-            {priority} - {label}
+            <span className="mr-1 opacity-70">P{priority}</span> {label}
         </span>
     );
 }

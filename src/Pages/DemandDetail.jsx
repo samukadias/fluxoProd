@@ -333,7 +333,7 @@ export default function DemandDetailPage() {
                                     </div>
                                     <div className="bg-slate-50 rounded-xl p-4">
                                         <div className="text-xs text-slate-500 mb-1">Prioridade</div>
-                                        <PriorityBadge weight={demand.weight} complexity={demand.complexity} />
+                                        <PriorityBadge weight={demand.weight} />
                                     </div>
                                     <div className="bg-slate-50 rounded-xl p-4">
                                         <div className="text-xs text-slate-500 mb-1">Esforço</div>

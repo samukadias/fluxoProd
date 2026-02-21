@@ -21,6 +21,18 @@ export const AuthProvider = ({ children }) => {
             if (token && storedUser) {
                 try {
                     const userData = JSON.parse(storedUser);
+
+                    const rolePermissions = {
+                        admin: ['view_all', 'manage_users', 'view_executive_dashboard', 'edit_contracts', 'manage_settings'],
+                        executive: ['view_all', 'view_executive_dashboard'],
+                        manager: ['view_department_dashboard', 'edit_demands'],
+                        analyst: ['view_assigned_demands', 'edit_demands'],
+                        client: ['view_own_demands'],
+                        requester: ['view_own_demands']
+                    };
+
+                    const userRole = (userData.role || 'USER').toLowerCase();
+
                     // Compatibility adapter
                     if (!userData.full_name && userData.name) {
                         userData.full_name = userData.name;
@@ -28,6 +40,10 @@ export const AuthProvider = ({ children }) => {
                     if (!userData.perfil && userData.role) {
                         userData.perfil = userData.role.toUpperCase();
                     }
+
+                    // Ensure backwards compatible sessions get permissions injected on load
+                    userData.permissions = rolePermissions[userRole] || [];
+
                     setUser(userData);
                 } catch (e) {
                     console.error("Erro ao recuperar sessão:", e);
@@ -58,11 +74,24 @@ export const AuthProvider = ({ children }) => {
             // Store JWT token
             localStorage.setItem(TOKEN_KEY, token);
 
+            // Define the RBAC matrix (Capabilities per Role)
+            const rolePermissions = {
+                admin: ['view_all', 'manage_users', 'view_executive_dashboard', 'edit_contracts', 'manage_settings'],
+                executive: ['view_all', 'view_executive_dashboard'],
+                manager: ['view_department_dashboard', 'edit_demands'],
+                analyst: ['view_assigned_demands', 'edit_demands'],
+                client: ['view_own_demands'],
+                requester: ['view_own_demands']
+            };
+
+            const userRole = (userData.role || 'USER').toLowerCase();
+
             // Build user object with compatibility fields
             const userObj = {
                 ...userData,
                 full_name: userData.full_name || userData.name,
-                perfil: userData.perfil || (userData.role ? userData.role.toUpperCase() : 'USER'),
+                perfil: userData.perfil || userRole.toUpperCase(),
+                permissions: rolePermissions[userRole] || []
             };
 
             // Store user data (no password!)

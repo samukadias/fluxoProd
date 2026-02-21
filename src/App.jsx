@@ -27,6 +27,7 @@ import StageControlLegacy from "./pages/Prazos/Legacy/pages/StageControl";
 import DataManagementLegacy from "./pages/Prazos/Legacy/pages/DataManagement";
 import SearchLegacy from "./pages/Prazos/Legacy/pages/Search";
 import ActivityLog from "./pages/ActivityLog";
+import GerencialDashboard from "./Pages/Gerencial/GerencialDashboard";
 
 // Components
 import UserNotRegisteredError from "./components/UserNotRegisteredError";
@@ -84,6 +85,7 @@ function AppRoutes() {
             }>
                 <Route index element={<Navigate to={getHomeRoute(user)} replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
+                <Route path="gerencial" element={<GerencialDashboard />} />
                 <Route path="demands" element={<Demands />} />
                 <Route path="demand-detail" element={<DemandDetail />} />
                 <Route path="settings" element={<Settings />} />

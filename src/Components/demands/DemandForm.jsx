@@ -175,7 +175,7 @@ export default function DemandForm({
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-sm text-slate-600">Peso</Label>
+                    <Label className="text-sm text-slate-600">Prioridade</Label>
                     <Select
                         value={String(formData.weight)}
                         onValueChange={(v) => setFormData({ ...formData, weight: Number(v) })}
@@ -184,9 +184,11 @@ export default function DemandForm({
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            {[0, 1, 2, 3, 4].map(w => (
-                                <SelectItem key={w} value={String(w)}>{String(w)}</SelectItem>
-                            ))}
+                            <SelectItem value="0">0 - FOCO TOTAL 🚀</SelectItem>
+                            <SelectItem value="1">1 - Alta Prioridade 🔥</SelectItem>
+                            <SelectItem value="2">2 - Importante ⚡</SelectItem>
+                            <SelectItem value="3">3 - Faz quando der 🐢</SelectItem>
+                            <SelectItem value="4">4 - Fim da fila 🐌</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>

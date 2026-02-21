@@ -85,10 +85,15 @@ export default function Layout({ onLogout, user }) {
                     </>
                 )}
 
-                {/* Administration: Only Managers and Admins */}
-                {(user?.role === 'admin' || user?.role === 'manager') && (
+                {/* Administration */}
+                {(user?.permissions?.includes('view_executive_dashboard') || user?.permissions?.includes('manage_settings')) && (
                     <>
-                        <SidebarItem icon={Settings} label="Administração" to="/settings" onClick={() => setOpen(false)} />
+                        {user?.permissions?.includes('view_executive_dashboard') && (
+                            <SidebarItem icon={BarChart3} label="Visão Executiva (Gerencial)" to="/gerencial" onClick={() => setOpen(false)} />
+                        )}
+                        {user?.permissions?.includes('manage_settings') && (
+                            <SidebarItem icon={Settings} label="Administração" to="/settings" onClick={() => setOpen(false)} />
+                        )}
                     </>
                 )}
             </div>
