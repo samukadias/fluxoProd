@@ -21,6 +21,7 @@ import {
 
 export default function GerencialDashboard() {
     const [activeTab, setActiveTab] = useState('cdpc');
+    const user = JSON.parse(localStorage.getItem('fluxo_user') || '{}');
 
     return (
         <div className="min-h-screen flex flex-col pt-4 overflow-hidden bg-slate-50 relative">
@@ -38,11 +39,11 @@ export default function GerencialDashboard() {
                 </div>
                 <div className="flex items-center gap-4 hidden sm:flex">
                     <div className="text-right mr-2">
-                        <p className="text-sm font-semibold text-slate-700">Olá, Gerente</p>
+                        <p className="text-sm font-semibold text-slate-700">Olá, {user?.name || 'Gerente'}</p>
                         <p className="text-xs text-slate-500">Última atualização: Hoje, 09:41</p>
                     </div>
-                    <div className="h-10 w-10 bg-slate-200 rounded-full flex items-center justify-center border-2 border-white shadow-sm overflow-hidden text-slate-600 font-bold">
-                        G
+                    <div className="h-10 w-10 bg-slate-200 rounded-full flex items-center justify-center border-2 border-white shadow-sm overflow-hidden text-slate-600 font-bold uppercase">
+                        {user?.name?.charAt(0) || 'G'}
                     </div>
                 </div>
             </header>

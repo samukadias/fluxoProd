@@ -28,7 +28,7 @@ function formatDuration(minutes) {
     return `${days}d`;
 }
 
-export default function BottleneckBarChart({ data = [], onBarClick }) {
+function BottleneckBarChart({ data = [], onBarClick }) {
     const chartData = data
         .filter(d => d.total_minutes > 0)
         .sort((a, b) => b.total_minutes - a.total_minutes)
@@ -127,3 +127,5 @@ export default function BottleneckBarChart({ data = [], onBarClick }) {
         </ResponsiveContainer>
     );
 }
+
+export default React.memo(BottleneckBarChart);

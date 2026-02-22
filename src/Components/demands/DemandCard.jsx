@@ -30,9 +30,9 @@ export default function DemandCard({ demand, analyst, client, onDelete }) {
     const isDelivered = demand.status === 'ENTREGUE';
 
     return (
-        <Link to={createPageUrl(`demand-detail?id=${demand.id}`)}>
+        <Link to={createPageUrl(`demand-detail?id=${demand.id}`)} className="block h-full">
             <div className={cn(
-                "bg-white rounded-xl border p-4 hover:shadow-md transition-all duration-200 cursor-pointer group",
+                "bg-white rounded-xl border p-4 hover:shadow-md transition-all duration-200 cursor-pointer group flex flex-col h-full",
                 isOverdue ? "border-red-300 bg-red-50/30" :
                     isDelivered ? "border-emerald-200 bg-emerald-50/40 hover:border-emerald-300 hover:shadow-emerald-100" :
                         "border-slate-200 hover:border-indigo-200"
@@ -79,7 +79,7 @@ export default function DemandCard({ demand, analyst, client, onDelete }) {
                     <PriorityBadge weight={demand.weight} />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500 mt-auto">
                     {client && (
                         <span className="inline-flex items-center gap-1">
                             <Building2 className="w-3.5 h-3.5" />

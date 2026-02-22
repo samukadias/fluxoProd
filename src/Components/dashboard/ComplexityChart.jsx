@@ -7,7 +7,7 @@ const COLORS = {
     'Alta': '#ef4444'
 };
 
-export default function ComplexityChart({ data = [] }) {
+function ComplexityChart({ data = [] }) {
     const chartData = Object.entries(data).map(([complexity, avgDays]) => ({
         complexity,
         days: Math.round(avgDays * 10) / 10
@@ -84,3 +84,5 @@ export default function ComplexityChart({ data = [] }) {
         </ResponsiveContainer>
     );
 }
+
+export default React.memo(ComplexityChart);

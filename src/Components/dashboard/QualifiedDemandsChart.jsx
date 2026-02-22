@@ -5,7 +5,7 @@ import { ptBR } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CardDescription } from "@/components/ui/card";
 
-export default function QualifiedDemandsChart({ demands }) {
+function QualifiedDemandsChart({ demands }) {
     const [timeframe, setTimeframe] = useState('month');
 
     const data = useMemo(() => {
@@ -97,3 +97,5 @@ export default function QualifiedDemandsChart({ demands }) {
         </div>
     );
 }
+
+export default React.memo(QualifiedDemandsChart);

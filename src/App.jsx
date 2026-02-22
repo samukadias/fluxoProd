@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,32 +8,40 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
 // Pages
-import Dashboard from "./pages/Dashboard";
-import Demands from "./pages/Demands";
-import DemandDetail from "./pages/DemandDetail";
-import Settings from "./pages/Settings";
-import Login from "./pages/Login";
-import FinanceiroHome from './pages/Financeiro';
-import Contracts from './pages/Financeiro/Contracts';
-import AttestationHistory from './pages/Financeiro/AttestationHistory';
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Demands = lazy(() => import("./pages/Demands"));
+const DemandDetail = lazy(() => import("./pages/DemandDetail"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Login = lazy(() => import("./pages/Login"));
+const FinanceiroHome = lazy(() => import("./pages/Financeiro"));
+const Contracts = lazy(() => import("./pages/Financeiro/Contracts"));
+const AttestationHistory = lazy(() => import("./pages/Financeiro/AttestationHistory"));
 
-import PrazosDashboard from "./pages/Prazos/Dashboard";
-import NewContractLegacy from "./pages/Prazos/Legacy/pages/NewContract";
-import EditContractLegacy from "./pages/Prazos/Legacy/pages/EditContract";
-import ContractsLegacy from "./pages/Prazos/Legacy/pages/Contracts";
-import ViewContractLegacy from "./pages/Prazos/Legacy/pages/ViewContract";
-import AnalysisLegacy from "./pages/Prazos/Legacy/pages/Analysis";
-import StageControlLegacy from "./pages/Prazos/Legacy/pages/StageControl";
-import DataManagementLegacy from "./pages/Prazos/Legacy/pages/DataManagement";
-import SearchLegacy from "./pages/Prazos/Legacy/pages/Search";
-import ActivityLog from "./pages/ActivityLog";
-import GerencialDashboard from "./Pages/Gerencial/GerencialDashboard";
+const PrazosDashboard = lazy(() => import("./pages/Prazos/Dashboard"));
+const NewContractLegacy = lazy(() => import("./pages/Prazos/Legacy/pages/NewContract"));
+const EditContractLegacy = lazy(() => import("./pages/Prazos/Legacy/pages/EditContract"));
+const ContractsLegacy = lazy(() => import("./pages/Prazos/Legacy/pages/Contracts"));
+const ViewContractLegacy = lazy(() => import("./pages/Prazos/Legacy/pages/ViewContract"));
+const AnalysisLegacy = lazy(() => import("./pages/Prazos/Legacy/pages/Analysis"));
+const StageControlLegacy = lazy(() => import("./pages/Prazos/Legacy/pages/StageControl"));
+const DataManagementLegacy = lazy(() => import("./pages/Prazos/Legacy/pages/DataManagement"));
+const SearchLegacy = lazy(() => import("./pages/Prazos/Legacy/pages/Search"));
+const ActivityLog = lazy(() => import("./pages/ActivityLog"));
+const GerencialDashboard = lazy(() => import("./Pages/Gerencial/GerencialDashboard"));
 
 // Components
 import UserNotRegisteredError from "./components/UserNotRegisteredError";
 import Layout from "./components/Layout";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            staleTime: 5 * 60 * 1000, // 5 minutos de cache
+            refetchOnWindowFocus: false, // não refetch ao voltar pra aba
+            retry: 1
+        },
+    },
+});
 
 // Protected Route Wrapper - Now consumes useAuth
 const ProtectedRoute = ({ children }) => {
@@ -73,51 +81,58 @@ function AppRoutes() {
     };
 
     return (
-        <Routes>
-            <Route path="/login" element={
-                user ? <Navigate to={getHomeRoute(user)} replace /> : <Login onLogin={() => { }} />
-            } />
+        <Suspense fallback={
+            <div className="flex h-screen w-full items-center justify-center bg-slate-50 flex-col gap-4">
+                <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                <p className="text-sm font-medium text-slate-500 animate-pulse">Carregando módulo...</p>
+            </div>
+        }>
+            <Routes>
+                <Route path="/login" element={
+                    user ? <Navigate to={getHomeRoute(user)} replace /> : <Login onLogin={() => { }} />
+                } />
 
-            <Route path="/" element={
-                <ProtectedRoute>
-                    <Layout onLogout={logout} user={user} />
-                </ProtectedRoute>
-            }>
-                <Route index element={<Navigate to={getHomeRoute(user)} replace />} />
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="gerencial" element={<GerencialDashboard />} />
-                <Route path="demands" element={<Demands />} />
-                <Route path="demand-detail" element={<DemandDetail />} />
-                <Route path="settings" element={<Settings />} />
-                <Route path="atividades" element={<ActivityLog />} />
-                {/* Módulo Financeiro */}
-                <Route path="financeiro">
-                    <Route index element={<FinanceiroHome />} />
-                    <Route path="dashboard" element={<FinanceiroHome />} />
-                    <Route path="contratos" element={<Contracts />} />
-                    <Route path="contratos/:contractId/atestacoes" element={<AttestationHistory />} />
+                <Route path="/" element={
+                    <ProtectedRoute>
+                        <Layout onLogout={logout} user={user} />
+                    </ProtectedRoute>
+                }>
+                    <Route index element={<Navigate to={getHomeRoute(user)} replace />} />
+                    <Route path="dashboard" element={<Dashboard />} />
+                    <Route path="gerencial" element={<GerencialDashboard />} />
+                    <Route path="demands" element={<Demands />} />
+                    <Route path="demand-detail" element={<DemandDetail />} />
+                    <Route path="settings" element={<Settings />} />
+                    <Route path="atividades" element={<ActivityLog />} />
+                    {/* Módulo Financeiro */}
+                    <Route path="financeiro">
+                        <Route index element={<FinanceiroHome />} />
+                        <Route path="dashboard" element={<FinanceiroHome />} />
+                        <Route path="contratos" element={<Contracts />} />
+                        <Route path="contratos/:contractId/atestacoes" element={<AttestationHistory />} />
+
+                    </Route>
+                    <Route path="prazos">
+                        <Route index element={<PrazosDashboard />} />
+                        <Route path="contratos" element={<ContractsLegacy />} />
+                        <Route path="ver" element={<ViewContractLegacy />} />
+                        <Route path="analise" element={<AnalysisLegacy />} />
+                        <Route path="etapas" element={<StageControlLegacy />} />
+                        <Route path="gestao-dados" element={<DataManagementLegacy />} />
+                        <Route path="pesquisa" element={<SearchLegacy />} />
+                        <Route path="contratos/novo" element={<NewContractLegacy />} />
+                        <Route path="contratos/editar/:id" element={<EditContractLegacy />} />
+                        {/* Rotas legadas antigas para compatibilidade se existirem links */}
+                        <Route path="novo" element={<NewContractLegacy />} />
+                        <Route path="editar/:id" element={<EditContractLegacy />} />
+                    </Route>
 
                 </Route>
-                <Route path="prazos">
-                    <Route index element={<PrazosDashboard />} />
-                    <Route path="contratos" element={<ContractsLegacy />} />
-                    <Route path="ver" element={<ViewContractLegacy />} />
-                    <Route path="analise" element={<AnalysisLegacy />} />
-                    <Route path="etapas" element={<StageControlLegacy />} />
-                    <Route path="gestao-dados" element={<DataManagementLegacy />} />
-                    <Route path="pesquisa" element={<SearchLegacy />} />
-                    <Route path="contratos/novo" element={<NewContractLegacy />} />
-                    <Route path="contratos/editar/:id" element={<EditContractLegacy />} />
-                    {/* Rotas legadas antigas para compatibilidade se existirem links */}
-                    <Route path="novo" element={<NewContractLegacy />} />
-                    <Route path="editar/:id" element={<EditContractLegacy />} />
-                </Route>
 
-            </Route>
-
-            <Route path="/access-denied" element={<UserNotRegisteredError />} />
-            <Route path="*" element={<Navigate to={user ? getHomeRoute(user) : "/login"} replace />} />
-        </Routes>
+                <Route path="/access-denied" element={<UserNotRegisteredError />} />
+                <Route path="*" element={<Navigate to={user ? getHomeRoute(user) : "/login"} replace />} />
+            </Routes>
+        </Suspense>
     );
 }
 

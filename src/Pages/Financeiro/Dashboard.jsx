@@ -37,8 +37,11 @@ export default function Dashboard() {
         userRole === 'admin' ||
         userRole === 'gestor' ||
         userRole === 'manager' ||
+        userRole === 'executive' ||
+        userRole === 'general_manager' ||
         userProfile === 'admin' ||
-        userProfile === 'gestor';
+        userProfile === 'gestor' ||
+        userProfile === 'executive';
 
     // If NOT a manager, treat as restricted Analyst view by default
     const isAnalyst = !isManager;

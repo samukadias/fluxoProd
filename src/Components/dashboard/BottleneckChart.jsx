@@ -26,7 +26,7 @@ function formatDuration(minutes) {
     return `${days}d`;
 }
 
-export default function BottleneckChart({ data = [] }) {
+function BottleneckChart({ data = [] }) {
     // Enrich data with Average Time
     const chartData = data
         .filter(d => d.total_minutes > 0)
@@ -163,3 +163,4 @@ export default function BottleneckChart({ data = [] }) {
     );
 }
 
+export default React.memo(BottleneckChart);

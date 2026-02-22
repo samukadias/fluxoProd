@@ -18,6 +18,8 @@ export default function DemandsPage() {
     });
     const [showForm, setShowForm] = useState(false);
     const [viewMode, setViewMode] = useState('grid');
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = viewMode === 'grid' ? 18 : 24;
     const [filters, setFilters] = useState({
         search: '',
         status: 'active',
@@ -27,6 +29,10 @@ export default function DemandsPage() {
         complexity: 'all'
     });
 
+    // Reset to page 1 whenever filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filters]);
 
     const { data: demands = [], isLoading: loadingDemands } = useQuery({
         queryKey: ['demands'],
@@ -154,6 +160,12 @@ export default function DemandsPage() {
     const analystsMap = Object.fromEntries(analysts.map(a => [a.id, a]));
     const clientsMap = Object.fromEntries(clients.map(c => [c.id, c]));
 
+    const totalPages = Math.ceil(filteredDemands.length / ITEMS_PER_PAGE);
+    const paginatedDemands = filteredDemands.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE
+    );
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -164,6 +176,7 @@ export default function DemandsPage() {
                         </h1>
                         <p className="text-slate-500 mt-1">
                             {filteredDemands.length} demanda(s) encontrada(s)
+                            {totalPages > 1 && ` · Página ${currentPage} de ${totalPages}`}
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -232,7 +245,7 @@ export default function DemandsPage() {
                             ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
                             : "space-y-3"
                         }>
-                            {filteredDemands.map(demand => (
+                            {paginatedDemands.map(demand => (
                                 <DemandCard
                                     key={demand.id}
                                     demand={demand}
@@ -241,6 +254,29 @@ export default function DemandsPage() {
                                     onDelete={user?.role === 'analyst' ? null : handleDelete}
                                 />
                             ))}
+                        </div>
+                    )}
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-center gap-2 mt-8">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                                ← Anterior
+                            </button>
+                            <span className="px-4 py-2 text-sm text-slate-500">
+                                {currentPage} / {totalPages}
+                            </span>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                                Próxima →
+                            </button>
                         </div>
                     )}
                 </div>
