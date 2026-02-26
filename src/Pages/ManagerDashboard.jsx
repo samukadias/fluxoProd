@@ -637,7 +637,7 @@ export default function ManagerDashboard() {
                 )}
 
                 {!isRequester && (
-                    <div className={`grid grid-cols-1 lg:grid-cols-${user?.department === 'CDPC' ? '1' : '2'} gap-6 mb-8`}>
+                    <div className="grid grid-cols-1 gap-6 mb-8">
                         <Card>
                             <CardHeader>
                                 <CardTitle className="text-lg flex items-center gap-2">
@@ -657,23 +657,6 @@ export default function ManagerDashboard() {
                                 }
                             </CardContent>
                         </Card>
-
-                        {user?.department !== 'CDPC' && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg flex items-center gap-2">
-                                        <Clock className="w-5 h-5 text-indigo-600" />
-                                        Tempo Médio por Complexidade
-                                    </CardTitle>
-                                    <p className="text-sm text-slate-500">
-                                        Dias úteis médios para conclusão por nível
-                                    </p>
-                                </CardHeader>
-                                <CardContent>
-                                    <ComplexityChart data={complexityData} />
-                                </CardContent>
-                            </Card>
-                        )}
                     </div>
                 )}
 
