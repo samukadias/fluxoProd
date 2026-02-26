@@ -4,7 +4,7 @@ import { TermoConfirmacao } from "@/entities/TermoConfirmacao";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Trash2, Database, AlertTriangle, RefreshCw, Users, ArrowRight } from "lucide-react";
+import { Database, AlertTriangle, RefreshCw, Users, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,8 +32,8 @@ export default function DataManagement() {
   const [contracts, setContracts] = useState([]);
   const [tcs, setTcs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isClearing, setIsClearing] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
+  const [userRole, setUserRole] = useState(null);
 
   // Transfer States
   const [analysts, setAnalysts] = useState([]);
@@ -59,6 +59,16 @@ export default function DataManagement() {
 
   const loadData = async () => {
     setIsLoading(true);
+    const storedUser = localStorage.getItem('fluxo_user') || localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const userObj = JSON.parse(storedUser);
+        setUserRole(userObj.role);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     try {
       const contractsData = await Contract.list();
       const tcsData = await TermoConfirmacao.list();
@@ -84,26 +94,6 @@ export default function DataManagement() {
     setIsLoading(false);
   };
 
-  const handleClearAllData = async () => {
-    setIsClearing(true);
-    try {
-      // 1. Apagar contratos
-      const allContracts = await Contract.list();
-      await Promise.all(allContracts.map(c => Contract.delete(c.id)));
-
-      // 2. Apagar TCs
-      const allTcs = await TermoConfirmacao.list();
-      await Promise.all(allTcs.map(tc => TermoConfirmacao.delete(tc.id)));
-
-      toast.success("Todos os dados foram apagados com sucesso!");
-      await loadData();
-    } catch (error) {
-      console.error("Erro ao limpar dados:", error);
-      toast.error("Erro ao limpar dados. Tente novamente.");
-    } finally {
-      setIsClearing(false);
-    }
-  };
 
   const handleMigrateFromLocalStorage = async () => {
     // Funcionalidade descontinuada
@@ -295,349 +285,311 @@ export default function DataManagement() {
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="portfolio" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="portfolio">Por Carteira</TabsTrigger>
-            <TabsTrigger value="client">Por Cliente</TabsTrigger>
-            <TabsTrigger value="group">Por Grupo</TabsTrigger>
-          </TabsList>
+        {userRole !== 'viewer' && (
+          <Tabs defaultValue="portfolio" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="portfolio">Por Carteira</TabsTrigger>
+              <TabsTrigger value="client">Por Cliente</TabsTrigger>
+              <TabsTrigger value="group">Por Grupo</TabsTrigger>
+            </TabsList>
 
-          {/* Transferência de Carteira */}
-          <TabsContent value="portfolio">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-purple-500" />
-                  Transferência de Carteira
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Alert>
-                  <AlertDescription>
-                    Transfira todos os contratos de um analista para outro. Útil em casos de férias, desligamento ou redistribuição.
-                  </AlertDescription>
-                </Alert>
+            {/* Transferência de Carteira */}
+            <TabsContent value="portfolio">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-purple-500" />
+                    Transferência de Carteira
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Alert>
+                    <AlertDescription>
+                      Transfira todos os contratos de um analista para outro. Útil em casos de férias, desligamento ou redistribuição.
+                    </AlertDescription>
+                  </Alert>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                  <div className="space-y-2">
-                    <Label>Analista de Origem (Quem sai)</Label>
-                    <Select value={sourceAnalyst} onValueChange={setSourceAnalyst}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o analista..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {analysts.map(a => (
-                          <SelectItem key={a} value={a}>{a}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex items-center justify-center pb-2 md:pb-0">
-                    <ArrowRight className="w-6 h-6 text-gray-400" />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Analista de Destino (Quem assume)</Label>
-                    <div className="flex gap-2">
-                      <Select value={targetAnalyst} onValueChange={setTargetAnalyst}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Selecione ou digite..." />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                    <div className="space-y-2">
+                      <Label>Analista de Origem (Quem sai)</Label>
+                      <Select value={sourceAnalyst} onValueChange={setSourceAnalyst}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o analista..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {analysts.filter(a => a !== sourceAnalyst).map(a => (
+                          {analysts.map(a => (
+                            <SelectItem key={a} value={a}>{a}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center justify-center pb-2 md:pb-0">
+                      <ArrowRight className="w-6 h-6 text-gray-400" />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Analista de Destino (Quem assume)</Label>
+                      <div className="flex gap-2">
+                        <Select value={targetAnalyst} onValueChange={setTargetAnalyst}>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Selecione ou digite..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {analysts.filter(a => a !== sourceAnalyst).map(a => (
+                              <SelectItem key={a} value={a}>{a}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Ou digite um novo nome para o destino:</Label>
+                    <Input
+                      placeholder="Nome do novo analista (opcional)"
+                      value={targetAnalyst}
+                      onChange={(e) => setTargetAnalyst(e.target.value)}
+                    />
+                    <p className="text-xs text-gray-500">Selecione na lista acima OU digite um novo nome.</p>
+                  </div>
+
+
+                  <div className="flex justify-end pt-4">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          className="bg-purple-600 hover:bg-purple-700"
+                          disabled={isTransferring || !sourceAnalyst || !targetAnalyst || sourceAnalyst === targetAnalyst}
+                        >
+                          <Users className="w-4 h-4 mr-2" />
+                          {isTransferring ? "Transferindo..." : "Realizar Transferência"}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirmar Transferência</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Você está prestes a transferir <strong>TODOS</strong> os contratos de <span className="font-bold text-purple-600">{sourceAnalyst}</span> para <span className="font-bold text-purple-600">{targetAnalyst}</span>.
+                            <br /><br />
+                            Contratos afetados: {contracts.filter(c => c.analista_responsavel === sourceAnalyst).length}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleTransferPortfolio} className="bg-purple-600 hover:bg-purple-700">
+                            Confirmar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </CardContent>
+
+              </Card>
+            </TabsContent>
+
+            {/* Transferência de Cliente para Analista */}
+            <TabsContent value="client">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-indigo-500" />
+                    Transferência por Cliente
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Alert>
+                    <AlertDescription>
+                      Transfira todos os contratos de um determinado Cliente para um Analista específico.
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                    <div className="space-y-2">
+                      <Label>Cliente (Origem)</Label>
+                      <Select value={sourceClient} onValueChange={setSourceClient}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o cliente..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clients.map(c => (
+                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center justify-center pb-2 md:pb-0">
+                      <ArrowRight className="w-6 h-6 text-gray-400" />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Analista de Destino</Label>
+                      <Select value={targetAnalystForClient} onValueChange={setTargetAnalystForClient}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o analista..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {analysts.map(a => (
                             <SelectItem key={a} value={a}>{a}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label>Ou digite um novo nome para o destino:</Label>
-                  <Input
-                    placeholder="Nome do novo analista (opcional)"
-                    value={targetAnalyst}
-                    onChange={(e) => setTargetAnalyst(e.target.value)}
-                  />
-                  <p className="text-xs text-gray-500">Selecione na lista acima OU digite um novo nome.</p>
-                </div>
+                  <div className="flex justify-end pt-4">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          className="bg-indigo-600 hover:bg-indigo-700"
+                          disabled={isTransferringClient || !sourceClient || !targetAnalystForClient}
+                        >
+                          <Users className="w-4 h-4 mr-2" />
+                          {isTransferringClient ? "Transferindo..." : "Transf. Cliente -> Analista"}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirmar Transferência de Cliente</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Você está prestes a transferir <strong>TODOS</strong> os contratos do cliente <span className="font-bold text-indigo-600">{sourceClient}</span> para o analista <span className="font-bold text-indigo-600">{targetAnalystForClient}</span>.
+                            <br /><br />
+                            Contratos afetados: {contracts.filter(c => c.nome_cliente === sourceClient).length}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleTransferClientPortfolio} className="bg-indigo-600 hover:bg-indigo-700">
+                            Confirmar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
+            {/* Transferência de Grupo de Cliente para Analista */}
+            <TabsContent value="group">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-orange-500" />
+                    Transferência por Grupo de Cliente
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Alert>
+                    <AlertDescription>
+                      Transfira todos os contratos de um determinado <strong>Grupo Econômico</strong> para um Analista específico.
+                    </AlertDescription>
+                  </Alert>
 
-                <div className="flex justify-end pt-4">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        className="bg-purple-600 hover:bg-purple-700"
-                        disabled={isTransferring || !sourceAnalyst || !targetAnalyst || sourceAnalyst === targetAnalyst}
-                      >
-                        <Users className="w-4 h-4 mr-2" />
-                        {isTransferring ? "Transferindo..." : "Realizar Transferência"}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Confirmar Transferência</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Você está prestes a transferir <strong>TODOS</strong> os contratos de <span className="font-bold text-purple-600">{sourceAnalyst}</span> para <span className="font-bold text-purple-600">{targetAnalyst}</span>.
-                          <br /><br />
-                          Contratos afetados: {contracts.filter(c => c.analista_responsavel === sourceAnalyst).length}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleTransferPortfolio} className="bg-purple-600 hover:bg-purple-700">
-                          Confirmar
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                    <div className="space-y-2">
+                      <Label>Grupo Cliente (Origem)</Label>
+                      <Select value={sourceClientGroup} onValueChange={setSourceClientGroup}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o grupo..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clientGroups.map(g => (
+                            <SelectItem key={g} value={g}>{g}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-            </Card>
-          </TabsContent>
+                    <div className="flex items-center justify-center pb-2 md:pb-0">
+                      <ArrowRight className="w-6 h-6 text-gray-400" />
+                    </div>
 
-          {/* Transferência de Cliente para Analista */}
-          <TabsContent value="client">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-indigo-500" />
-                  Transferência por Cliente
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Alert>
-                  <AlertDescription>
-                    Transfira todos os contratos de um determinado Cliente para um Analista específico.
-                  </AlertDescription>
-                </Alert>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                  <div className="space-y-2">
-                    <Label>Cliente (Origem)</Label>
-                    <Select value={sourceClient} onValueChange={setSourceClient}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o cliente..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clients.map(c => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="space-y-2">
+                      <Label>Analista de Destino</Label>
+                      <Select value={targetAnalystForGroup} onValueChange={setTargetAnalystForGroup}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o analista..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {analysts.map(a => (
+                            <SelectItem key={a} value={a}>{a}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-center pb-2 md:pb-0">
-                    <ArrowRight className="w-6 h-6 text-gray-400" />
+                  <div className="flex justify-end pt-4">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          className="bg-orange-600 hover:bg-orange-700"
+                          disabled={isTransferringGroup || !sourceClientGroup || !targetAnalystForGroup}
+                        >
+                          <Users className="w-4 h-4 mr-2" />
+                          {isTransferringGroup ? "Transferindo..." : "Transf. Grupo -> Analista"}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirmar Transferência de Grupo</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Você está prestes a transferir <strong>TODOS</strong> os contratos do grupo <span className="font-bold text-orange-600">{sourceClientGroup}</span> para o analista <span className="font-bold text-orange-600">{targetAnalystForGroup}</span>.
+                            <br /><br />
+                            Contratos afetados: {contracts.filter(c => c.grupo_cliente === sourceClientGroup).length}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleTransferClientGroupPortfolio} className="bg-orange-600 hover:bg-orange-700">
+                            Confirmar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        )}
 
-                  <div className="space-y-2">
-                    <Label>Analista de Destino</Label>
-                    <Select value={targetAnalystForClient} onValueChange={setTargetAnalystForClient}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o analista..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {analysts.map(a => (
-                          <SelectItem key={a} value={a}>{a}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+        {userRole !== 'viewer' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-green-500" />
+                Migração de Dados
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Se você tem dados salvos no navegador (localStorage) e quer transferi-los para a base oficial, utilize a ferramenta abaixo.
+                  <br />
+                  <strong>Nota:</strong> Esta ação é voltada para versões antigas do sistema.
+                </AlertDescription>
+              </Alert>
 
-                <div className="flex justify-end pt-4">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        className="bg-indigo-600 hover:bg-indigo-700"
-                        disabled={isTransferringClient || !sourceClient || !targetAnalystForClient}
-                      >
-                        <Users className="w-4 h-4 mr-2" />
-                        {isTransferringClient ? "Transferindo..." : "Transf. Cliente -> Analista"}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Confirmar Transferência de Cliente</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Você está prestes a transferir <strong>TODOS</strong> os contratos do cliente <span className="font-bold text-indigo-600">{sourceClient}</span> para o analista <span className="font-bold text-indigo-600">{targetAnalystForClient}</span>.
-                          <br /><br />
-                          Contratos afetados: {contracts.filter(c => c.nome_cliente === sourceClient).length}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleTransferClientPortfolio} className="bg-indigo-600 hover:bg-indigo-700">
-                          Confirmar
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleMigrateFromLocalStorage}
+                  disabled={isMigrating}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Database className="w-4 h-4 mr-2" />
+                  {isMigrating ? "Migrando..." : "Migrar do Navegador"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-          {/* Transferência de Grupo de Cliente para Analista */}
-          <TabsContent value="group">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-orange-500" />
-                  Transferência por Grupo de Cliente
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Alert>
-                  <AlertDescription>
-                    Transfira todos os contratos de um determinado <strong>Grupo Econômico</strong> para um Analista específico.
-                  </AlertDescription>
-                </Alert>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                  <div className="space-y-2">
-                    <Label>Grupo Cliente (Origem)</Label>
-                    <Select value={sourceClientGroup} onValueChange={setSourceClientGroup}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o grupo..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clientGroups.map(g => (
-                          <SelectItem key={g} value={g}>{g}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex items-center justify-center pb-2 md:pb-0">
-                    <ArrowRight className="w-6 h-6 text-gray-400" />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Analista de Destino</Label>
-                    <Select value={targetAnalystForGroup} onValueChange={setTargetAnalystForGroup}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o analista..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {analysts.map(a => (
-                          <SelectItem key={a} value={a}>{a}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-4">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        className="bg-orange-600 hover:bg-orange-700"
-                        disabled={isTransferringGroup || !sourceClientGroup || !targetAnalystForGroup}
-                      >
-                        <Users className="w-4 h-4 mr-2" />
-                        {isTransferringGroup ? "Transferindo..." : "Transf. Grupo -> Analista"}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Confirmar Transferência de Grupo</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Você está prestes a transferir <strong>TODOS</strong> os contratos do grupo <span className="font-bold text-orange-600">{sourceClientGroup}</span> para o analista <span className="font-bold text-orange-600">{targetAnalystForGroup}</span>.
-                          <br /><br />
-                          Contratos afetados: {contracts.filter(c => c.grupo_cliente === sourceClientGroup).length}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleTransferClientGroupPortfolio} className="bg-orange-600 hover:bg-orange-700">
-                          Confirmar
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="w-5 h-5 text-green-500" />
-              Migração de Dados
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Alert>
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                Se você tem dados salvos no navegador (localStorage) e quer transferi-los para a base oficial, utilize a ferramenta abaixo.
-                <br />
-                <strong>Nota:</strong> Esta ação é voltada para versões antigas do sistema.
-              </AlertDescription>
-            </Alert>
-
-            <div className="flex justify-end">
-              <Button
-                onClick={handleMigrateFromLocalStorage}
-                disabled={isMigrating}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <Database className="w-4 h-4 mr-2" />
-                {isMigrating ? "Migrando..." : "Migrar do Navegador"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Trash2 className="w-5 h-5 text-red-500" />
-              Limpeza de Dados
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Atenção:</strong> Esta ação apagará <strong>TODOS</strong> os contratos e termos de confirmação cadastrados no sistema.
-                Esta ação é irreversível e os dados não poderão ser recuperados.
-              </AlertDescription>
-            </Alert>
-
-            <div className="flex justify-end">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" disabled={isClearing || (contracts.length === 0 && tcs.length === 0)}>
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    {isClearing ? "Limpando..." : "Apagar Todos os Dados"}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta ação não pode ser desfeita. Isso excluirá permanentemente todos os contratos e termos de confirmação do banco de dados oficial.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleClearAllData} className="bg-red-600 hover:bg-red-700">
-                      Sim, apagar tudo
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

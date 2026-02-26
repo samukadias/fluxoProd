@@ -5,7 +5,7 @@ import ContractTable from "../components/contracts/ContractTable";
 import ContractFilters from "../components/contracts/ContractFilters";
 import ImportExportDialog from "../components/contracts/ImportExportDialog";
 import { Button } from "@/components/ui/button";
-import { Plus, Upload } from "lucide-react";
+import { Plus, Upload, Users, LayoutGrid } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { createPageUrl } from "@/utils/legacy";
 import { useQueryClient } from "@tanstack/react-query";
@@ -24,9 +24,11 @@ export default function Contracts() {
     search: "",
     status: searchParams.get("status") || "all",
     analista: "all",
+    cliente: "all",
     vencimento: searchParams.get("vencimento") || "all"
   });
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [clientView, setClientView] = useState('grupo'); // 'cliente' | 'grupo'
 
   // Filter logic
   const filteredContracts = contracts.filter((contract) => {
@@ -81,6 +83,7 @@ export default function Contracts() {
 
     const matchesStatus = filters.status === "all" || contract.status === filters.status;
     const matchesAnalista = filters.analista === "all" || contract.analista_responsavel === filters.analista;
+    const matchesCliente = filters.cliente === "all" || contract.cliente === filters.cliente;
 
     const matchesVencimento = filters.vencimento === "all" || (() => {
       if (filters.vencimento === "expiring") {
@@ -93,7 +96,7 @@ export default function Contracts() {
       return contract.status_vencimento === filters.vencimento;
     })();
 
-    return matchesSearch && matchesStatus && matchesAnalista && matchesVencimento;
+    return matchesSearch && matchesStatus && matchesAnalista && matchesCliente && matchesVencimento;
   });
 
   const handleImportComplete = () => {
@@ -109,7 +112,31 @@ export default function Contracts() {
           <h1 className="text-3xl font-bold text-gray-900">Contratos</h1>
           <p className="text-gray-600 mt-1">Gerencie todos os contratos do sistema</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
+          {/* Toggle: visualizar por cliente ou grupo */}
+          <div className="flex rounded-md border border-gray-200 overflow-hidden text-sm">
+            <button
+              onClick={() => setClientView('cliente')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors ${clientView === 'cliente'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              Cliente
+            </button>
+            <button
+              onClick={() => setClientView('grupo')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border-l border-gray-200 ${clientView === 'grupo'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              Grupo
+            </button>
+          </div>
+
           <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}>
             <Upload className="w-4 h-4 mr-2" />
             Importar/Exportar
@@ -134,6 +161,7 @@ export default function Contracts() {
       <ContractTable
         contracts={filteredContracts}
         isLoading={isLoading}
+        clientView={clientView}
       />
 
       {/* Import Dialog */}

@@ -94,14 +94,53 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
             const uniquePDs = [...new Set(clientPDs)];
             setAvailablePDs(uniquePDs);
 
+            // Fetch the specific contract object to auto-fill ESPs from COCR
+            const getSelectedContractEsps = (pd) => {
+                const c = prazosContracts.find(c => c.cliente === formData.client_name && c.contrato === pd);
+                if (!c || !c.esps) return [];
+
+                if (Array.isArray(c.esps)) return c.esps;
+                try {
+                    return JSON.parse(c.esps);
+                } catch {
+                    return [];
+                }
+            };
+
             // Se houver apenas um PD, preencher automaticamente
             if (uniquePDs.length === 1 && !formData.pd_number) {
-                setFormData(prev => ({ ...prev, pd_number: uniquePDs[0] }));
+                setFormData(prev => ({
+                    ...prev,
+                    pd_number: uniquePDs[0],
+                    esps: prev.esps.length === 0 ? getSelectedContractEsps(uniquePDs[0]) : prev.esps
+                }));
             }
         } else {
             setAvailablePDs([]);
         }
     }, [formData.client_name, prazosContracts]);
+
+    // Handle manual PD number change to load ESPs from COCR
+    const handlePdNumberChange = (value) => {
+        const selectedContract = prazosContracts.find(c => c.cliente === formData.client_name && c.contrato === value);
+        let coCrEsps = [];
+
+        if (selectedContract && selectedContract.esps) {
+            if (Array.isArray(selectedContract.esps)) {
+                coCrEsps = selectedContract.esps;
+            } else {
+                try {
+                    coCrEsps = JSON.parse(selectedContract.esps);
+                } catch { }
+            }
+        }
+
+        setFormData(prev => ({
+            ...prev,
+            pd_number: value,
+            esps: coCrEsps // Overwrite with COCR default when explicitly changing the dropdown
+        }));
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();

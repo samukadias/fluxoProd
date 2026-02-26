@@ -12,20 +12,20 @@ export default function PriorityBadge({ weight }) {
     const priority = weight !== undefined && weight !== null ? weight : 4;
 
     let style = "bg-slate-100 text-slate-600";
-    let label = "Fim da fila 🐌";
+    let label = "Baixo";
 
     if (priority === 0) {
         style = "bg-rose-100 text-rose-700 font-bold border border-rose-200 shadow-sm";
-        label = "FOCO TOTAL 🚀";
+        label = "Estratégico";
     } else if (priority === 1) {
         style = "bg-orange-100 text-orange-700 font-semibold border border-orange-200";
-        label = "Alta Prioridade 🔥";
+        label = "Muito Alto";
     } else if (priority === 2) {
         style = "bg-amber-100 text-amber-700 font-medium border border-amber-200";
-        label = "Importante ⚡";
+        label = "Alto";
     } else if (priority === 3) {
         style = "bg-blue-50 text-blue-600 border border-blue-100";
-        label = "Faz quando der 🐢";
+        label = "Padrão";
     }
 
     return (

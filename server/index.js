@@ -10,7 +10,7 @@ const initDb = require('./migrations/init');
 const seedUsers = require('./seeds/users');
 
 // Middleware
-const { authenticateToken } = require('./middleware/auth');
+const { authenticateToken, authorizeAction } = require('./middleware/auth');
 const auditTrail = require('./middleware/audit');
 
 // Helpers
@@ -73,6 +73,7 @@ app.use('/auth', authRoutes);
 // PROTECTED ROUTES (JWT required)
 // ========================================
 app.use(authenticateToken);
+app.use(authorizeAction);
 
 // Custom routes (must come BEFORE generic CRUD routes)
 app.use('/demands', demandRoutes);

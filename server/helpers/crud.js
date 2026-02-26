@@ -228,6 +228,12 @@ const createCrudRoutes = (app, resource, tableName) => {
                 if (body[key] === '') body[key] = null;
             });
 
+            // If updating a user and a password is provided, hash it
+            if (tableName === 'users' && body.password) {
+                const bcrypt = require('bcryptjs');
+                body.password = await bcrypt.hash(body.password, 10);
+            }
+
             const keys = Object.keys(body);
             const values = Object.values(body);
 

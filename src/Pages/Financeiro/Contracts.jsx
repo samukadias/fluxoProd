@@ -155,7 +155,7 @@ export default function Contracts() {
                         <h1 className="text-3xl font-bold text-slate-900">Contratos</h1>
                         <p className="text-slate-600 mt-1">Gerencie os contratos da empresa</p>
                     </div>
-                    {!selectedClient && (
+                    {(!selectedClient && userRole !== 'viewer') && (
                         <Button
                             onClick={() => {
                                 setEditingContract(null);
@@ -365,18 +365,20 @@ export default function Contracts() {
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-2 p-4 md:pr-6 border-t md:border-t-0 md:border-l border-slate-100">
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => {
-                                                                    setEditingContract(contract);
-                                                                    setShowForm(true);
-                                                                }}
-                                                                className="text-slate-600"
-                                                            >
-                                                                <Edit className="w-4 h-4 mr-1" />
-                                                                Editar
-                                                            </Button>
+                                                            {userRole !== 'viewer' && (
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        setEditingContract(contract);
+                                                                        setShowForm(true);
+                                                                    }}
+                                                                    className="text-slate-600"
+                                                                >
+                                                                    <Edit className="w-4 h-4 mr-1" />
+                                                                    Editar
+                                                                </Button>
+                                                            )}
 
                                                             {/* Botão Excluir - para gestores */}
                                                             {(user?.role === 'manager' || user?.role === 'admin' || user?.role === 'gestor' ||

@@ -325,91 +325,114 @@ export default function DemandDetailPage() {
                                 </div>
                             </div>
 
-                            <CardContent className="p-6">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                                    <div className="bg-slate-50 rounded-xl p-4">
-                                        <div className="text-xs text-slate-500 mb-1">Artefato</div>
-                                        <div className="font-semibold text-slate-800">{demand.artifact}</div>
+                            <CardContent className="p-6 space-y-3">
+
+                                {/* Linha 1 — Artefato | Prioridade | Valor */}
+                                <div className="grid gap-3" style={{ gridTemplateColumns: '0.8fr 1fr 1.2fr' }}>
+                                    <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1">
+                                        <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Artefato</span>
+                                        <span className="font-semibold text-slate-800 text-sm">{demand.artifact}</span>
                                     </div>
-                                    <div className="bg-slate-50 rounded-xl p-4">
-                                        <div className="text-xs text-slate-500 mb-1">Prioridade</div>
+                                    <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1">
+                                        <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Prioridade</span>
                                         <PriorityBadge weight={demand.weight} />
                                     </div>
-                                    <div className="bg-slate-50 rounded-xl p-4">
-                                        <div className="text-xs text-slate-500 mb-1">Esforço</div>
-                                        <div className="font-semibold text-slate-800">{effortDays} dias úteis</div>
+                                    <div className={`rounded-xl p-3 flex flex-col gap-1 ${demand.value != null ? 'bg-emerald-50 border border-emerald-200 shadow-sm' : 'bg-slate-50'}`}>
+                                        <span className={`text-[11px] font-medium uppercase tracking-wider ${demand.value != null ? 'text-emerald-600' : 'text-slate-400'}`}>Valor</span>
+                                        <span className={`font-bold ${demand.value != null ? 'text-emerald-700 text-base' : 'text-slate-400 text-sm'}`}>
+                                            {demand.value != null
+                                                ? Number(demand.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                                                : 'Não informado'}
+                                        </span>
                                     </div>
-                                    <div className="bg-slate-50 rounded-xl p-4">
-                                        <div className="text-xs text-slate-500 mb-1">SLA</div>
-                                        <div className="font-semibold text-slate-800">{slaDays} dias corridos</div>
+                                </div>
+
+                                {/* Linha 2 — Esforço | SLA */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1">
+                                        <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Esforço</span>
+                                        <span className="font-semibold text-slate-800 text-sm">{effortDays} dias úteis</span>
+                                    </div>
+                                    <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1">
+                                        <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">SLA</span>
+                                        <span className="font-semibold text-slate-800 text-sm">{slaDays} dias corridos</span>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                    {client && (
-                                        <div className="flex items-center gap-3 text-sm">
-                                            <Building2 className="w-4 h-4 text-slate-400" />
-                                            <span className="text-slate-600">Cliente:</span>
-                                            <span className="font-medium">{client.name}</span>
+                                {/* Linha 3 — Cliente (full width) */}
+                                {client && (
+                                    <div className="flex items-start gap-3 bg-slate-50 rounded-xl px-4 py-3">
+                                        <Building2 className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />
+                                        <div className="min-w-0">
+                                            <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-0.5">Cliente</p>
+                                            <p className="font-semibold text-slate-800 text-sm leading-snug">{client.name}</p>
                                         </div>
-                                    )}
-                                    {analyst && (
-                                        <div className="flex items-center gap-3 text-sm">
-                                            <User className="w-4 h-4 text-slate-400" />
-                                            <span className="text-slate-600">Responsável:</span>
-                                            <span className="font-medium">{analyst.name}</span>
-                                        </div>
-                                    )}
-                                    {cycle && (
-                                        <div className="flex items-center gap-3 text-sm">
-                                            <Layers className="w-4 h-4 text-slate-400" />
-                                            <span className="text-slate-600">Ciclo:</span>
-                                            <span className="font-medium">{cycle.name}</span>
-                                        </div>
-                                    )}
-                                    {requester && (
-                                        <div className="flex items-center gap-3 text-sm">
-                                            <User className="w-4 h-4 text-slate-400" />
-                                            <span className="text-slate-600">Solicitante:</span>
-                                            <span className="font-medium">{requester.name}</span>
-                                        </div>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                                    {demand.qualification_date && (
-                                        <div className="flex items-center gap-3 text-sm">
-                                            <Calendar className="w-4 h-4 text-slate-400" />
-                                            <span className="text-slate-600">Qualificação:</span>
-                                            <span className="font-medium">
-                                                {format(parseISO(demand.qualification_date), "dd/MM/yyyy", { locale: ptBR })}
-                                            </span>
-                                        </div>
-                                    )}
-                                    {demand.expected_delivery_date && (
-                                        <div className={`flex items-center gap-3 text-sm ${isOverdue ? 'text-red-600' : ''}`}>
-                                            <Clock className="w-4 h-4" />
-                                            <span>Previsão:</span>
-                                            <span className="font-medium">
-                                                {format(parseISO(demand.expected_delivery_date), "dd/MM/yyyy", { locale: ptBR })}
-                                            </span>
-                                        </div>
-                                    )}
-                                    {demand.delivery_date && (
-                                        <div className="flex items-center gap-3 text-sm text-emerald-600">
-                                            <Calendar className="w-4 h-4" />
-                                            <span>Entrega:</span>
-                                            <span className="font-medium">
-                                                {format(parseISO(demand.delivery_date), "dd/MM/yyyy", { locale: ptBR })}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
+                                {/* Linha 4 — Responsável | Ciclo */}
+                                {(analyst || cycle) && (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {analyst && (
+                                            <div className="flex items-start gap-3 bg-slate-50 rounded-xl px-4 py-3">
+                                                <User className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />
+                                                <div className="min-w-0">
+                                                    <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-0.5">Responsável</p>
+                                                    <p className="font-semibold text-slate-800 text-sm leading-snug">{analyst.name}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {cycle && (
+                                            <div className="flex items-start gap-3 bg-slate-50 rounded-xl px-4 py-3">
+                                                <Layers className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />
+                                                <div className="min-w-0">
+                                                    <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-0.5">Ciclo</p>
+                                                    <p className="font-semibold text-slate-800 text-sm leading-snug">{cycle.name}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
+                                {/* Rodapé — Datas */}
+                                {(demand.qualification_date || demand.expected_delivery_date || demand.delivery_date) && (
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                        {demand.qualification_date && (
+                                            <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
+                                                <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                                                <span className="text-xs text-indigo-500 font-medium">Qualificação</span>
+                                                <span className="text-xs font-bold text-indigo-700">
+                                                    {format(parseISO(demand.qualification_date), "dd/MM/yyyy", { locale: ptBR })}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {demand.expected_delivery_date && (
+                                            <div className={`flex items-center gap-2 rounded-lg px-3 py-2 border ${isOverdue ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-100'}`}>
+                                                <Clock className={`w-3.5 h-3.5 ${isOverdue ? 'text-red-400' : 'text-amber-400'}`} />
+                                                <span className={`text-xs font-medium ${isOverdue ? 'text-red-500' : 'text-amber-500'}`}>Previsão</span>
+                                                <span className={`text-xs font-bold ${isOverdue ? 'text-red-700' : 'text-amber-700'}`}>
+                                                    {format(parseISO(demand.expected_delivery_date), "dd/MM/yyyy", { locale: ptBR })}
+                                                </span>
+                                                {isOverdue && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded ml-1">ATRASADA</span>}
+                                            </div>
+                                        )}
+                                        {demand.delivery_date && (
+                                            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                                                <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                                                <span className="text-xs text-emerald-600 font-medium">Data Fim</span>
+                                                <span className="text-xs font-bold text-emerald-700">
+                                                    {format(parseISO(demand.delivery_date), "dd/MM/yyyy", { locale: ptBR })}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Observações */}
                                 {demand.observation && (
-                                    <div className="border-t pt-4">
-                                        <h3 className="text-sm font-semibold text-slate-700 mb-2">Observações</h3>
-                                        <p className="text-sm text-slate-600 whitespace-pre-wrap">{demand.observation}</p>
+                                    <div className="border-t border-slate-100 pt-4">
+                                        <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Observações</h3>
+                                        <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">{demand.observation}</p>
                                     </div>
                                 )}
                             </CardContent>
@@ -485,6 +508,7 @@ export default function DemandDetailPage() {
                         cycles={cycles}
                         requesters={requesters}
                         userRole={user?.role}
+                        userDepartment={user?.department}
                     />
                 </DialogContent>
             </Dialog>

@@ -44,7 +44,8 @@ const ROLES = [
     { value: 'admin', label: 'Administrador' },
     { value: 'analyst', label: 'Analista' },
     { value: 'requester', label: 'Solicitante' },
-    { value: 'client', label: 'Cliente' }
+    { value: 'client', label: 'Cliente' },
+    { value: 'viewer', label: 'Visualizador Global (Somente Leitura)' }
 ];
 
 export default function UserManagement({ isEmbedded = false }) {

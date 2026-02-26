@@ -19,7 +19,7 @@ const STAGES = [
     "PO",
     "OO",
     "RT",
-    "KIT"
+    "ESP"
 ];
 
 const STATUS_LIST = [
@@ -50,12 +50,14 @@ export default function DemandForm({
     cycles = [],
     requesters = [],
     userRole = 'user',
+    userDepartment = '',
     isNew = false
 }) {
     const [formData, setFormData] = useState({
         demand_number: demand?.demand_number || '',
         product: demand?.product || '',
         artifact: demand?.artifact || 'Orçamento',
+        value: demand?.value ?? '',
         weight: demand?.weight ?? 1,
         complexity: demand?.complexity || 'Média',
         qualification_date: demand?.qualification_date || '',
@@ -69,7 +71,8 @@ export default function DemandForm({
         stage: demand?.stage || 'Triagem',
         analyst_id: demand?.analyst_id || '',
         requester_id: demand?.requester_id || '',
-        support_analyst_id: demand?.support_analyst_id || ''
+        support_analyst_id: demand?.support_analyst_id || '',
+        architect_support_analyst_id: demand?.architect_support_analyst_id || ''
     });
 
     const isGestor = ['admin', 'manager', 'general_manager'].includes(userRole);
@@ -80,7 +83,8 @@ export default function DemandForm({
     const isAlreadyDelivered = demand?.status === 'ENTREGUE';
     const showReasonField = isGestor && isAlreadyDelivered && deliveryDateChanged;
 
-    const [showSupport, setShowSupport] = useState(!!demand?.support_analyst_id);
+    const [showPreVendasSupport, setShowPreVendasSupport] = useState(!!demand?.support_analyst_id);
+    const [showArquitetoSupport, setShowArquitetoSupport] = useState(!!demand?.architect_support_analyst_id);
     const [openClient, setOpenClient] = useState(false);
 
     const handleSubmit = (e) => {
@@ -95,11 +99,15 @@ export default function DemandForm({
         // Sanitize data: convert empty strings to null for ID fields
         const cleanedData = {
             ...formData,
+            value: formData.value !== '' && formData.value !== null && formData.value !== undefined
+                ? parseFloat(String(formData.value).replace(',', '.')) || null
+                : null,
             client_id: formData.client_id === "" ? null : formData.client_id,
             analyst_id: formData.analyst_id === "" ? null : formData.analyst_id,
             cycle_id: formData.cycle_id === "" ? null : formData.cycle_id,
             requester_id: formData.requester_id === "" ? null : formData.requester_id,
             support_analyst_id: formData.support_analyst_id === "" ? null : formData.support_analyst_id,
+            architect_support_analyst_id: formData.architect_support_analyst_id === "" ? null : formData.architect_support_analyst_id,
         };
 
         onSave(cleanedData);
@@ -175,6 +183,36 @@ export default function DemandForm({
                 </div>
 
                 <div className="space-y-2">
+                    <Label className="text-sm text-slate-600">Valor (R$)</Label>
+                    <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.value}
+                        onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                        placeholder="0,00"
+                        className="h-10"
+                    />
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="text-sm text-slate-600">Etapa</Label>
+                    <Select
+                        value={formData.stage}
+                        onValueChange={(v) => setFormData({ ...formData, stage: v })}
+                    >
+                        <SelectTrigger className="h-10">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {STAGES.map(s => (
+                                <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="space-y-2">
                     <Label className="text-sm text-slate-600">Prioridade</Label>
                     <Select
                         value={String(formData.weight)}
@@ -184,31 +222,33 @@ export default function DemandForm({
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="0">0 - FOCO TOTAL 🚀</SelectItem>
-                            <SelectItem value="1">1 - Alta Prioridade 🔥</SelectItem>
-                            <SelectItem value="2">2 - Importante ⚡</SelectItem>
-                            <SelectItem value="3">3 - Faz quando der 🐢</SelectItem>
-                            <SelectItem value="4">4 - Fim da fila 🐌</SelectItem>
+                            <SelectItem value="0">0 - Estratégico</SelectItem>
+                            <SelectItem value="1">1 - Muito Alto</SelectItem>
+                            <SelectItem value="2">2 - Alto</SelectItem>
+                            <SelectItem value="3">3 - Padrão</SelectItem>
+                            <SelectItem value="4">4 - Baixo</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
 
-                <div className="space-y-2">
-                    <Label className="text-sm text-slate-600">Complexidade</Label>
-                    <Select
-                        value={formData.complexity}
-                        onValueChange={(v) => setFormData({ ...formData, complexity: v })}
-                    >
-                        <SelectTrigger className="h-10">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Baixa">Baixa</SelectItem>
-                            <SelectItem value="Média">Média</SelectItem>
-                            <SelectItem value="Alta">Alta</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+                {userDepartment !== 'CDPC' && (
+                    <div className="space-y-2">
+                        <Label className="text-sm text-slate-600">Complexidade</Label>
+                        <Select
+                            value={formData.complexity}
+                            onValueChange={(v) => setFormData({ ...formData, complexity: v })}
+                        >
+                            <SelectTrigger className="h-10">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Baixa">Baixa</SelectItem>
+                                <SelectItem value="Média">Média</SelectItem>
+                                <SelectItem value="Alta">Alta</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
 
                 <div className="space-y-2">
                     <Label className="text-sm text-slate-600">Cliente</Label>
@@ -315,27 +355,62 @@ export default function DemandForm({
                 <div className="space-y-2 flex flex-col justify-end pb-2">
                     <div className="flex items-center gap-2 mb-2">
                         <Switch
-                            id="has-support"
-                            checked={showSupport}
+                            id="has-support-prevendas"
+                            checked={showPreVendasSupport}
                             onCheckedChange={(checked) => {
-                                setShowSupport(checked);
+                                setShowPreVendasSupport(checked);
                                 if (!checked) {
                                     setFormData(prev => ({ ...prev, support_analyst_id: '' }));
                                 }
                             }}
                         />
-                        <Label htmlFor="has-support" className="text-sm text-slate-600 cursor-pointer">
-                            Recebe Suporte?
+                        <Label htmlFor="has-support-prevendas" className="text-sm text-slate-600 cursor-pointer">
+                            Suporte Pré-Vendas?
                         </Label>
                     </div>
 
-                    {showSupport && (
+                    {showPreVendasSupport && (
                         <Select
                             value={formData.support_analyst_id ? String(formData.support_analyst_id) : "none"}
                             onValueChange={(v) => setFormData({ ...formData, support_analyst_id: v === "none" ? "" : v })}
                         >
                             <SelectTrigger className="h-10">
-                                <SelectValue placeholder="Responsável Suporte" />
+                                <SelectValue placeholder="Responsável Suporte Pré-Vendas" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">Selecione...</SelectItem>
+                                {analysts.filter(a => a.active !== false && String(a.id) !== String(formData.analyst_id)).map(a => (
+                                    <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                </div>
+
+                <div className="space-y-2 flex flex-col justify-end pb-2">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Switch
+                            id="has-support-arquiteto"
+                            checked={showArquitetoSupport}
+                            onCheckedChange={(checked) => {
+                                setShowArquitetoSupport(checked);
+                                if (!checked) {
+                                    setFormData(prev => ({ ...prev, architect_support_analyst_id: '' }));
+                                }
+                            }}
+                        />
+                        <Label htmlFor="has-support-arquiteto" className="text-sm text-slate-600 cursor-pointer">
+                            Suporte Arquiteto?
+                        </Label>
+                    </div>
+
+                    {showArquitetoSupport && (
+                        <Select
+                            value={formData.architect_support_analyst_id ? String(formData.architect_support_analyst_id) : "none"}
+                            onValueChange={(v) => setFormData({ ...formData, architect_support_analyst_id: v === "none" ? "" : v })}
+                        >
+                            <SelectTrigger className="h-10">
+                                <SelectValue placeholder="Responsável Suporte Arquiteto" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="none">Selecione...</SelectItem>
@@ -348,7 +423,7 @@ export default function DemandForm({
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-sm text-slate-600">Solicitante</Label>
+                    <Label className="text-sm text-slate-600">Executivo</Label>
                     <Select
                         value={formData.requester_id ? String(formData.requester_id) : "none"}
                         onValueChange={(v) => setFormData({ ...formData, requester_id: v === "none" ? "" : v })}
@@ -366,7 +441,7 @@ export default function DemandForm({
                 </div>
 
                 <DatePicker
-                    label="Data de Qualificação"
+                    label="Data Início"
                     value={formData.qualification_date}
                     onChange={(v) => setFormData({ ...formData, qualification_date: v })}
                     disabled={!isGestor && !isNew}
@@ -380,7 +455,7 @@ export default function DemandForm({
 
                 {isGestor && (
                     <DatePicker
-                        label="Data de Entrega"
+                        label="Data Fim"
                         value={formData.delivery_date}
                         onChange={(v) => setFormData({ ...formData, delivery_date: v })}
                     />
@@ -388,7 +463,9 @@ export default function DemandForm({
 
                 {showReasonField && (
                     <div className="space-y-2 lg:col-span-2">
-                        <Label className="text-sm text-red-600">Motivo da Alteração da Data de Entrega *</Label>
+                        <Label className="text-sm text-red-600">
+                            Motivo da Alteração da Data Fim *
+                        </Label>
                         <Input
                             value={formData.delivery_date_change_reason}
                             onChange={(e) => setFormData({ ...formData, delivery_date_change_reason: e.target.value })}
@@ -440,10 +517,12 @@ export default function DemandForm({
                     <X className="w-4 h-4 mr-2" />
                     Cancelar
                 </Button>
-                <Button type="submit" disabled={isLoading} className="bg-indigo-600 hover:bg-indigo-700">
-                    <Save className="w-4 h-4 mr-2" />
-                    {isLoading ? 'Salvando...' : 'Salvar'}
-                </Button>
+                {userRole !== 'viewer' && (
+                    <Button type="submit" disabled={isLoading} className="bg-indigo-600 hover:bg-indigo-700">
+                        <Save className="w-4 h-4 mr-2" />
+                        {isLoading ? 'Salvando...' : 'Salvar'}
+                    </Button>
+                )}
             </div>
         </form>
     );

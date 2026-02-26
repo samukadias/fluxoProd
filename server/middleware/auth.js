@@ -41,4 +41,17 @@ const authenticateToken = (req, res, next) => {
     }
 };
 
-module.exports = { generateToken, authenticateToken, JWT_SECRET };
+/**
+ * Middleware to restrict viewer role from performing write operations
+ */
+const authorizeAction = (req, res, next) => {
+    if (req.user && req.user.role === 'viewer') {
+        const method = req.method.toUpperCase();
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+            return res.status(403).json({ error: 'Acesso negado. Perfil de apenas leitura.' });
+        }
+    }
+    next();
+};
+
+module.exports = { generateToken, authenticateToken, authorizeAction, JWT_SECRET };

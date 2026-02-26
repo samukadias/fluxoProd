@@ -39,7 +39,7 @@ const vencimentoColors = {
   "Vencido": "bg-red-100 text-red-800"
 };
 
-export default function ContractTable({ contracts, isLoading, onContractUpdate }) {
+export default function ContractTable({ contracts, isLoading, onContractUpdate, clientView = 'grupo' }) {
   // Obter usuário do localStorage para consistência com o resto do app
   const user = JSON.parse(localStorage.getItem('fluxo_user') || localStorage.getItem('user') || '{}');
   console.log('User status para exclusão (Prazos):', {
@@ -119,10 +119,12 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
               <TableHeader>
                 <TableRow>
                   <TableHead>Analista Responsável</TableHead>
-                  <TableHead>Cliente</TableHead>
+                  <TableHead>{clientView === 'cliente' ? 'Cliente' : 'Grupo Cliente'}</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Vencimento</TableHead>
+                  <TableHead>ESPs</TableHead>
                   <TableHead>Valor</TableHead>
+                  <TableHead>Observações</TableHead>
                   <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -134,6 +136,7 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
                     <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-16" /></TableCell>
                   </TableRow>
                 ))}
@@ -184,10 +187,10 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
                   <Button
                     variant="ghost"
                     className="p-0 h-auto font-medium hover:bg-transparent group"
-                    onClick={() => requestSort('cliente')}
+                    onClick={() => requestSort(clientView === 'cliente' ? 'cliente' : 'grupo_cliente')}
                   >
-                    Cliente
-                    {getSortIcon('cliente')}
+                    {clientView === 'cliente' ? 'Cliente' : 'Grupo Cliente'}
+                    {getSortIcon(clientView === 'cliente' ? 'cliente' : 'grupo_cliente')}
                   </Button>
                 </TableHead>
                 <TableHead>
@@ -212,6 +215,7 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
                     {getSortIcon('data_fim_efetividade')}
                   </Button>
                 </TableHead>
+                <TableHead>ESPs</TableHead>
                 <TableHead className="text-right">
                   <div className="flex justify-end">
                     <Button
@@ -224,6 +228,7 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
                     </Button>
                   </div>
                 </TableHead>
+                <TableHead>Observações</TableHead>
                 <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -231,7 +236,7 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
               {currentContracts.map((contract) => (
                 <TableRow key={contract.id} className="hover:bg-gray-50">
                   <TableCell className="font-medium">{contract.analista_responsavel}</TableCell>
-                  <TableCell>{contract.cliente}</TableCell>
+                  <TableCell>{(clientView === 'cliente' ? contract.cliente : contract.grupo_cliente) || "-"}</TableCell>
                   <TableCell>{contract.contrato}</TableCell>
                   <TableCell>
                     <Badge className={statusColors[contract.status]}>
@@ -276,11 +281,37 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate }
                       return isNaN(date.getTime()) ? "Data Inválida" : format(date, "dd/MM/yyyy");
                     })()}
                   </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1 max-w-[150px]">
+                      {contract.esps && contract.esps.length > 0 ? (
+                        contract.esps.slice(0, 3).map((esp, i) => (
+                          <Badge key={i} variant="outline" className="text-[10px] px-1.5 py-0 border-blue-200 bg-blue-50 text-blue-700">
+                            {esp.esp_number}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-xs text-slate-400">
+                          {contract.esp || "-"}
+                        </span>
+                      )}
+
+                      {contract.esps && contract.esps.length > 3 && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-slate-200 bg-slate-50 text-slate-500">
+                          +{contract.esps.length - 3}
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right">
                     {contract.valor_contrato ?
                       contract.valor_contrato.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }) :
                       "-"
                     }
+                  </TableCell>
+                  <TableCell className="max-w-[200px]">
+                    <span className="truncate block text-sm text-gray-600" title={contract.observacao || ""}>
+                      {contract.observacao || "-"}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <TooltipProvider>

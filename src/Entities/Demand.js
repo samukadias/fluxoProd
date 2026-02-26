@@ -16,5 +16,8 @@ export class Demand {
         this.requester_id = data.requester_id;
         this.frozen_time_minutes = data.frozen_time_minutes ?? 0;
         this.last_frozen_at = data.last_frozen_at;
+        this.architect_support_analyst_id = data.architect_support_analyst_id;
+        this.stage = data.stage;
+        this.value = data.value;
     }
 }

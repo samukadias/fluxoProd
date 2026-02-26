@@ -22,6 +22,12 @@ export default function NewContract() {
         const allUsers = await User.list();
         const loggedUser = await User.me();
 
+        if (loggedUser?.role === 'viewer') {
+          toast.error("Acesso negado: Perfil de visualização");
+          navigate(createPageUrl("Contracts"));
+          return;
+        }
+
         const filteredUsers = allUsers.filter(
           (user) => {
             // Aceita role (novo) ou perfil (antigo)

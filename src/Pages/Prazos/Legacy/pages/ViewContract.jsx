@@ -249,8 +249,24 @@ export default function ViewContract() {
             )}
             {contract.esp && (
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">ESP</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">ESP (Legado)</p>
                 <p className="text-gray-900">{contract.esp}</p>
+              </div>
+            )}
+            {contract.esps && (
+              <div className="col-span-1 md:col-span-2 mt-2">
+                <p className="text-sm font-medium text-gray-600 mb-2">ESPs Cadastradas</p>
+                <div className="flex flex-wrap gap-2">
+                  {contract.esps.length > 0 ? (
+                    contract.esps.map((esp, idx) => (
+                      <Badge key={idx} variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
+                        {esp.esp_number} {esp.total_value > 0 ? `- ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(esp.total_value)}` : ''}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-gray-500 italic">Nenhuma ESP estruturada</span>
+                  )}
+                </div>
               </div>
             )}
           </CardContent>

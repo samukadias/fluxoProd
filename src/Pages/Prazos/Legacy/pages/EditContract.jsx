@@ -103,6 +103,12 @@ export default function EditContract() {
 
         setContract(contractData);
 
+        if (loggedUser?.role === 'viewer') {
+          toast.error("Acesso negado: Perfil de visualização");
+          navigate(createPageUrl("Contracts"));
+          return;
+        }
+
         const filteredUsers = allUsers.filter(
           (user) => {
             const hasRole = user.role === 'analyst' || user.role === 'manager' || user.perfil === 'ANALISTA' || user.perfil === 'GESTOR';

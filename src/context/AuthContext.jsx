@@ -24,6 +24,7 @@ export const AuthProvider = ({ children }) => {
 
                     const rolePermissions = {
                         admin: ['view_all', 'manage_users', 'view_executive_dashboard', 'edit_contracts', 'manage_settings'],
+                        viewer: ['view_all', 'view_executive_dashboard'],
                         executive: ['view_all', 'view_executive_dashboard'],
                         manager: ['view_department_dashboard', 'edit_demands'],
                         analyst: ['view_assigned_demands', 'edit_demands'],
@@ -77,6 +78,7 @@ export const AuthProvider = ({ children }) => {
             // Define the RBAC matrix (Capabilities per Role)
             const rolePermissions = {
                 admin: ['view_all', 'manage_users', 'view_executive_dashboard', 'edit_contracts', 'manage_settings'],
+                viewer: ['view_all', 'view_executive_dashboard'],
                 executive: ['view_all', 'view_executive_dashboard'],
                 manager: ['view_department_dashboard', 'edit_demands'],
                 analyst: ['view_assigned_demands', 'edit_demands'],
@@ -91,7 +93,8 @@ export const AuthProvider = ({ children }) => {
                 ...userData,
                 full_name: userData.full_name || userData.name,
                 perfil: userData.perfil || userRole.toUpperCase(),
-                permissions: rolePermissions[userRole] || []
+                permissions: rolePermissions[userRole] || [],
+                must_change_password: password === '123' || password === '1234'
             };
 
             // Store user data (no password!)

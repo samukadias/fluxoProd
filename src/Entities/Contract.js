@@ -26,7 +26,8 @@ export class Contract {
             tipo_tratativa: dbContract.tipo_tratativa,
             tipo_aditamento: dbContract.tipo_aditamento,
             etapa: dbContract.etapa,
-            esp: dbContract.secao_responsavel, // Mapeado para secao_responsavel no banco
+            esp: dbContract.secao_responsavel, // Lagacy plain-text field
+            esps: Array.isArray(dbContract.esps) ? dbContract.esps : (typeof dbContract.esps === 'string' ? JSON.parse(dbContract.esps || '[]') : []), // New JSON array
             observacao: dbContract.observacao,
             numero_processo_sei_nosso: dbContract.numero_processo_sei_nosso,
             numero_processo_sei_cliente: dbContract.numero_processo_sei_cliente,
@@ -74,7 +75,8 @@ export class Contract {
             tipo_tratativa: contract.tipo_tratativa,
             tipo_aditamento: contract.tipo_aditamento,
             etapa: contract.etapa,
-            secao_responsavel: contract.esp, // Mapeado de esp
+            secao_responsavel: contract.esp, // Lagacy plain-text field
+            esps: typeof contract.esps === 'string' ? contract.esps : JSON.stringify(contract.esps || []), // New JSON array
             observacao: contract.observacao,
             numero_processo_sei_nosso: contract.numero_processo_sei_nosso,
             numero_processo_sei_cliente: contract.numero_processo_sei_cliente,

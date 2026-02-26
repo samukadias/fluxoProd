@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CurrencyInput from "@/components/ui/currency-input";
 import { fluxoApi } from "@/api/fluxoClient";
+import EspManager from "@/Pages/Financeiro/components/EspManager";
 
 export default function ContractForm({
   initialData = {},
@@ -60,6 +61,7 @@ export default function ContractForm({
     contrato_novo: "",
     termo_novo: "",
     esp: "",
+    esps: [],
     valor_novo_contrato: 0,
     sei: "",
     etapa: "",
@@ -471,13 +473,25 @@ export default function ContractForm({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="esp">ESP</Label>
+                  <Label htmlFor="esp">ESP (Legado - Apenas Leitura/Consulta)</Label>
                   <Input
                     id="esp"
                     value={formData.esp}
                     onChange={(e) => handleInputChange("esp", e.target.value)}
                   />
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur mt-4">
+              <CardHeader className="border-b border-slate-100 pb-4">
+                <CardTitle className="text-slate-800">ESPs do Contrato (Novo)</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <EspManager
+                  esps={formData.esps}
+                  onChange={(esps) => handleInputChange("esps", esps)}
+                />
               </CardContent>
             </Card>
           </div>
@@ -526,14 +540,18 @@ export default function ContractForm({
               <CardTitle className="text-lg">Valores Financeiros</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Valor do Contrato: sempre editável pelo analista */}
+              <div className="space-y-2">
+                <Label htmlFor="valor_contrato">Valor do Contrato</Label>
+                <CurrencyInput
+                  id="valor_contrato"
+                  value={formData.valor_contrato}
+                  onChange={(value) => handleInputChange("valor_contrato", value)}
+                />
+              </div>
+
               {isEdit && !isManagerOrAdmin ? (
                 <>
-                  <div className="space-y-2">
-                    <Label>Valor do Contrato</Label>
-                    <div className="p-2 bg-gray-100 border rounded-md">
-                      {formatCurrency(formData.valor_contrato)}
-                    </div>
-                  </div>
                   <div className="space-y-2">
                     <Label>Valor Faturado</Label>
                     <div className="p-2 bg-gray-100 border rounded-md">
@@ -547,7 +565,9 @@ export default function ContractForm({
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Valor a Faturar</Label>
+                    <Label>Valor a Faturar
+                      <span className="text-xs text-gray-500 ml-2">(Calculado automaticamente)</span>
+                    </Label>
                     <div className="p-2 bg-gray-100 border rounded-md">
                       {formatCurrency(formData.valor_a_faturar)}
                     </div>
@@ -555,14 +575,6 @@ export default function ContractForm({
                 </>
               ) : (
                 <>
-                  <div className="space-y-2">
-                    <Label htmlFor="valor_contrato">Valor do Contrato</Label>
-                    <CurrencyInput
-                      id="valor_contrato"
-                      value={formData.valor_contrato}
-                      onChange={(value) => handleInputChange("valor_contrato", value)}
-                    />
-                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="valor_faturado">Valor Faturado</Label>
                     <CurrencyInput
@@ -596,6 +608,7 @@ export default function ContractForm({
             </CardContent>
           </Card>
         </TabsContent>
+
 
         {/* Observações */}
         <TabsContent value="notes">

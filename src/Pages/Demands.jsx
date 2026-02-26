@@ -17,6 +17,7 @@ export default function DemandsPage() {
         return stored ? JSON.parse(stored) : null;
     });
     const [showForm, setShowForm] = useState(false);
+    const [duplicateData, setDuplicateData] = useState(null);
     const [viewMode, setViewMode] = useState('grid');
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = viewMode === 'grid' ? 18 : 24;
@@ -97,6 +98,7 @@ export default function DemandsPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['demands'] });
             setShowForm(false);
+            setDuplicateData(null);
             toast.success('Demanda criada com sucesso!');
         },
         onError: (error) => {
@@ -117,6 +119,12 @@ export default function DemandsPage() {
         if (confirm('Tem certeza que deseja excluir esta demanda? Esta ação não pode ser desfeita.')) {
             deleteMutation.mutate(id);
         }
+    };
+
+    const handleDuplicate = (demand) => {
+        const { id, demand_number, created_date, qualification_date, expected_delivery_date, delivery_date, last_frozen_at, ...rest } = demand;
+        setDuplicateData({ ...rest, status: 'PENDENTE TRIAGEM' });
+        setShowForm(true);
     };
 
     const filteredDemands = demands.filter(d => {
@@ -198,7 +206,7 @@ export default function DemandsPage() {
                                 <List className="w-4 h-4" />
                             </Button>
                         </div>
-                        {user?.role !== 'requester' && (
+                        {user?.role !== 'requester' && user?.role !== 'viewer' && (
                             <Button
                                 onClick={() => setShowForm(true)}
                                 className="bg-indigo-600 hover:bg-indigo-700"
@@ -251,7 +259,8 @@ export default function DemandsPage() {
                                     demand={demand}
                                     analyst={analystsMap[demand.analyst_id]}
                                     client={clientsMap[demand.client_id]}
-                                    onDelete={user?.role === 'analyst' ? null : handleDelete}
+                                    onDelete={(user?.role === 'analyst' || user?.role === 'viewer') ? null : handleDelete}
+                                    onDuplicate={handleDuplicate}
                                 />
                             ))}
                         </div>
@@ -282,20 +291,25 @@ export default function DemandsPage() {
                 </div>
             </div>
 
-            <Dialog open={showForm} onOpenChange={setShowForm}>
+            <Dialog open={showForm} onOpenChange={(open) => {
+                setShowForm(open);
+                if (!open) setDuplicateData(null);
+            }}>
                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Nova Demanda</DialogTitle>
+                        <DialogTitle>{duplicateData ? "Duplicar Demanda" : "Nova Demanda"}</DialogTitle>
                     </DialogHeader>
                     <DemandForm
+                        demand={duplicateData}
                         onSave={(data) => createMutation.mutate(data)}
-                        onCancel={() => setShowForm(false)}
+                        onCancel={() => { setShowForm(false); setDuplicateData(null); }}
                         isLoading={createMutation.isPending}
                         analysts={analysts}
                         clients={clients}
                         cycles={cycles}
                         requesters={requesters}
                         userRole={user?.role}
+                        userDepartment={user?.department}
                         isNew={true}
                     />
                 </DialogContent>

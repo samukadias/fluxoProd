@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, useLocation, Outlet } from 'react-router-dom';
 import { LayoutDashboard, List, Settings, LogOut, Menu, DollarSign, CalendarClock, FileText, UserCog, BarChart3, GitBranch, Database, Search, Activity, ChevronLeft, ChevronRight } from 'lucide-react';
 import NotificationCenter from './NotificationCenter';
+import ForcePasswordChangeModal from "./ForcePasswordChangeModal";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -72,7 +73,7 @@ export default function Layout({ onLogout, user }) {
 
             <div className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
                 {/* Módulo CDPC (Antigo Fluxo/Demandas) */}
-                {(user?.department === 'GOR' || user?.allowed_modules?.includes('flow') || user?.department === 'CDPC') && (
+                {(user?.department === 'GOR' || user?.allowed_modules?.includes('flow') || user?.department === 'CDPC' || user?.permissions?.includes('view_all')) && (
                     <>
                         <SidebarItem icon={LayoutDashboard} label="Dashboard CDPC" to="/dashboard" onClick={() => setOpen(false)} end isCollapsed={isCollapsed} />
                         <div className={cn("space-y-1 mt-1 border-l border-slate-800/50", isCollapsed ? "pl-0 ml-0 border-none" : "pl-2 sm:ml-4")}>
@@ -82,9 +83,9 @@ export default function Layout({ onLogout, user }) {
                 )}
 
                 {/* Módulo CVAC (Antigo Financeiro) */}
-                {(user?.department === 'GOR' || user?.allowed_modules?.includes('finance') || user?.department === 'CVAC') && (
+                {(user?.department === 'GOR' || user?.allowed_modules?.includes('finance') || user?.department === 'CVAC' || user?.permissions?.includes('view_all')) && (
                     <>
-                        {((user?.department === 'CVAC' && (user?.role === 'manager' || user?.role === 'analyst' || user?.profile_type === 'analista')) || user?.department === 'GOR' || user?.perfil === 'GESTOR') && (
+                        {((user?.department === 'CVAC' && (user?.role === 'manager' || user?.role === 'analyst' || user?.profile_type === 'analista')) || user?.department === 'GOR' || user?.perfil === 'GESTOR' || user?.permissions?.includes('view_all')) && (
                             <SidebarItem icon={DollarSign} label="Dashboard CVAC" to="/financeiro" onClick={() => setOpen(false)} end isCollapsed={isCollapsed} />
                         )}
 
@@ -95,7 +96,7 @@ export default function Layout({ onLogout, user }) {
                 )}
 
                 {/* Módulo COCR (Antigo Prazos) */}
-                {(user?.department === 'GOR' || user?.allowed_modules?.includes('contracts') || user?.department === 'COCR') && (
+                {(user?.department === 'GOR' || user?.allowed_modules?.includes('contracts') || user?.department === 'COCR' || user?.permissions?.includes('view_all')) && (
                     <>
                         <SidebarItem icon={CalendarClock} label="Dashboard COCR" to="/prazos" onClick={() => setOpen(false)} end isCollapsed={isCollapsed} />
 
@@ -103,9 +104,15 @@ export default function Layout({ onLogout, user }) {
                             <div className={cn("space-y-1 mt-1 border-l border-slate-800/50", isCollapsed ? "pl-0 ml-0 border-none" : "pl-2 sm:ml-4")}>
                                 <SidebarItem icon={FileText} label="Contratos" to="/prazos/contratos" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
                                 <SidebarItem icon={Search} label="Pesquisar" to="/prazos/pesquisa" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
-                                <SidebarItem icon={BarChart3} label="Análise" to="/prazos/analise" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
-                                <SidebarItem icon={GitBranch} label="Controle de Etapas" to="/prazos/etapas" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
-                                <SidebarItem icon={Database} label="Gestão de Dados" to="/prazos/gestao-dados" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
+                                {!(user?.department === 'COCR' && user?.role === 'analyst') && (
+                                    <SidebarItem icon={BarChart3} label="Análise" to="/prazos/analise" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
+                                )}
+                                {!(user?.department === 'COCR' && user?.role === 'analyst') && (
+                                    <SidebarItem icon={GitBranch} label="Controle de Etapas" to="/prazos/etapas" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
+                                )}
+                                {!(user?.department === 'COCR' && user?.role === 'analyst') && (
+                                    <SidebarItem icon={Database} label="Gestão de Dados" to="/prazos/gestao-dados" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
+                                )}
                             </div>
                         )}
                     </>
@@ -232,6 +239,9 @@ export default function Layout({ onLogout, user }) {
             <main className={cn("flex-1 pt-16 md:pt-0 min-h-screen transition-all duration-300 w-full overflow-x-hidden", isCollapsed ? "md:ml-20" : "md:ml-64")}>
                 <Outlet />
             </main>
+
+            {/* Modal for forcing password resets on default passwords */}
+            <ForcePasswordChangeModal />
         </div>
     );
 }

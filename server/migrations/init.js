@@ -102,7 +102,9 @@ const initDb = async () => {
         // Migrations for existing columns
         const coreMigrations = [
             'ALTER TABLE demands ADD COLUMN IF NOT EXISTS support_analyst_id INTEGER',
+            'ALTER TABLE demands ADD COLUMN IF NOT EXISTS architect_support_analyst_id INTEGER',
             'ALTER TABLE demands ADD COLUMN IF NOT EXISTS stage VARCHAR(50)',
+            'ALTER TABLE demands ADD COLUMN IF NOT EXISTS value DECIMAL(15, 2)',
             'ALTER TABLE users ADD COLUMN IF NOT EXISTS allowed_modules TEXT[] DEFAULT \'{flow}\'',
             'ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(50)',
             'ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_type VARCHAR(50)',

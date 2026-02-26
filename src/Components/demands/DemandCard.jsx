@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from "@/utils";
 import { cn } from "@/lib/utils";
-import { Calendar, User, Building2, Clock, AlertTriangle, Trash2 } from "lucide-react";
+import { Calendar, User, Building2, Clock, AlertTriangle, Trash2, Copy } from "lucide-react";
 import StatusBadge from './StatusBadge';
 import PriorityBadge from './PriorityBadge';
 import { format, isAfter, parseISO } from 'date-fns';
@@ -22,7 +22,7 @@ const ACTIVE_STATUSES = [
     "PENDÊNCIA FORNECEDOR"
 ];
 
-export default function DemandCard({ demand, analyst, client, onDelete }) {
+export default function DemandCard({ demand, analyst, client, onDelete, onDuplicate }) {
     const isOverdue = demand.expected_delivery_date &&
         ACTIVE_STATUSES.includes(demand.status) &&
         isAfter(new Date(), parseISO(demand.expected_delivery_date));
@@ -56,6 +56,19 @@ export default function DemandCard({ demand, analyst, client, onDelete }) {
                         </h3>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                        {onDuplicate && (
+                            <button
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onDuplicate(demand);
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                                title="Duplicar demanda"
+                            >
+                                <Copy className="w-4 h-4" />
+                            </button>
+                        )}
                         {onDelete && (
                             <button
                                 onClick={(e) => {

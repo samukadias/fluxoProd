@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { fluxoApi } from '@/api/fluxoClient';
 import { cn } from "@/lib/utils";
 import {
     PieChart,
@@ -16,12 +17,76 @@ import {
     CheckCircle2,
     Clock,
     AlertCircle,
-    Calendar
+    Calendar,
+    RefreshCw
 } from "lucide-react";
 
 export default function GerencialDashboard() {
     const [activeTab, setActiveTab] = useState('cdpc');
     const user = JSON.parse(localStorage.getItem('fluxo_user') || '{}');
+
+    // --- CDPC Real Data ---
+    const [demands, setDemands] = useState([]);
+    const [clients, setClients] = useState([]);
+    const [cdpcLoading, setCdpcLoading] = useState(true);
+    const [lastUpdated, setLastUpdated] = useState('');
+
+    useEffect(() => {
+        Promise.all([
+            fluxoApi.entities.Demand.list({ status: 'all' }).catch(() => []),
+            fluxoApi.entities.Client.list().catch(() => [])
+        ]).then(([demandsData, clientsData]) => {
+            setDemands(Array.isArray(demandsData) ? demandsData : []);
+            setClients(Array.isArray(clientsData) ? clientsData : []);
+            setLastUpdated(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+            setCdpcLoading(false);
+        });
+    }, []);
+
+    const cdpcMetrics = useMemo(() => {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth(); // 0-indexed
+
+        const isThisMonth = (dateStr) => {
+            if (!dateStr) return false;
+            const d = new Date(dateStr);
+            return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+        };
+        const isThisYear = (dateStr) => {
+            if (!dateStr) return false;
+            return new Date(dateStr).getFullYear() === currentYear;
+        };
+
+        const backlog = demands.filter(d => d.status !== 'ENTREGUE' && d.status !== 'CANCELADA');
+        const entriesThisMonth = demands.filter(d => isThisMonth(d.qualification_date));
+        const deliveredThisMonth = demands.filter(d => d.status === 'ENTREGUE' && isThisMonth(d.delivery_date));
+        const highPriority = backlog.filter(d =>
+            (d.artifact === 'PROPOSTA' || d.artifact === 'Proposta') && (d.weight === 0 || d.weight === 1)
+        );
+        const deliveredThisYear = demands.filter(d => d.status === 'ENTREGUE' && isThisYear(d.delivery_date));
+        const demandsThisYear = demands.filter(d => isThisYear(d.created_date));
+        const valueThisYear = demandsThisYear.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0);
+
+        // Top clients by active backlog demand count
+        const clientCount = {};
+        backlog.forEach(d => {
+            if (d.client_id) {
+                clientCount[d.client_id] = (clientCount[d.client_id] || 0) + 1;
+            }
+        });
+        const topClients = Object.entries(clientCount)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([clientId, count]) => {
+                const client = clients.find(c => String(c.id) === String(clientId));
+                return { name: client?.name || `Cliente #${clientId}`, count };
+            });
+
+        return { backlog, entriesThisMonth, deliveredThisMonth, highPriority, deliveredThisYear, valueThisYear, topClients };
+    }, [demands, clients]);
+
+    const formatCurrency = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', notation: val >= 1000000 ? 'compact' : 'standard', maximumFractionDigits: val >= 1000000 ? 2 : 0 });
 
     return (
         <div className="min-h-screen flex flex-col pt-4 overflow-hidden bg-slate-50 relative">
@@ -34,13 +99,13 @@ export default function GerencialDashboard() {
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Visão Executiva</h1>
-                        <p className="text-sm text-slate-500 font-medium">Dashboard Gerencial • Fevereiro 2026</p>
+                        <p className="text-sm text-slate-500 font-medium">Dashboard Gerencial • {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-4 hidden sm:flex">
                     <div className="text-right mr-2">
                         <p className="text-sm font-semibold text-slate-700">Olá, {user?.name || 'Gerente'}</p>
-                        <p className="text-xs text-slate-500">Última atualização: Hoje, 09:41</p>
+                        <p className="text-xs text-slate-500">Última atualização: {lastUpdated || 'carregando...'}</p>
                     </div>
                     <div className="h-10 w-10 bg-slate-200 rounded-full flex items-center justify-center border-2 border-white shadow-sm overflow-hidden text-slate-600 font-bold uppercase">
                         {user?.name?.charAt(0) || 'G'}
@@ -86,7 +151,7 @@ export default function GerencialDashboard() {
                 {activeTab === 'cdpc' && (
                     <main className="max-w-7xl mx-auto space-y-6">
                         <div className="mb-2">
-                            <h2 className="text-lg font-bold text-slate-800">Volume & Capacidade</h2>
+                            <h2 className="text-lg font-bold text-slate-800">Volume &amp; Capacidade</h2>
                             <p className="text-sm text-slate-500">Métricas de fluxo e entrega de propostas</p>
                         </div>
 
@@ -95,41 +160,64 @@ export default function GerencialDashboard() {
                             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 relative overflow-hidden group hover:shadow-md transition-all hover:-translate-y-1">
                                 <div className="absolute top-0 right-0 p-4 opacity-5 text-blue-600 group-hover:scale-110 transition-transform"><Cuboid className="w-20 h-20" /></div>
                                 <p className="text-sm font-medium text-slate-500 mb-1">Backlog Total</p>
-                                <p className="text-3xl font-bold text-slate-800">142</p>
-                                <p className="text-[10px] text-blue-600 mt-2 font-bold bg-blue-50 w-fit px-2 py-1 rounded">+12 desde ontem</p>
+                                <p className="text-3xl font-bold text-slate-800">
+                                    {cdpcLoading ? '...' : cdpcMetrics.backlog.length}
+                                </p>
+                                <p className="text-[10px] text-blue-600 mt-2 font-bold bg-blue-50 w-fit px-2 py-1 rounded">demandas ativas</p>
                             </div>
                             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 relative overflow-hidden group hover:shadow-md transition-all hover:-translate-y-1">
                                 <div className="absolute top-0 right-0 p-4 opacity-5 text-emerald-600 group-hover:scale-110 transition-transform"><ArrowDownToLine className="w-20 h-20" /></div>
-                                <p className="text-sm font-medium text-slate-500 mb-1">Entradas Mês (Fev)</p>
-                                <p className="text-3xl font-bold text-slate-800">35</p>
-                                <p className="text-xs text-slate-400 mt-2 font-medium">Média: 2/dia</p>
+                                <p className="text-sm font-medium text-slate-500 mb-1">Entradas Mês</p>
+                                <p className="text-3xl font-bold text-slate-800">
+                                    {cdpcLoading ? '...' : cdpcMetrics.entriesThisMonth.length}
+                                </p>
+                                <p className="text-xs text-slate-400 mt-2 font-medium">{new Date().toLocaleDateString('pt-BR', { month: 'short' })}</p>
                             </div>
                             <div className="rounded-2xl shadow-sm border p-5 relative overflow-hidden bg-gradient-to-br from-white to-emerald-50 border-emerald-100 group hover:shadow-md transition-all hover:-translate-y-1">
                                 <div className="absolute top-0 right-0 p-4 opacity-5 text-emerald-600 group-hover:scale-110 transition-transform"><CheckSquare className="w-20 h-20" /></div>
-                                <p className="text-sm font-medium text-slate-500 mb-1">Entregues Mês (Fev)</p>
-                                <p className="text-3xl font-bold text-emerald-600">28</p>
-                                <div className="w-full bg-slate-200 h-1.5 rounded-full mt-3"><div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: '80%' }}></div></div>
+                                <p className="text-sm font-medium text-slate-500 mb-1">Entregues Mês</p>
+                                <p className="text-3xl font-bold text-emerald-600">
+                                    {cdpcLoading ? '...' : cdpcMetrics.deliveredThisMonth.length}
+                                </p>
+                                {!cdpcLoading && cdpcMetrics.entriesThisMonth.length > 0 && (
+                                    <div className="w-full bg-slate-200 h-1.5 rounded-full mt-3">
+                                        <div
+                                            className="bg-emerald-500 h-1.5 rounded-full"
+                                            style={{ width: `${Math.min(100, Math.round((cdpcMetrics.deliveredThisMonth.length / cdpcMetrics.entriesThisMonth.length) * 100))}%` }}
+                                        />
+                                    </div>
+                                )}
                             </div>
                             <div className="rounded-2xl shadow-sm border p-5 relative overflow-hidden bg-gradient-to-br from-white to-rose-50 border-rose-100 group hover:shadow-md transition-all hover:-translate-y-1">
                                 <div className="absolute top-0 right-0 p-4 opacity-5 text-rose-600 group-hover:scale-110 transition-transform"><Flame className="w-20 h-20" /></div>
                                 <p className="text-sm font-medium text-slate-500 mb-1">Alta Prioridade</p>
-                                <p className="text-3xl font-bold text-rose-600">12</p>
-                                <p className="text-[10px] text-rose-600 mt-2 font-bold bg-white/50 w-fit px-2 py-1 rounded">Requer atenção imediata</p>
+                                <p className="text-3xl font-bold text-rose-600">
+                                    {cdpcLoading ? '...' : cdpcMetrics.highPriority.length}
+                                </p>
+                                <p className="text-[10px] text-rose-600 mt-2 font-bold bg-white/50 w-fit px-2 py-1 rounded">Propostas P0/P1</p>
                             </div>
                         </div>
 
-                        {/* Dados 2026 e Detalhes prioridade */}
+                        {/* Acumulado ano e Top Clientes */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col justify-center">
-                                <h3 className="text-sm font-semibold uppercase text-slate-500 tracking-wider mb-6">Acumulado 2026</h3>
+                                <h3 className="text-sm font-semibold uppercase text-slate-500 tracking-wider mb-6">Acumulado {new Date().getFullYear()}</h3>
                                 <div className="flex items-center justify-around">
                                     <div className="text-center">
-                                        <p className="text-5xl font-black text-slate-800 mb-2">45</p>
-                                        <p className="text-sm font-medium text-slate-500">Propostas Entregues</p>
+                                        <p className="text-5xl font-black text-slate-800 mb-2">
+                                            {cdpcLoading ? '...' : cdpcMetrics.deliveredThisYear.length}
+                                        </p>
+                                        <p className="text-sm font-medium text-slate-500">Demandas Entregues</p>
                                     </div>
-                                    <div className="h-16 w-px bg-slate-200"></div>
+                                    <div className="h-16 w-px bg-slate-200" />
                                     <div className="text-center">
-                                        <p className="text-4xl font-black text-emerald-600 mb-2">R$ 1.25M</p>
+                                        {cdpcLoading ? (
+                                            <p className="text-4xl font-black text-slate-400 mb-2">...</p>
+                                        ) : cdpcMetrics.valueThisYear > 0 ? (
+                                            <p className="text-4xl font-black text-emerald-600 mb-2">{formatCurrency(cdpcMetrics.valueThisYear)}</p>
+                                        ) : (
+                                            <p className="text-xl font-semibold text-slate-400 mb-2">Sem valor registrado</p>
+                                        )}
                                         <p className="text-sm font-medium text-slate-500">Valor Global Gerado</p>
                                     </div>
                                 </div>
@@ -137,33 +225,29 @@ export default function GerencialDashboard() {
 
                             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-0 overflow-hidden flex flex-col">
                                 <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-                                    <h3 className="font-semibold text-slate-700 text-sm">Top Prioridades (Clientes)</h3>
-                                    <span className="text-[10px] bg-rose-100 text-rose-700 px-2 py-1 rounded-full font-bold uppercase tracking-wider">Crítico</span>
+                                    <h3 className="font-semibold text-slate-700 text-sm">Top Clientes (Backlog Ativo)</h3>
+                                    {cdpcMetrics.highPriority.length > 0 && (
+                                        <span className="text-[10px] bg-rose-100 text-rose-700 px-2 py-1 rounded-full font-bold uppercase tracking-wider">Crítico</span>
+                                    )}
                                 </div>
                                 <div className="p-4 flex-1">
-                                    <ul className="space-y-4">
-                                        <li className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></div>
-                                                <p className="text-sm font-medium text-slate-800">Ministério Público (MPE)</p>
-                                            </div>
-                                            <span className="text-xs text-slate-500 font-medium bg-slate-100 px-2 py-1 rounded">3 demandas</span>
-                                        </li>
-                                        <li className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                                                <p className="text-sm font-medium text-slate-800">Tribunal de Justiça (TJ)</p>
-                                            </div>
-                                            <span className="text-xs text-slate-500 font-medium bg-slate-100 px-2 py-1 rounded">2 demandas</span>
-                                        </li>
-                                        <li className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                                                <p className="text-sm font-medium text-slate-800">Secretaria da Fazenda (SEFAZ)</p>
-                                            </div>
-                                            <span className="text-xs text-slate-500 font-medium bg-slate-100 px-2 py-1 rounded">1 demanda</span>
-                                        </li>
-                                    </ul>
+                                    {cdpcLoading ? (
+                                        <p className="text-sm text-slate-400">Carregando...</p>
+                                    ) : cdpcMetrics.topClients.length === 0 ? (
+                                        <p className="text-sm text-slate-400">Nenhuma demanda ativa.</p>
+                                    ) : (
+                                        <ul className="space-y-4">
+                                            {cdpcMetrics.topClients.map((c, i) => (
+                                                <li key={c.name} className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-2 h-2 rounded-full ${i === 0 ? 'bg-rose-500 animate-pulse' : i === 1 ? 'bg-amber-500' : 'bg-slate-400'}`} />
+                                                        <p className="text-sm font-medium text-slate-800">{c.name}</p>
+                                                    </div>
+                                                    <span className="text-xs text-slate-500 font-medium bg-slate-100 px-2 py-1 rounded">{c.count} demanda{c.count !== 1 ? 's' : ''}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
                                 </div>
                             </div>
                         </div>

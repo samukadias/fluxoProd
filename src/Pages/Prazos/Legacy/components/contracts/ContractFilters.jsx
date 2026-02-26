@@ -1,10 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export default function ContractFilters({ filters, onFiltersChange }) {
+export default function ContractFilters({ filters, onFiltersChange, contracts }) {
   const updateFilter = (key, value) => {
     onFiltersChange(prev => ({
       ...prev,
@@ -12,10 +12,53 @@ export default function ContractFilters({ filters, onFiltersChange }) {
     }));
   };
 
+  // Extrair listas únicas de clientes e analistas
+  const uniqueClients = useMemo(() => {
+    if (!contracts) return [];
+    const clients = new Set(contracts.map(c => c.cliente).filter(Boolean));
+    return Array.from(clients).sort();
+  }, [contracts]);
+
+  const uniqueAnalysts = useMemo(() => {
+    if (!contracts) return [];
+    const analysts = new Set(contracts.map(c => c.analista_responsavel).filter(Boolean));
+    return Array.from(analysts).sort();
+  }, [contracts]);
+
   return (
     <Card>
       <CardContent className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="space-y-2">
+            <Label>Cliente</Label>
+            <Select value={filters.cliente || "all"} onValueChange={(value) => updateFilter("cliente", value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {uniqueClients.map(client => (
+                  <SelectItem key={client} value={client}>{client}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Analista Responsável</Label>
+            <Select value={filters.analista || "all"} onValueChange={(value) => updateFilter("analista", value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o analista" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {uniqueAnalysts.map(analyst => (
+                  <SelectItem key={analyst} value={analyst}>{analyst}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label>Status do Contrato</Label>
             <Select value={filters.status} onValueChange={(value) => updateFilter("status", value)}>
@@ -51,7 +94,7 @@ export default function ContractFilters({ filters, onFiltersChange }) {
           <div className="space-y-2">
             <Label>Busca Geral</Label>
             <Input
-              placeholder="Buscar por Contrato, Cliente, Analista, ESP..."
+              placeholder="Buscar contrato..."
               value={filters.search}
               onChange={(e) => updateFilter("search", e.target.value)}
             />
