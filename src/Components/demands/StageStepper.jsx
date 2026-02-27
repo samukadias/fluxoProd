@@ -11,7 +11,7 @@ const STAGES = [
     { id: 'PO', label: 'PO' },
     { id: 'OO', label: 'OO' },
     { id: 'RT', label: 'RT' },
-    { id: 'KIT', label: 'KIT' }
+    { id: 'KIT', label: 'ESP' }
 ];
 
 export function StageStepper({ currentStage, onStageClick, readOnly = false, stageHistory = [] }) {

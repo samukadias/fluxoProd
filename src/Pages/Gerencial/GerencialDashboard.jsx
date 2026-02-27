@@ -66,7 +66,9 @@ export default function GerencialDashboard() {
         );
         const deliveredThisYear = demands.filter(d => d.status === 'ENTREGUE' && isThisYear(d.delivery_date));
         const demandsThisYear = demands.filter(d => isThisYear(d.created_date));
-        const valueThisYear = demandsThisYear.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0);
+        const demandsWithValue = demandsThisYear.filter(d => parseFloat(d.value) > 0);
+        const valueThisYear = demandsWithValue.reduce((sum, d) => sum + parseFloat(d.value), 0);
+        const valuedDemandsCount = demandsWithValue.length;
 
         // Top clients by active backlog demand count
         const clientCount = {};
@@ -83,7 +85,7 @@ export default function GerencialDashboard() {
                 return { name: client?.name || `Cliente #${clientId}`, count };
             });
 
-        return { backlog, entriesThisMonth, deliveredThisMonth, highPriority, deliveredThisYear, valueThisYear, topClients };
+        return { backlog, entriesThisMonth, deliveredThisMonth, highPriority, deliveredThisYear, valueThisYear, valuedDemandsCount, topClients };
     }, [demands, clients]);
 
     const formatCurrency = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', notation: val >= 1000000 ? 'compact' : 'standard', maximumFractionDigits: val >= 1000000 ? 2 : 0 });
@@ -218,7 +220,12 @@ export default function GerencialDashboard() {
                                         ) : (
                                             <p className="text-xl font-semibold text-slate-400 mb-2">Sem valor registrado</p>
                                         )}
-                                        <p className="text-sm font-medium text-slate-500">Valor Global Gerado</p>
+                                        <p className="text-sm font-medium text-slate-500 mb-1">Valor Global Gerado</p>
+                                        {!cdpcLoading && cdpcMetrics.valueThisYear > 0 && (
+                                            <p className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-block">
+                                                em {cdpcMetrics.valuedDemandsCount} demanda{cdpcMetrics.valuedDemandsCount !== 1 ? 's' : ''}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             </div>

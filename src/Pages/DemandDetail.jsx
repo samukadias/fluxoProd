@@ -156,6 +156,10 @@ export default function DemandDetailPage() {
             queryClient.invalidateQueries({ queryKey: ['history', demandId] });
             setShowEditForm(false);
             toast.success('Demanda atualizada!');
+        },
+        onError: (error) => {
+            console.error('Erro ao atualizar demanda:', error);
+            toast.error(error.message || 'Erro ao atualizar a demanda. Verifique os dados e tente novamente.');
         }
     });
 

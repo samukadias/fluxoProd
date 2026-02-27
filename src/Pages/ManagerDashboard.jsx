@@ -11,7 +11,8 @@ import BottleneckBarChart from '@/Components/dashboard/BottleneckBarChart';
 import ComplexityChart from '@/Components/dashboard/ComplexityChart';
 import QualifiedDemandsChart from '@/Components/dashboard/QualifiedDemandsChart';
 import { calculateWorkDays } from '@/Components/demands/EffortCalculator';
-import { isAfter, parseISO, format, getYear } from 'date-fns';
+import { isAfter, parseISO, format, getYear, subMonths, isSameMonth } from 'date-fns';
+import { LineChart, Line, ResponsiveContainer } from 'recharts';
 
 const ACTIVE_STATUSES = [
     "PENDENTE TRIAGEM",
@@ -28,7 +29,9 @@ const ACTIVE_STATUSES = [
 ];
 
 const TRATATIVA_STATUSES = [
+    "EM QUALIFICAÇÃO",
     "EM ANDAMENTO",
+    "CORREÇÃO",
     "PENDÊNCIA COMERCIAL",
     "PENDÊNCIA SUPRIMENTOS",
     "PENDÊNCIA FORNECEDOR",
@@ -172,7 +175,7 @@ export default function ManagerDashboard() {
         return filteredDemands.filter(d => {
             switch (selectedFilter) {
                 case 'backlog':
-                    return ["PENDENTE TRIAGEM", "TRIAGEM NÃO ELEGÍVEL", "DESIGNADA"].includes(d.status);
+                    return ["PENDENTE TRIAGEM", "DESIGNADA"].includes(d.status);
                 case 'tratativa':
                     return TRATATIVA_STATUSES.includes(d.status);
                 case 'open':
@@ -203,9 +206,9 @@ export default function ManagerDashboard() {
     const stats = useMemo(() => {
         const total = filteredDemands.length;
 
-        // Backlog: PENDENTE TRIAGEM, TRIAGEM NÃO ELEGÍVEL, DESIGNADA
+        // Backlog: PENDENTE TRIAGEM, DESIGNADA
         const backlog = filteredDemands.filter(d =>
-            ["PENDENTE TRIAGEM", "TRIAGEM NÃO ELEGÍVEL", "DESIGNADA"].includes(d.status)
+            ["PENDENTE TRIAGEM", "DESIGNADA"].includes(d.status)
         ).length;
 
         // Em Tratativa
@@ -319,49 +322,118 @@ export default function ManagerDashboard() {
             statusAvg[d.status] = d.count > 0 ? Math.round(d.total_minutes / d.count) : 0;
         });
 
-        // SLA Geral: Avg days from qualification_date to delivery_date (delivered only)
-        // Fallback: use status_history to find when status changed to ENTREGUE
+        // SLA Geral e Dados Avançados
         const allDelivered = filteredDemands.filter(d => d.status === 'ENTREGUE');
 
         const delivered = allDelivered.filter(d => {
-            // Must have qualification_date
             if (!d.qualification_date) return false;
-            // Must have delivery_date OR we can find it in history
             if (d.delivery_date) return true;
-            // Check history for ENTREGUE transition
             const demandHistory = history.filter(h => h.demand_id === d.id && h.to_status === 'ENTREGUE');
             return demandHistory.length > 0;
         });
 
         let avgDeliveryDays = 0;
+        let complianceRate = 0;
+        let minTime = null;
+        let maxTime = null;
+        let historicalTrend = [];
+        let trendPercentage = 0;
+
         if (delivered.length > 0) {
+            let onTimeCount = 0;
+            const today = new Date();
+            const lastMonth = subMonths(today, 1);
+
+            let thisMonthTotal = 0;
+            let thisMonthCount = 0;
+            let lastMonthTotal = 0;
+            let lastMonthCount = 0;
+
+            const trendDataMap = {};
+
             const totalDays = delivered.reduce((sum, d) => {
-                // Get delivery date from field or fallback to history
                 let deliveryDateStr = d.delivery_date;
                 if (!deliveryDateStr) {
                     const demandHistory = history.filter(h => h.demand_id === d.id && h.to_status === 'ENTREGUE');
                     if (demandHistory.length > 0) {
-                        // Use the timestamp of the ENTREGUE transition
                         deliveryDateStr = demandHistory[demandHistory.length - 1].changed_at;
                     }
                 }
+
                 if (!deliveryDateStr) return sum;
 
                 const workDays = calculateWorkDays(d.qualification_date, deliveryDateStr, holidays);
                 const frozenDays = Math.floor((d.frozen_time_minutes || 0) / (60 * 24));
-                return sum + Math.max(0, workDays - frozenDays);
+                const finalDays = Math.max(0, workDays - frozenDays);
+
+                // Min e Max
+                if (minTime === null || finalDays < minTime) minTime = finalDays;
+                if (maxTime === null || finalDays > maxTime) maxTime = finalDays;
+
+                // Compliance de prazo
+                if (d.expected_delivery_date) {
+                    const expectedTimestamp = parseISO(d.expected_delivery_date).getTime();
+                    const deliveredTimestamp = new Date(deliveryDateStr).getTime();
+                    if (deliveredTimestamp <= expectedTimestamp) onTimeCount++;
+                } else {
+                    // Sem data de entrega prevista? Assume dentro do prazo pra média (ou pode descontar do total)
+                    onTimeCount++;
+                }
+
+                // Trendline grouping details
+                const deliveryDateObj = new Date(deliveryDateStr);
+                const monthKey = format(deliveryDateObj, 'yyyy-MM');
+                if (!trendDataMap[monthKey]) trendDataMap[monthKey] = { total: 0, count: 0 };
+                trendDataMap[monthKey].total += finalDays;
+                trendDataMap[monthKey].count += 1;
+
+                if (isSameMonth(deliveryDateObj, today)) {
+                    thisMonthTotal += finalDays;
+                    thisMonthCount++;
+                } else if (isSameMonth(deliveryDateObj, lastMonth)) {
+                    lastMonthTotal += finalDays;
+                    lastMonthCount++;
+                }
+
+                return sum + finalDays;
             }, 0);
+
             avgDeliveryDays = Math.round(totalDays / delivered.length * 10) / 10;
+            complianceRate = Math.round((onTimeCount / delivered.length) * 100);
+
+            const thisMonthAvg = thisMonthCount > 0 ? thisMonthTotal / thisMonthCount : 0;
+            const lastMonthAvg = lastMonthCount > 0 ? lastMonthTotal / lastMonthCount : 0;
+
+            if (lastMonthAvg > 0 && thisMonthAvg > 0) {
+                trendPercentage = Math.round(((thisMonthAvg - lastMonthAvg) / lastMonthAvg) * 100);
+            }
+
+            historicalTrend = Object.keys(trendDataMap).sort().map(monthKey => ({
+                name: monthKey,
+                uv: trendDataMap[monthKey].count > 0 ? (trendDataMap[monthKey].total / trendDataMap[monthKey].count) : 0
+            })).slice(-6); // Ultimos 6 meses
         }
 
-        return { statusAvg, avgDeliveryDays, deliveredCount: delivered.length };
+        return {
+            statusAvg,
+            avgDeliveryDays,
+            deliveredCount: delivered.length,
+            complianceRate,
+            minTime: minTime !== null ? Math.round(minTime * 10) / 10 : 0,
+            maxTime: maxTime !== null ? Math.round(maxTime * 10) / 10 : 0,
+            trendPercentage,
+            historicalTrend
+        };
     }, [bottleneckData, filteredDemands, holidays, history]);
 
     // CDPC Stage SLA
     const stageSlaData = useMemo(() => {
         const stageTotals = {}; // { StageName: { totalMinutes: 0, count: 0 } }
 
-        stageHistory.forEach(h => {
+        const demandIds = new Set(filteredDemands.map(d => d.id));
+        const filteredStageHistory = stageHistory.filter(h => demandIds.has(h.demand_id));
+
+        filteredStageHistory.forEach(h => {
             if (h.stage && h.duration_minutes) {
                 if (!stageTotals[h.stage]) {
                     stageTotals[h.stage] = { totalMinutes: 0, count: 0 };
@@ -381,7 +453,7 @@ export default function ManagerDashboard() {
         });
 
         return averages;
-    }, [stageHistory]);
+    }, [stageHistory, filteredDemands]);
 
     const isManager = user?.role === 'manager' || user?.perfil === 'GESTOR' || user?.department === 'GOR' || (user?.department === 'CDPC' && user?.role === 'manager');
     const isRequester = user?.role === 'requester';
@@ -422,7 +494,7 @@ export default function ManagerDashboard() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos os Responsáveis</SelectItem>
-                                    {analysts.map(a => (
+                                    {[...analysts].sort((a, b) => a.name.localeCompare(b.name)).map(a => (
                                         <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -567,15 +639,65 @@ export default function ManagerDashboard() {
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* SLA Geral */}
-                                <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white">
-                                    <p className="text-sm font-medium opacity-80">SLA Geral (Média de Entrega)</p>
-                                    <p className="text-4xl font-bold mt-2">
-                                        {slaData.avgDeliveryDays} <span className="text-lg font-normal">dias úteis</span>
-                                    </p>
-                                    <p className="text-xs opacity-70 mt-2">
-                                        Baseado em {slaData.deliveredCount} demandas entregues
-                                    </p>
+                                {/* SLA Geral Avançado */}
+                                <div className={`relative overflow-hidden rounded-xl p-6 text-white shadow-md border group ${slaData.avgDeliveryDays <= 10 ? 'bg-gradient-to-br from-emerald-500 to-emerald-700 border-emerald-400/20' :
+                                    slaData.avgDeliveryDays <= 15 ? 'bg-gradient-to-br from-amber-500 to-amber-600 border-amber-400/20' :
+                                        'bg-gradient-to-br from-red-500 to-red-700 border-red-400/20'
+                                    }`}>
+                                    {/* Sparkline Translúcido (Fundo) */}
+                                    <div className="absolute inset-0 opacity-20 pointer-events-none translate-y-4">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={slaData.historicalTrend}>
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="uv"
+                                                    stroke="#ffffff"
+                                                    strokeWidth={4}
+                                                    dot={false}
+                                                    isAnimationActive={true}
+                                                />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </div>
+
+                                    <div className="relative z-10 flex flex-col h-full justify-between">
+                                        <div>
+                                            <p className="text-sm font-medium opacity-90 flex items-center justify-between">
+                                                SLA Geral (Média de Entrega)
+                                                {slaData.trendPercentage !== 0 && (
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full ${slaData.trendPercentage < 0 ? 'bg-white/20 text-white' : 'bg-black/20 text-white'}`} title="Comparado ao mês passado">
+                                                        {slaData.trendPercentage > 0 ? '↑' : '↓'} {Math.abs(slaData.trendPercentage)}%
+                                                    </span>
+                                                )}
+                                            </p>
+                                            <div className="flex items-baseline gap-2 mt-1">
+                                                <p className="text-5xl font-extrabold tracking-tight">
+                                                    {slaData.avgDeliveryDays}
+                                                </p>
+                                                <span className="text-lg font-medium opacity-80">dias úteis</span>
+                                            </div>
+                                            <p className="text-xs opacity-75 mt-1">
+                                                Baseado em {slaData.deliveredCount} demandas entregues
+                                            </p>
+                                        </div>
+
+                                        <div className="mt-6 pt-4 border-t border-white/20 grid grid-cols-2 gap-4">
+                                            <div>
+                                                <p className="text-xs font-semibold opacity-70 uppercase tracking-wider">Compliance Geral</p>
+                                                <p className="text-lg font-bold mt-0.5 flex items-center gap-1.5 opacity-90">
+                                                    <CheckCircle2 className="w-4 h-4 text-white" />
+                                                    {slaData.complianceRate}% no prazo
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-semibold opacity-70 uppercase tracking-wider">Limites de Tempo</p>
+                                                <div className="text-sm font-medium mt-0.5 flex flex-col gap-0.5 opacity-90">
+                                                    <span className="flex items-center gap-1"><span title="Mais rápida">🏃</span> {slaData.minTime}d</span>
+                                                    <span className="flex items-center gap-1"><span title="Mais demorada">🐢</span> {slaData.maxTime}d</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {/* SLA por Status */}

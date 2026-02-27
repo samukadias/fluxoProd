@@ -12,6 +12,7 @@ import { ptBR } from 'date-fns/locale';
 import { CalendarIcon, Save, X, Check, ChevronsUpDown } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import CurrencyInput from "@/components/ui/currency-input";
 
 const STAGES = [
     "Triagem",
@@ -59,7 +60,8 @@ export default function DemandForm({
         artifact: demand?.artifact || 'Orçamento',
         value: demand?.value ?? '',
         weight: demand?.weight ?? 1,
-        complexity: demand?.complexity || 'Média',
+        margem_bruta: demand?.margem_bruta ?? '',
+        margem_liquida: demand?.margem_liquida ?? '',
         qualification_date: demand?.qualification_date || '',
         expected_delivery_date: demand?.expected_delivery_date || '',
         delivery_date: demand?.delivery_date || '',
@@ -87,8 +89,14 @@ export default function DemandForm({
     const [showArquitetoSupport, setShowArquitetoSupport] = useState(!!demand?.architect_support_analyst_id);
     const [openClient, setOpenClient] = useState(false);
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
+    const submitForm = (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+
+        // Validate Required Fields
+        if (!formData.product || !formData.product.trim()) {
+            alert('Por favor, informe o Produto.');
+            return;
+        }
 
         // Validate delivery_date change reason
         if (showReasonField && !formData.delivery_date_change_reason.trim()) {
@@ -97,10 +105,17 @@ export default function DemandForm({
         }
 
         // Sanitize data: convert empty strings to null for ID fields
+        const { delivery_date_change_reason, ...rest } = formData;
         const cleanedData = {
-            ...formData,
+            ...rest,
             value: formData.value !== '' && formData.value !== null && formData.value !== undefined
                 ? parseFloat(String(formData.value).replace(',', '.')) || null
+                : null,
+            margem_bruta: formData.margem_bruta !== '' && formData.margem_bruta != null && String(formData.margem_bruta).trim() !== ''
+                ? parseFloat(String(formData.margem_bruta).replace(',', '.')) || null
+                : null,
+            margem_liquida: formData.margem_liquida !== '' && formData.margem_liquida != null && String(formData.margem_liquida).trim() !== ''
+                ? parseFloat(String(formData.margem_liquida).replace(',', '.')) || null
                 : null,
             client_id: formData.client_id === "" ? null : formData.client_id,
             analyst_id: formData.analyst_id === "" ? null : formData.analyst_id,
@@ -143,7 +158,7 @@ export default function DemandForm({
     );
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={submitForm} className="space-y-6" noValidate>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="space-y-2">
                     <Label className="text-sm text-slate-600">Nº Demanda</Label>
@@ -161,7 +176,6 @@ export default function DemandForm({
                         value={formData.product}
                         onChange={(e) => setFormData({ ...formData, product: e.target.value })}
                         placeholder="Nome do produto ou descrição da demanda"
-                        required
                         className="h-10"
                     />
                 </div>
@@ -184,14 +198,10 @@ export default function DemandForm({
 
                 <div className="space-y-2">
                     <Label className="text-sm text-slate-600">Valor (R$)</Label>
-                    <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
+                    <CurrencyInput
+                        id="value"
                         value={formData.value}
-                        onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                        placeholder="0,00"
-                        className="h-10"
+                        onChange={(val) => setFormData({ ...formData, value: val })}
                     />
                 </div>
 
@@ -231,24 +241,26 @@ export default function DemandForm({
                     </Select>
                 </div>
 
-                {userDepartment !== 'CDPC' && (
+                <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <Label className="text-sm text-slate-600">Complexidade</Label>
-                        <Select
-                            value={formData.complexity}
-                            onValueChange={(v) => setFormData({ ...formData, complexity: v })}
-                        >
-                            <SelectTrigger className="h-10">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Baixa">Baixa</SelectItem>
-                                <SelectItem value="Média">Média</SelectItem>
-                                <SelectItem value="Alta">Alta</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <Label className="text-sm text-slate-600">MB (%)</Label>
+                        <Input
+                            value={formData.margem_bruta}
+                            onChange={(e) => setFormData({ ...formData, margem_bruta: e.target.value })}
+                            placeholder="Ex: 15,08"
+                            className="h-10"
+                        />
                     </div>
-                )}
+                    <div className="space-y-2">
+                        <Label className="text-sm text-slate-600">ML (%)</Label>
+                        <Input
+                            value={formData.margem_liquida}
+                            onChange={(e) => setFormData({ ...formData, margem_liquida: e.target.value })}
+                            placeholder="Ex: 10,50"
+                            className="h-10"
+                        />
+                    </div>
+                </div>
 
                 <div className="space-y-2">
                     <Label className="text-sm text-slate-600">Cliente</Label>
@@ -345,7 +357,7 @@ export default function DemandForm({
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="none">Não designado</SelectItem>
-                            {analysts.filter(a => a.active !== false).map(a => (
+                            {[...analysts].filter(a => a.active !== false).sort((a, b) => a.name.localeCompare(b.name)).map(a => (
                                 <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>
                             ))}
                         </SelectContent>
@@ -379,7 +391,7 @@ export default function DemandForm({
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="none">Selecione...</SelectItem>
-                                {analysts.filter(a => a.active !== false && String(a.id) !== String(formData.analyst_id)).map(a => (
+                                {[...analysts].filter(a => a.active !== false && String(a.id) !== String(formData.analyst_id)).sort((a, b) => a.name.localeCompare(b.name)).map(a => (
                                     <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>
                                 ))}
                             </SelectContent>
@@ -414,7 +426,7 @@ export default function DemandForm({
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="none">Selecione...</SelectItem>
-                                {analysts.filter(a => a.active !== false && String(a.id) !== String(formData.analyst_id)).map(a => (
+                                {[...analysts].filter(a => a.active !== false && String(a.id) !== String(formData.analyst_id)).sort((a, b) => a.name.localeCompare(b.name)).map(a => (
                                     <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>
                                 ))}
                             </SelectContent>
@@ -433,7 +445,7 @@ export default function DemandForm({
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="none">Nenhum</SelectItem>
-                            {requesters.filter(r => r.active !== false).map(r => (
+                            {[...requesters].filter(r => r.active !== false).sort((a, b) => a.name.localeCompare(b.name)).map(r => (
                                 <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>
                             ))}
                         </SelectContent>
@@ -518,7 +530,7 @@ export default function DemandForm({
                     Cancelar
                 </Button>
                 {userRole !== 'viewer' && (
-                    <Button type="submit" disabled={isLoading} className="bg-indigo-600 hover:bg-indigo-700">
+                    <Button type="button" onClick={() => submitForm()} disabled={isLoading} className="bg-indigo-600 hover:bg-indigo-700">
                         <Save className="w-4 h-4 mr-2" />
                         {isLoading ? 'Salvando...' : 'Salvar'}
                     </Button>

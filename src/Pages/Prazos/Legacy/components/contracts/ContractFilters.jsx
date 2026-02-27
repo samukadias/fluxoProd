@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,25 @@ export default function ContractFilters({ filters, onFiltersChange, contracts })
       [key]: value
     }));
   };
+
+  // State local para o input de busca (debounce)
+  const [searchInput, setSearchInput] = useState(filters.search || "");
+
+  // Propaga para o filtro real apenas 300ms após parar de digitar
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      updateFilter("search", searchInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  // Sincroniza se o filtro for limpo externamente
+  useEffect(() => {
+    if (filters.search === "" && searchInput !== "") {
+      setSearchInput("");
+    }
+  }, [filters.search]);
+
 
   // Extrair listas únicas de clientes e analistas
   const uniqueClients = useMemo(() => {
@@ -61,7 +80,7 @@ export default function ContractFilters({ filters, onFiltersChange, contracts })
 
           <div className="space-y-2">
             <Label>Status do Contrato</Label>
-            <Select value={filters.status} onValueChange={(value) => updateFilter("status", value)}>
+            <Select value={filters.status || "all"} onValueChange={(value) => updateFilter("status", value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o status" />
               </SelectTrigger>
@@ -71,13 +90,14 @@ export default function ContractFilters({ filters, onFiltersChange, contracts })
                 <SelectItem value="Renovado">Renovado</SelectItem>
                 <SelectItem value="Encerrado">Encerrado</SelectItem>
                 <SelectItem value="Expirado">Expirado</SelectItem>
+                <SelectItem value="Em Negociação">Em Negociação</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
             <Label>Status do Vencimento</Label>
-            <Select value={filters.vencimento} onValueChange={(value) => updateFilter("vencimento", value)}>
+            <Select value={filters.vencimento || "all"} onValueChange={(value) => updateFilter("vencimento", value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o vencimento" />
               </SelectTrigger>
@@ -95,8 +115,8 @@ export default function ContractFilters({ filters, onFiltersChange, contracts })
             <Label>Busca Geral</Label>
             <Input
               placeholder="Buscar contrato..."
-              value={filters.search}
-              onChange={(e) => updateFilter("search", e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
             />
           </div>
         </div>

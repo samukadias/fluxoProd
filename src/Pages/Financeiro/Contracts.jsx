@@ -280,7 +280,7 @@ export default function Contracts() {
                                     <div>
                                         <h2 className="text-xl font-bold text-slate-900">{selectedClient}</h2>
                                         <p className="text-sm text-slate-600">
-                                            {clientGroups[selectedClient].length} contrato(s)
+                                            {clientGroups[selectedClient]?.length || 0} contrato(s)
                                         </p>
                                     </div>
                                 </div>

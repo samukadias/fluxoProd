@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { usePersistedFilters } from "@/hooks/usePersistedFilters";
 import { addMonths, isBefore, startOfDay } from "date-fns";
 import { useContracts } from "@/hooks/useContracts";
 import ContractTable from "../components/contracts/ContractTable";
@@ -20,7 +21,7 @@ export default function Contracts() {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
 
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = usePersistedFilters("cocr_filters", {
     search: "",
     status: searchParams.get("status") || "all",
     analista: "all",
@@ -29,6 +30,26 @@ export default function Contracts() {
   });
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [clientView, setClientView] = useState('grupo'); // 'cliente' | 'grupo'
+
+  // Calcula o status de vencimento dinamicamente a partir da data_fim_efetividade
+  // pois o campo status_vencimento no banco está vazio na maioria dos registros
+  const calcStatusVencimento = (contract) => {
+    if (!contract.data_fim_efetividade) return 'Normal';
+    // Contratos não-Ativos não têm status de vencimento relevante
+    if (contract.status && contract.status !== 'Ativo') return null;
+
+    const today = startOfDay(new Date());
+    const endDate = startOfDay(new Date(contract.data_fim_efetividade));
+
+    if (isBefore(endDate, today)) return 'Vencido';
+
+    const days60 = addMonths(today, 2);  // ~60 dias => Urgente
+    const days120 = addMonths(today, 4); // ~120 dias => Atenção
+
+    if (isBefore(endDate, days60)) return 'Urgente';
+    if (isBefore(endDate, days120)) return 'Atenção';
+    return 'Normal';
+  };
 
   // Filter logic
   const filteredContracts = contracts.filter((contract) => {
@@ -74,18 +95,24 @@ export default function Contracts() {
       const searchLower = filters.search.toLowerCase();
       return (
         contract.contrato?.toLowerCase().includes(searchLower) ||
+        contract.contrato_anterior?.toLowerCase().includes(searchLower) ||
         contract.cliente?.toLowerCase().includes(searchLower) ||
+        contract.grupo_cliente?.toLowerCase().includes(searchLower) ||
         contract.analista_responsavel?.toLowerCase().includes(searchLower) ||
-        contract.secao_responsavel?.toLowerCase().includes(searchLower) ||
-        contract.objeto?.toLowerCase().includes(searchLower)
+        contract.esp?.toLowerCase().includes(searchLower) ||         // secao_responsavel mapeado como "esp"
+        contract.objeto_contrato?.toLowerCase().includes(searchLower) // "objeto" no banco mapeado como "objeto_contrato"
       );
     })();
 
-    const matchesStatus = filters.status === "all" || contract.status === filters.status;
+    // Filtro de status: comparação case-insensitive para robustez
+    const matchesStatus = filters.status === "all" ||
+      (contract.status || "").toLowerCase() === filters.status.toLowerCase();
+
     const matchesAnalista = filters.analista === "all" || contract.analista_responsavel === filters.analista;
     const matchesCliente = filters.cliente === "all" || contract.cliente === filters.cliente;
 
     const matchesVencimento = filters.vencimento === "all" || (() => {
+      // "expiring" é o filtro legado do dashboard (vencendo em 2 meses), mantido por compatibilidade
       if (filters.vencimento === "expiring") {
         if (!contract.data_fim_efetividade || contract.status !== "Ativo") return false;
         const today = startOfDay(new Date());
@@ -93,7 +120,10 @@ export default function Contracts() {
         const twoMonthsFromNow = addMonths(today, 2);
         return isBefore(endDate, twoMonthsFromNow) && endDate >= today;
       }
-      return contract.status_vencimento === filters.vencimento;
+      // Para Normal/Atenção/Urgente/Vencido: calcula dinamicamente pois
+      // o campo status_vencimento do banco está vazio na maioria dos registros
+      const statusCalc = calcStatusVencimento(contract);
+      return statusCalc === filters.vencimento;
     })();
 
     return matchesSearch && matchesStatus && matchesAnalista && matchesCliente && matchesVencimento;

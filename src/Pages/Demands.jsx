@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { usePersistedFilters } from '@/hooks/usePersistedFilters';
 import { fluxoApi } from '@/api/fluxoClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ export default function DemandsPage() {
     const [viewMode, setViewMode] = useState('grid');
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = viewMode === 'grid' ? 18 : 24;
-    const [filters, setFilters] = useState({
+    const [filters, setFilters] = usePersistedFilters('cdpc_filters', {
         search: '',
         status: 'active',
         analyst_id: 'all',

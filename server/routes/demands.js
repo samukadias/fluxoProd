@@ -8,6 +8,16 @@ const router = express.Router();
  * PUT /demands/:id
  * Custom update route that tracks stage and status history changes.
  */
+// Allowed fields for update (prevents SQL injection and crashes from unknown fields)
+const UPDATABLE_FIELDS = [
+    'demand_number', 'product', 'artifact', 'value', 'weight',
+    'margem_bruta', 'margem_liquida',
+    'qualification_date', 'expected_delivery_date', 'delivery_date',
+    'status', 'observation', 'client_id', 'cycle_id', 'stage',
+    'analyst_id', 'requester_id', 'support_analyst_id',
+    'architect_support_analyst_id'
+];
+
 router.put('/:id', async (req, res) => {
     const client = await db.connect();
 
@@ -15,8 +25,13 @@ router.put('/:id', async (req, res) => {
         await client.query('BEGIN');
 
         const body = { ...req.body };
+        // Strip unknown/non-allowed fields and convert empty strings to null
         Object.keys(body).forEach(key => {
-            if (body[key] === '') body[key] = null;
+            if (!UPDATABLE_FIELDS.includes(key)) {
+                delete body[key];
+            } else if (body[key] === '') {
+                body[key] = null;
+            }
         });
 
         const keys = Object.keys(body);

@@ -66,7 +66,9 @@ export default function ContractForm({
     sei: "",
     etapa: "",
     data_limite_andamento: "",
-    observacao: "",
+    margem_bruta: "",
+    margem_liquida: "",
+    valor_aditamento: 0,
     ...initialData
   });
 
@@ -90,8 +92,9 @@ export default function ContractForm({
     const loadClients = async () => {
       try {
         const clientsData = await fluxoApi.entities.Client.list();
-        const clientNames = clientsData.map(c => c.name).sort();
-        setExistingClients(clientNames);
+        // Salva todos os dados do cliente em vez de apenas o nome, para termos acesso à "sigla"
+        const sortedClients = clientsData.sort((a, b) => a.name.localeCompare(b.name));
+        setExistingClients(sortedClients);
       } catch (error) {
         console.error("Erro ao carregar clientes:", error);
       }
@@ -178,8 +181,6 @@ export default function ContractForm({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('ContractForm handleSubmit chamado');
-    console.log('formData:', formData);
 
     const processedData = {
       ...formData,
@@ -188,9 +189,11 @@ export default function ContractForm({
       valor_cancelado: parseFloat(formData.valor_cancelado) || 0,
       valor_a_faturar: parseFloat(formData.valor_a_faturar) || 0,
       valor_novo_contrato: parseFloat(formData.valor_novo_contrato) || 0,
+      valor_aditamento: parseFloat(formData.valor_aditamento) || 0,
+      margem_bruta: formData.margem_bruta !== '' && formData.margem_bruta != null && !isNaN(parseFloat(String(formData.margem_bruta).replace(',', '.'))) ? parseFloat(String(formData.margem_bruta).replace(',', '.')) : null,
+      margem_liquida: formData.margem_liquida !== '' && formData.margem_liquida != null && !isNaN(parseFloat(String(formData.margem_liquida).replace(',', '.'))) ? parseFloat(String(formData.margem_liquida).replace(',', '.')) : null,
     };
 
-    console.log('processedData:', processedData);
     onSubmit(processedData);
   };
 
@@ -261,7 +264,14 @@ export default function ContractForm({
                 <Label htmlFor="cliente">Cliente *</Label>
                 <Select
                   value={formData.cliente}
-                  onValueChange={(value) => handleInputChange("cliente", value)}
+                  onValueChange={(value) => {
+                    handleInputChange("cliente", value);
+                    // Procura o cliente selecionado para extrair a sigla
+                    const selectedClient = existingClients.find(c => c.name === value);
+                    if (selectedClient && selectedClient.sigla) {
+                      handleInputChange("grupo_cliente", selectedClient.sigla);
+                    }
+                  }}
                   disabled={!canEditBasicInfo}
                   required
                 >
@@ -270,8 +280,8 @@ export default function ContractForm({
                   </SelectTrigger>
                   <SelectContent>
                     {existingClients.map((client) => (
-                      <SelectItem key={client} value={client}>
-                        {client}
+                      <SelectItem key={client.id || client.name} value={client.name}>
+                        {client.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -282,9 +292,9 @@ export default function ContractForm({
                 <Input
                   id="grupo_cliente"
                   value={formData.grupo_cliente}
-                  onChange={(e) => handleInputChange("grupo_cliente", e.target.value)}
-                  disabled={!canEditBasicInfo}
-                  className={!canEditBasicInfo ? "bg-gray-100" : ""}
+                  readOnly
+                  disabled
+                  className="bg-gray-100 cursor-not-allowed"
                 />
               </div>
               <div className="space-y-2">
@@ -319,6 +329,7 @@ export default function ContractForm({
                     <SelectItem value="Renovado">Renovado</SelectItem>
                     <SelectItem value="Encerrado">Encerrado</SelectItem>
                     <SelectItem value="Expirado">Expirado</SelectItem>
+                    <SelectItem value="Em Negociação">Em Negociação</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -374,18 +385,29 @@ export default function ContractForm({
               </div>
 
               {formData.tipo_tratativa === "ADITAMENTO" && (
-                <div className="space-y-2">
-                  <Label htmlFor="tipo_aditamento">Tipo de Aditamento</Label>
-                  <Select value={formData.tipo_aditamento} onValueChange={(value) => handleInputChange("tipo_aditamento", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o tipo de aditamento" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Aditamento com Expansão">Aditamento com Expansão</SelectItem>
-                      <SelectItem value="Aditamento com Redução">Aditamento com Redução</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="tipo_aditamento">Tipo de Aditamento</Label>
+                    <Select value={formData.tipo_aditamento} onValueChange={(value) => handleInputChange("tipo_aditamento", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o tipo de aditamento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Aditamento com Expansão">Aditamento com Expansão</SelectItem>
+                        <SelectItem value="Aditamento com Redução">Aditamento com Redução</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="valor_aditamento">Valor do Aditamento</Label>
+                    <CurrencyInput
+                      id="valor_aditamento"
+                      value={formData.valor_aditamento}
+                      onChange={(value) => handleInputChange("valor_aditamento", value)}
+                    />
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -548,6 +570,28 @@ export default function ContractForm({
                   value={formData.valor_contrato}
                   onChange={(value) => handleInputChange("valor_contrato", value)}
                 />
+              </div>
+
+              {/* MB e ML */}
+              <div className="grid grid-cols-2 gap-4 w-full md:max-w-[300px]">
+                <div className="space-y-2">
+                  <Label htmlFor="margem_bruta">MB (%)</Label>
+                  <Input
+                    id="margem_bruta"
+                    value={formData.margem_bruta}
+                    onChange={(e) => handleInputChange("margem_bruta", e.target.value)}
+                    placeholder="Ex: 15,08"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="margem_liquida">ML (%)</Label>
+                  <Input
+                    id="margem_liquida"
+                    value={formData.margem_liquida}
+                    onChange={(e) => handleInputChange("margem_liquida", e.target.value)}
+                    placeholder="Ex: 10,50"
+                  />
+                </div>
               </div>
 
               {isEdit && !isManagerOrAdmin ? (

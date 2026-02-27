@@ -100,7 +100,7 @@ export default function DemandFilters({
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Todos os Responsáveis</SelectItem>
-                        {analysts.map(a => (
+                        {[...analysts].sort((a, b) => a.name.localeCompare(b.name)).map(a => (
                             <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                         ))}
                     </SelectContent>
@@ -115,7 +115,7 @@ export default function DemandFilters({
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">Todos os Clientes</SelectItem>
-                        {clients.map(c => (
+                        {[...clients].sort((a, b) => a.name.localeCompare(b.name)).map(c => (
                             <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                         ))}
                     </SelectContent>
