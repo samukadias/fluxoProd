@@ -19,6 +19,7 @@ const { createCrudRoutes } = require('./helpers/crud');
 // Routes
 const authRoutes = require('./routes/auth');
 const demandRoutes = require('./routes/demands');
+const reopeningRoutes = require('./routes/reopenings');
 const { router: notificationRoutes, generateExpiringContractNotifications } = require('./routes/notifications');
 const activityRoutes = require('./routes/activity');
 
@@ -126,6 +127,12 @@ app.use('/notifications', notificationRoutes);
 
 // Activity Log
 app.use('/activity-log', activityRoutes);
+
+// Reopening reasons (gestor CRUD)
+app.use('/', reopeningRoutes);
+
+// Demand sub-routes: /:id/reopenings, /:id/reopen, /:id/redeliver
+app.use('/demands', reopeningRoutes);
 
 // ========================================
 // GENERIC CRUD ROUTES (with audit trail)

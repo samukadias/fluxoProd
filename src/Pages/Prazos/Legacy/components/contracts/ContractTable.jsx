@@ -319,10 +319,13 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate, 
                           </TooltipContent>
                         </Tooltip>
 
-                        {/* Botão Excluir - Para Gestores/Admin */}
+                        {/* Botão Excluir - Para Gestores/Admin ou Analista dono do contrato */}
                         {(user?.perfil === "GESTOR" || user?.perfil === "ADMIN" ||
                           user?.role === "admin" || user?.role === "manager" || user?.role === "gestor" ||
-                          user?.profile_type === "gestor") && (
+                          user?.profile_type === "gestor" ||
+                          ((user?.role === "analyst" || user?.perfil === "ANALISTA") &&
+                            (contract.analista_responsavel || "").trim().toLowerCase() ===
+                            (user?.full_name || user?.name || "").trim().toLowerCase())) && (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <AlertDialog>

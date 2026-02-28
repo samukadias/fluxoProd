@@ -6,12 +6,13 @@ import { createPageUrl } from '@/utils';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Edit2, Clock, Calendar, User, Building2, Layers, AlertTriangle, Trash2, Timer } from "lucide-react";
+import { ArrowLeft, Edit2, Clock, Calendar, User, Building2, Layers, AlertTriangle, Trash2, Timer, RotateCcw, PackageCheck, RefreshCw } from "lucide-react";
 import StatusBadge from '@/Components/demands/StatusBadge';
 import PriorityBadge from '@/Components/demands/PriorityBadge';
 import StatusTimeline from '@/Components/demands/StatusTimeline';
 import { StageStepper } from '@/Components/demands/StageStepper';
 import DemandForm from '@/Components/demands/DemandForm';
+import ReopenDemandModal from '@/Components/demands/ReopenDemandModal';
 import { calculateWorkDays, calculateSLA } from '@/Components/demands/EffortCalculator';
 import { format, parseISO, isAfter, differenceInCalendarDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -39,8 +40,11 @@ const ACTIVE_STATUSES = [
     "PENDÊNCIA DOP E DDS",
     "PENDÊNCIA COMERCIAL",
     "PENDÊNCIA SUPRIMENTOS",
-    "PENDÊNCIA FORNECEDOR"
+    "PENDÊNCIA FORNECEDOR",
+    "REABERTA"
 ];
+
+const MANAGER_ROLES = ['manager', 'admin', 'gestor'];
 
 export default function DemandDetailPage() {
     const queryClient = useQueryClient();
@@ -50,6 +54,8 @@ export default function DemandDetailPage() {
     const [user, setUser] = useState(null);
     const [showEditForm, setShowEditForm] = useState(false);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [showReopenModal, setShowReopenModal] = useState(false);
+    const [showRedeliverDialog, setShowRedeliverDialog] = useState(false);
 
     useEffect(() => {
         const stored = localStorage.getItem('fluxo_user');
@@ -78,6 +84,20 @@ export default function DemandDetailPage() {
     const { data: stageHistory = [] } = useQuery({
         queryKey: ['stage-history', demandId],
         queryFn: () => fluxoApi.entities.StageHistory.list({ demand_id: demandId }),
+        enabled: !!demandId
+    });
+
+    const { data: reopenings = [] } = useQuery({
+        queryKey: ['reopenings', demandId],
+        queryFn: async () => {
+            const token = localStorage.getItem('fluxo_token');
+            const base = `${window.location.protocol}//${window.location.hostname}:3000`;
+            const res = await fetch(`${base}/demands/${demandId}/reopenings`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!res.ok) return [];
+            return res.json();
+        },
         enabled: !!demandId
     });
 
@@ -177,6 +197,28 @@ export default function DemandDetailPage() {
         }
     });
 
+    const redeliverMutation = useMutation({
+        mutationFn: async () => {
+            const token = localStorage.getItem('fluxo_token');
+            const base = `${window.location.protocol}//${window.location.hostname}:3000`;
+            const res = await fetch(`${base}/demands/${demandId}/redeliver`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+            });
+            if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Erro ao re-entregar'); }
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['demand', demandId] });
+            queryClient.invalidateQueries({ queryKey: ['history', demandId] });
+            queryClient.invalidateQueries({ queryKey: ['reopenings', demandId] });
+            queryClient.invalidateQueries({ queryKey: ['demands'] });
+            setShowRedeliverDialog(false);
+            toast.success('Demanda re-entregue com sucesso!');
+        },
+        onError: (err) => toast.error(err.message)
+    });
+
     const [showClearHistoryDialog, setShowClearHistoryDialog] = useState(false);
 
     const clearHistoryMutation = useMutation({
@@ -265,6 +307,28 @@ export default function DemandDetailPage() {
                         </Button>
                     </Link>
                     <div className="flex items-center gap-2">
+                        {/* Botão Reabrir: só para gestor+ quando ENTREGUE */}
+                        {user && MANAGER_ROLES.includes(user.role) && demand?.status === 'ENTREGUE' && (
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowReopenModal(true)}
+                                className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                            >
+                                <RotateCcw className="w-4 h-4 mr-2" />
+                                Reabrir
+                            </Button>
+                        )}
+                        {/* Botão Re-entregar: analista+ quando REABERTA */}
+                        {user && user.role !== 'requester' && user.role !== 'viewer' && demand?.status === 'REABERTA' && (
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowRedeliverDialog(true)}
+                                className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                            >
+                                <PackageCheck className="w-4 h-4 mr-2" />
+                                Re-entregar
+                            </Button>
+                        )}
                         {user && user.role !== 'requester' && (
                             <Button
                                 variant="outline"
@@ -472,6 +536,54 @@ export default function DemandDetailPage() {
                                 <StatusTimeline history={history} currentStatus={demand.status} demandCreatedAt={demand.created_date} />
                             </CardContent>
                         </Card>
+
+                        {/* Histórico de Reaberturas */}
+                        {reopenings.length > 0 && (
+                            <Card className="border-0 shadow-lg rounded-2xl">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-lg flex items-center gap-2">
+                                        <RefreshCw className="w-5 h-5 text-amber-600" />
+                                        Reaberturas
+                                        <span className="inline-flex items-center ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+                                            {reopenings.length}x
+                                        </span>
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    {reopenings.map((r, idx) => (
+                                        <div key={r.id} className="border border-slate-100 rounded-xl p-4 space-y-2 bg-amber-50/40">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                                                    Reabertura #{idx + 1}
+                                                </span>
+                                                {r.redelivered_at ? (
+                                                    <span className="text-xs text-emerald-600 font-medium">
+                                                        ✅ Re-entregue em {format(new Date(r.redelivered_at), "dd/MM/yyyy", { locale: ptBR })}
+                                                        {r.redelivered_by_name && ` por ${r.redelivered_by_name}`}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-xs text-amber-600 font-medium animate-pulse">⚡ Em aberto</span>
+                                                )}
+                                            </div>
+                                            <div className="text-sm">
+                                                <span className="text-slate-500">Motivo: </span>
+                                                <span className="font-medium text-slate-800">{r.reason_label}</span>
+                                            </div>
+                                            {r.detail && (
+                                                <p className="text-sm text-slate-600 italic border-l-2 border-amber-300 pl-3">{r.detail}</p>
+                                            )}
+                                            <div className="text-xs text-slate-400">
+                                                Reaberta em {format(new Date(r.reopened_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                                {r.reopened_by_name && ` por ${r.reopened_by_name}`}
+                                                {r.redelivered_at && (
+                                                    <> · SLA reabertura: {Math.ceil((new Date(r.redelivered_at) - new Date(r.reopened_at)) / 86400000)} dia(s)</>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </CardContent>
+                            </Card>
+                        )}
                     </div>
                 </div>
             </div>
@@ -516,6 +628,36 @@ export default function DemandDetailPage() {
                     />
                 </DialogContent>
             </Dialog>
+
+            {/* Modal Reabrir Demanda */}
+            <ReopenDemandModal
+                open={showReopenModal}
+                onOpenChange={setShowReopenModal}
+                demandId={demandId}
+                demandName={demand?.product}
+            />
+
+            {/* Confirmação de Re-entrega */}
+            <AlertDialog open={showRedeliverDialog} onOpenChange={setShowRedeliverDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Re-entregar demanda?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            O status voltará para <strong>ENTREGUE</strong> e a data de entrega será atualizada para agora.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={redeliverMutation.isPending}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => redeliverMutation.mutate()}
+                            disabled={redeliverMutation.isPending}
+                            className="bg-emerald-600 hover:bg-emerald-700"
+                        >
+                            {redeliverMutation.isPending ? 'Salvando...' : 'Confirmar Re-entrega'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                 <AlertDialogContent>

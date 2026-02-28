@@ -15,6 +15,7 @@ const statusStyles = {
     "PENDÊNCIA FORNECEDOR": "bg-red-50 text-red-700 border-red-200",
     "CONGELADA": "bg-cyan-50 text-cyan-700 border-cyan-200",
     "ENTREGUE": "bg-emerald-50 text-emerald-700 border-emerald-200",
+    "REABERTA": "bg-amber-100 text-amber-800 border-amber-300",
     "CANCELADA": "bg-zinc-100 text-zinc-500 border-zinc-200"
 };
 

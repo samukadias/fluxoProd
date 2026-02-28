@@ -431,6 +431,56 @@ const initDb = async () => {
             )
         `);
 
+        // ========================================
+        // REABERTURA DE DEMANDAS
+        // ========================================
+
+        // Motivos de reabertura (configuráveis pelo gestor)
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS demand_reopening_reasons (
+                id SERIAL PRIMARY KEY,
+                label VARCHAR(255) NOT NULL,
+                active BOOLEAN DEFAULT TRUE,
+                created_by VARCHAR(255),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Seed de motivos padrão (só se a tabela estiver vazia)
+        const reasonCount = await db.query('SELECT COUNT(*) FROM demand_reopening_reasons');
+        if (parseInt(reasonCount.rows[0].count) === 0) {
+            const defaultReasons = [
+                'Erro no produto entregue',
+                'Requisito não atendido completamente',
+                'Solicitação de alteração pelo cliente',
+                'Retrabalho por processo interno',
+                'Complemento de escopo',
+                'Outro'
+            ];
+            for (const label of defaultReasons) {
+                await db.query(
+                    `INSERT INTO demand_reopening_reasons (label, created_by) VALUES ($1, 'Sistema')`,
+                    [label]
+                );
+            }
+        }
+
+        // Histórico de reaberturas por demanda
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS demand_reopenings (
+                id SERIAL PRIMARY KEY,
+                demand_id INTEGER REFERENCES demands(id) ON DELETE CASCADE,
+                reason_id INTEGER REFERENCES demand_reopening_reasons(id),
+                reason_label VARCHAR(255),
+                detail TEXT,
+                reopened_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                reopened_by_id INTEGER REFERENCES users(id),
+                reopened_by_name VARCHAR(255),
+                redelivered_at TIMESTAMP,
+                redelivered_by_name VARCHAR(255)
+            )
+        `);
+
         console.log('✅ Database tables initialized successfully');
     } catch (err) {
         console.error('Error initializing database:', err);

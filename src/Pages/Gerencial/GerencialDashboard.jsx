@@ -70,6 +70,9 @@ export default function GerencialDashboard() {
         const valueThisYear = demandsWithValue.reduce((sum, d) => sum + parseFloat(d.value), 0);
         const valuedDemandsCount = demandsWithValue.length;
 
+        // Demandas atualmente REABERTA
+        const currentlyReopened = demands.filter(d => d.status === 'REABERTA');
+
         // Top clients by active backlog demand count
         const clientCount = {};
         backlog.forEach(d => {
@@ -85,7 +88,7 @@ export default function GerencialDashboard() {
                 return { name: client?.name || `Cliente #${clientId}`, count };
             });
 
-        return { backlog, entriesThisMonth, deliveredThisMonth, highPriority, deliveredThisYear, valueThisYear, valuedDemandsCount, topClients };
+        return { backlog, entriesThisMonth, deliveredThisMonth, highPriority, deliveredThisYear, valueThisYear, valuedDemandsCount, topClients, currentlyReopened };
     }, [demands, clients]);
 
     const formatCurrency = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', notation: val >= 1000000 ? 'compact' : 'standard', maximumFractionDigits: val >= 1000000 ? 2 : 0 });
@@ -258,6 +261,50 @@ export default function GerencialDashboard() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Seção Reaberturas */}
+                        {!cdpcLoading && cdpcMetrics.currentlyReopened.length > 0 && (
+                            <div>
+                                <div className="mb-3 flex items-center gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                                    <h2 className="text-lg font-bold text-slate-800">Demandas Reabertas</h2>
+                                    <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">
+                                        {cdpcMetrics.currentlyReopened.length} em aberto
+                                    </span>
+                                </div>
+                                <div className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
+                                    <div className="divide-y divide-slate-100">
+                                        {cdpcMetrics.currentlyReopened.map((d) => {
+                                            const client = clients.find(c => String(c.id) === String(d.client_id));
+                                            const daysOpen = d.delivery_date
+                                                ? Math.ceil((Date.now() - new Date(d.delivery_date).getTime()) / 86400000)
+                                                : null;
+                                            return (
+                                                <div key={d.id} className="flex items-center justify-between px-5 py-3 hover:bg-amber-50/40 transition-colors">
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-slate-800">{d.product}</p>
+                                                        {client && <p className="text-xs text-slate-400">{client.name}</p>}
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        {daysOpen !== null && (
+                                                            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${daysOpen > 5 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                                {daysOpen}d aberta
+                                                            </span>
+                                                        )}
+                                                        <a
+                                                            href={`/?page=DemandDetail&id=${d.id}`}
+                                                            className="text-xs text-indigo-600 hover:underline font-medium"
+                                                        >
+                                                            Ver →
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </main>
                 )}
 

@@ -3,11 +3,12 @@ import { usePersistedFilters } from '@/hooks/usePersistedFilters';
 import { fluxoApi } from '@/api/fluxoClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List } from "lucide-react";
+import { Plus, LayoutGrid, List, Settings } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import DemandFilters from '@/components/demands/DemandFilters';
 import DemandCard from '@/components/demands/DemandCard';
 import DemandForm from '@/components/demands/DemandForm';
+import ReopeningReasonsManager from '@/Components/demands/ReopeningReasonsManager';
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
@@ -20,6 +21,7 @@ export default function DemandsPage() {
     const [showForm, setShowForm] = useState(false);
     const [duplicateData, setDuplicateData] = useState(null);
     const [viewMode, setViewMode] = useState('grid');
+    const [showReasonsManager, setShowReasonsManager] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = viewMode === 'grid' ? 18 : 24;
     const [filters, setFilters] = usePersistedFilters('cdpc_filters', {
@@ -207,6 +209,18 @@ export default function DemandsPage() {
                                 <List className="w-4 h-4" />
                             </Button>
                         </div>
+                        {['manager', 'admin', 'gestor'].includes(user?.role) && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowReasonsManager(true)}
+                                className="text-slate-500 border-slate-200 hover:bg-slate-50"
+                                title="Configurar motivos de reabertura"
+                            >
+                                <Settings className="w-4 h-4 mr-1.5" />
+                                Motivos
+                            </Button>
+                        )}
                         {user?.role !== 'requester' && user?.role !== 'viewer' && (
                             <Button
                                 onClick={() => setShowForm(true)}
@@ -313,6 +327,19 @@ export default function DemandsPage() {
                         userDepartment={user?.department}
                         isNew={true}
                     />
+                </DialogContent>
+            </Dialog>
+
+            {/* Gerenciador de Motivos de Reabertura */}
+            <Dialog open={showReasonsManager} onOpenChange={setShowReasonsManager}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Settings className="w-5 h-5 text-slate-500" />
+                            Motivos de Reabertura
+                        </DialogTitle>
+                    </DialogHeader>
+                    <ReopeningReasonsManager />
                 </DialogContent>
             </Dialog>
         </div>
