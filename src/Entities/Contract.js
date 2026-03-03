@@ -22,6 +22,7 @@ export class Contract {
             valor_cancelado: dbContract.valor_cancelado ? parseFloat(dbContract.valor_cancelado) : 0,
             valor_a_faturar: dbContract.valor_a_faturar ? parseFloat(dbContract.valor_a_faturar) : 0,
             valor_novo_contrato: dbContract.valor_novo_contrato ? parseFloat(dbContract.valor_novo_contrato) : 0,
+            valor_aditamento: dbContract.valor_aditamento ? parseFloat(dbContract.valor_aditamento) : 0,
             objeto_contrato: dbContract.objeto, // Mapeado para objeto no banco
             tipo_tratativa: dbContract.tipo_tratativa,
             tipo_aditamento: dbContract.tipo_aditamento,
@@ -71,6 +72,7 @@ export class Contract {
             valor_cancelado: contract.valor_cancelado,
             valor_a_faturar: contract.valor_a_faturar,
             valor_novo_contrato: contract.valor_novo_contrato,
+            valor_aditamento: contract.valor_aditamento || 0,
             objeto: contract.objeto_contrato, // Mapeado de objeto_contrato
             tipo_tratativa: contract.tipo_tratativa,
             tipo_aditamento: contract.tipo_aditamento,

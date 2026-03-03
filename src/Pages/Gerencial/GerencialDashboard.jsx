@@ -25,71 +25,44 @@ export default function GerencialDashboard() {
     const [activeTab, setActiveTab] = useState('cdpc');
     const user = JSON.parse(localStorage.getItem('fluxo_user') || '{}');
 
-    // --- CDPC Real Data ---
-    const [demands, setDemands] = useState([]);
-    const [clients, setClients] = useState([]);
+    // --- Metrics State ---
+    const [cdpcMetrics, setCdpcMetrics] = useState({
+        backlog: 0, entriesThisMonth: 0, deliveredThisMonth: 0, highPriority: 0,
+        deliveredThisYear: 0, valueThisYear: 0, valuedDemandsCount: 0,
+        topClients: [], currentlyReopened: []
+    });
+
+    const [cocrMetrics, setCocrMetrics] = useState({
+        totalContracts: 0, globalValue: 0, expiringContracts: [],
+        aditamentosMonthCount: 0, aditamentosMonthValue: 0,
+        aguardandoAssinaturaCount: 0, aguardandoAssinaturaValue: 0,
+        filteredTotalCurrentMonth: 0, filteredValueCurrentMonth: 0
+    });
+
     const [cdpcLoading, setCdpcLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState('');
 
     useEffect(() => {
-        Promise.all([
-            fluxoApi.entities.Demand.list({ status: 'all' }).catch(() => []),
-            fluxoApi.entities.Client.list().catch(() => [])
-        ]).then(([demandsData, clientsData]) => {
-            setDemands(Array.isArray(demandsData) ? demandsData : []);
-            setClients(Array.isArray(clientsData) ? clientsData : []);
-            setLastUpdated(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
-            setCdpcLoading(false);
-        });
-    }, []);
+        const fetchData = async () => {
+            try {
+                const [cdpcData, cocrData] = await Promise.all([
+                    fluxoApi.metrics.cdpc().catch(() => null),
+                    fluxoApi.metrics.cocr().catch(() => null)
+                ]);
 
-    const cdpcMetrics = useMemo(() => {
-        const now = new Date();
-        const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth(); // 0-indexed
+                if (cdpcData) setCdpcMetrics(cdpcData);
+                if (cocrData) setCocrMetrics(cocrData);
 
-        const isThisMonth = (dateStr) => {
-            if (!dateStr) return false;
-            const d = new Date(dateStr);
-            return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
-        };
-        const isThisYear = (dateStr) => {
-            if (!dateStr) return false;
-            return new Date(dateStr).getFullYear() === currentYear;
-        };
-
-        const backlog = demands.filter(d => d.status !== 'ENTREGUE' && d.status !== 'CANCELADA');
-        const entriesThisMonth = demands.filter(d => isThisMonth(d.qualification_date));
-        const deliveredThisMonth = demands.filter(d => d.status === 'ENTREGUE' && isThisMonth(d.delivery_date));
-        const highPriority = backlog.filter(d =>
-            (d.artifact === 'PROPOSTA' || d.artifact === 'Proposta') && (d.weight === 0 || d.weight === 1)
-        );
-        const deliveredThisYear = demands.filter(d => d.status === 'ENTREGUE' && isThisYear(d.delivery_date));
-        const demandsThisYear = demands.filter(d => isThisYear(d.created_date));
-        const demandsWithValue = demandsThisYear.filter(d => parseFloat(d.value) > 0);
-        const valueThisYear = demandsWithValue.reduce((sum, d) => sum + parseFloat(d.value), 0);
-        const valuedDemandsCount = demandsWithValue.length;
-
-        // Demandas atualmente REABERTA
-        const currentlyReopened = demands.filter(d => d.status === 'REABERTA');
-
-        // Top clients by active backlog demand count
-        const clientCount = {};
-        backlog.forEach(d => {
-            if (d.client_id) {
-                clientCount[d.client_id] = (clientCount[d.client_id] || 0) + 1;
+                setLastUpdated(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+            } catch (error) {
+                console.error("Failed to fetch dashboard data:", error);
+            } finally {
+                setCdpcLoading(false);
             }
-        });
-        const topClients = Object.entries(clientCount)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5)
-            .map(([clientId, count]) => {
-                const client = clients.find(c => String(c.id) === String(clientId));
-                return { name: client?.name || `Cliente #${clientId}`, count };
-            });
+        };
 
-        return { backlog, entriesThisMonth, deliveredThisMonth, highPriority, deliveredThisYear, valueThisYear, valuedDemandsCount, topClients, currentlyReopened };
-    }, [demands, clients]);
+        fetchData();
+    }, []);
 
     const formatCurrency = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', notation: val >= 1000000 ? 'compact' : 'standard', maximumFractionDigits: val >= 1000000 ? 2 : 0 });
 
@@ -166,7 +139,7 @@ export default function GerencialDashboard() {
                                 <div className="absolute top-0 right-0 p-4 opacity-5 text-blue-600 group-hover:scale-110 transition-transform"><Cuboid className="w-20 h-20" /></div>
                                 <p className="text-sm font-medium text-slate-500 mb-1">Backlog Total</p>
                                 <p className="text-3xl font-bold text-slate-800">
-                                    {cdpcLoading ? '...' : cdpcMetrics.backlog.length}
+                                    {cdpcLoading ? '...' : cdpcMetrics.backlog}
                                 </p>
                                 <p className="text-[10px] text-blue-600 mt-2 font-bold bg-blue-50 w-fit px-2 py-1 rounded">demandas ativas</p>
                             </div>
@@ -174,7 +147,7 @@ export default function GerencialDashboard() {
                                 <div className="absolute top-0 right-0 p-4 opacity-5 text-emerald-600 group-hover:scale-110 transition-transform"><ArrowDownToLine className="w-20 h-20" /></div>
                                 <p className="text-sm font-medium text-slate-500 mb-1">Entradas Mês</p>
                                 <p className="text-3xl font-bold text-slate-800">
-                                    {cdpcLoading ? '...' : cdpcMetrics.entriesThisMonth.length}
+                                    {cdpcLoading ? '...' : cdpcMetrics.entriesThisMonth}
                                 </p>
                                 <p className="text-xs text-slate-400 mt-2 font-medium">{new Date().toLocaleDateString('pt-BR', { month: 'short' })}</p>
                             </div>
@@ -182,13 +155,13 @@ export default function GerencialDashboard() {
                                 <div className="absolute top-0 right-0 p-4 opacity-5 text-emerald-600 group-hover:scale-110 transition-transform"><CheckSquare className="w-20 h-20" /></div>
                                 <p className="text-sm font-medium text-slate-500 mb-1">Entregues Mês</p>
                                 <p className="text-3xl font-bold text-emerald-600">
-                                    {cdpcLoading ? '...' : cdpcMetrics.deliveredThisMonth.length}
+                                    {cdpcLoading ? '...' : cdpcMetrics.deliveredThisMonth}
                                 </p>
-                                {!cdpcLoading && cdpcMetrics.entriesThisMonth.length > 0 && (
+                                {!cdpcLoading && cdpcMetrics.entriesThisMonth > 0 && (
                                     <div className="w-full bg-slate-200 h-1.5 rounded-full mt-3">
                                         <div
                                             className="bg-emerald-500 h-1.5 rounded-full"
-                                            style={{ width: `${Math.min(100, Math.round((cdpcMetrics.deliveredThisMonth.length / cdpcMetrics.entriesThisMonth.length) * 100))}%` }}
+                                            style={{ width: `${Math.min(100, Math.round((cdpcMetrics.deliveredThisMonth / cdpcMetrics.entriesThisMonth) * 100))}%` }}
                                         />
                                     </div>
                                 )}
@@ -197,7 +170,7 @@ export default function GerencialDashboard() {
                                 <div className="absolute top-0 right-0 p-4 opacity-5 text-rose-600 group-hover:scale-110 transition-transform"><Flame className="w-20 h-20" /></div>
                                 <p className="text-sm font-medium text-slate-500 mb-1">Alta Prioridade</p>
                                 <p className="text-3xl font-bold text-rose-600">
-                                    {cdpcLoading ? '...' : cdpcMetrics.highPriority.length}
+                                    {cdpcLoading ? '...' : cdpcMetrics.highPriority}
                                 </p>
                                 <p className="text-[10px] text-rose-600 mt-2 font-bold bg-white/50 w-fit px-2 py-1 rounded">Propostas P0/P1</p>
                             </div>
@@ -210,7 +183,7 @@ export default function GerencialDashboard() {
                                 <div className="flex items-center justify-around">
                                     <div className="text-center">
                                         <p className="text-5xl font-black text-slate-800 mb-2">
-                                            {cdpcLoading ? '...' : cdpcMetrics.deliveredThisYear.length}
+                                            {cdpcLoading ? '...' : cdpcMetrics.deliveredThisYear}
                                         </p>
                                         <p className="text-sm font-medium text-slate-500">Demandas Entregues</p>
                                     </div>
@@ -312,61 +285,65 @@ export default function GerencialDashboard() {
                 {activeTab === 'cocr' && (
                     <main className="max-w-7xl mx-auto space-y-6 animate-in slide-in-from-bottom-2 duration-300">
                         <div className="mb-2">
-                            <h2 className="text-lg font-bold text-slate-800">Visão Executiva do Mês</h2>
-                            <p className="text-sm text-slate-500">Assinaturas, DEX, Aditamentos e Riscos</p>
+                            <h2 className="text-lg font-bold text-slate-800">Visão Executiva (Em Tempo Real)</h2>
+                            <p className="text-sm text-slate-500">Dados baseados no portfólio de Contratos Ativos atualizados.</p>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-                                <p className="text-sm font-medium text-slate-500 mb-1">Total de Contratos (Mês)</p>
-                                <p className="text-3xl font-bold text-slate-800">85</p>
+                                <p className="text-sm font-medium text-slate-500 mb-1">Total de Contratos (Ativos)</p>
+                                <p className="text-3xl font-bold text-slate-800">{cdpcLoading ? '...' : cocrMetrics.totalContracts}</p>
                             </div>
                             <div className="rounded-2xl shadow-sm border p-5 bg-gradient-to-br from-white to-blue-50 border-blue-100">
-                                <p className="text-sm font-medium text-slate-500 mb-1">Valor Global (Mês)</p>
-                                <p className="text-2xl font-bold text-blue-700">R$ 4.500.000</p>
+                                <p className="text-sm font-medium text-slate-500 mb-1">Valor Global (Ativos)</p>
+                                <p className="text-2xl font-bold text-blue-700">{cdpcLoading ? '...' : formatCurrency(cocrMetrics.globalValue)}</p>
                             </div>
                             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
                                 <p className="text-sm font-medium text-slate-500 mb-1">Aguardando Assinatura</p>
                                 <div className="flex items-baseline gap-2">
-                                    <p className="text-3xl font-bold text-amber-500">14</p>
-                                    <p className="text-xs text-slate-400">contratos</p>
+                                    <p className="text-3xl font-bold text-amber-500">{cdpcLoading ? '...' : cocrMetrics.aguardandoAssinaturaCount}</p>
+                                    <p className="text-xs text-slate-400">contratos (Etapa 9)</p>
                                 </div>
                             </div>
                             <div className="rounded-2xl shadow-sm border p-5 bg-amber-50 border-amber-100">
                                 <p className="text-sm font-medium text-amber-700 mb-1">Valor Travado (Assinatura)</p>
-                                <p className="text-2xl font-bold text-amber-600">R$ 850.000</p>
+                                <p className="text-2xl font-bold text-amber-600">{cdpcLoading ? '...' : formatCurrency(cocrMetrics.aguardandoAssinaturaValue)}</p>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <div className="lg:col-span-1 space-y-6">
-                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-0 overflow-hidden">
-                                    <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center">
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-0 overflow-hidden flex flex-col h-[400px]">
+                                    <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center shrink-0">
                                         <AlertTriangle className="w-4 h-4 text-rose-500 mr-2" />
-                                        <h3 className="font-semibold text-slate-700 text-sm">Risco de Renovação / DEX</h3>
+                                        <h3 className="font-semibold text-slate-700 text-sm">Risco de Renovação / Vencimentos</h3>
                                     </div>
-                                    <div className="p-5">
+                                    <div className="p-5 flex-1 overflow-y-auto custom-scrollbar">
                                         <div className="mb-4">
-                                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Para DEX (5 itens)</p>
-                                            <ul className="text-sm text-slate-700 space-y-3">
-                                                <li className="flex justify-between border-b border-slate-50 pb-2">
-                                                    <span className="font-medium">CT 001/2026 - Prefeitura X</span>
-                                                    <span className="text-[10px] text-white bg-rose-500 px-2 py-1 rounded font-bold uppercase">Urgente</span>
-                                                </li>
-                                                <li className="flex justify-between border-b border-slate-50 pb-2">
-                                                    <span className="text-slate-600">CT 042/2025 - Câmara Y</span>
-                                                </li>
-                                                <li className="flex justify-between pb-1">
-                                                    <span className="text-slate-600">CT 099/2025 - Autarquia Z</span>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                        <div className="mt-6 pt-5 border-t border-slate-100">
-                                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Renovação Inviável</p>
-                                            <div className="flex items-center gap-3">
-                                                <div className="bg-rose-100 text-rose-600 w-10 h-10 flex items-center justify-center rounded-lg font-bold text-lg">8</div>
-                                                <span className="text-sm text-slate-600 leading-tight">Contratos que precisam de nova licitação</span>
-                                            </div>
+                                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Vencendo nos Próximos 90 Dias</p>
+
+                                            {cdpcLoading ? (
+                                                <p className="text-sm text-slate-500">Carregando vencimentos...</p>
+                                            ) : cocrMetrics.expiringContracts.length === 0 ? (
+                                                <p className="text-sm text-slate-500">Sem contratos vencendo neste período! Tudo tranquilo.</p>
+                                            ) : (
+                                                <ul className="text-sm text-slate-700 space-y-4 pt-1">
+                                                    {cocrMetrics.expiringContracts.map((exp, idx) => (
+                                                        <li key={idx} className="flex flex-col border-b border-slate-50 pb-3 gap-1">
+                                                            <div className="flex justify-between items-start">
+                                                                <span className="font-semibold text-slate-800 leading-tight pr-3 line-clamp-2" title={exp.name}>{exp.name}</span>
+                                                                <span className={`text-[10px] shrink-0 px-2.5 py-1 rounded font-bold uppercase tracking-wider ${exp.statusStyle}`}>
+                                                                    {exp.statusLabel}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center mt-1">
+                                                                <span className="text-xs text-slate-500">{exp.term || 'Contrato Base'}</span>
+                                                                <span className="text-xs font-medium text-slate-600">{exp.daysLeft < 0 ? `${Math.abs(exp.daysLeft)}d atrasado` : `${exp.daysLeft}d restantes`}</span>
+                                                            </div>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -375,15 +352,15 @@ export default function GerencialDashboard() {
                             <div className="lg:col-span-2 space-y-6">
                                 <div className="rounded-2xl shadow-sm border p-5 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-white border-indigo-100">
                                     <div>
-                                        <p className="text-sm font-semibold uppercase text-indigo-800 tracking-wider mb-1">Volume de Aditamentos (Mês)</p>
+                                        <p className="text-sm font-semibold uppercase text-indigo-800 tracking-wider mb-1">Volume de Aditamentos (Ativos)</p>
                                         <div className="flex items-baseline gap-2">
-                                            <p className="text-3xl font-black text-indigo-600">12</p>
+                                            <p className="text-3xl font-black text-indigo-600">{cdpcLoading ? '...' : cocrMetrics.aditamentosMonthCount}</p>
                                             <p className="text-sm font-medium text-indigo-400">contratos aditados</p>
                                         </div>
                                     </div>
                                     <div className="text-right">
                                         <p className="text-xs font-medium text-slate-400 uppercase mb-1">Valor Adicionado</p>
-                                        <p className="text-2xl font-bold text-slate-800">+ R$ 600.000</p>
+                                        <p className="text-2xl font-bold text-slate-800">{cdpcLoading ? '...' : `+ ${formatCurrency(cocrMetrics.aditamentosMonthValue)}`}</p>
                                     </div>
                                 </div>
 

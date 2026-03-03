@@ -11,17 +11,17 @@ const STAGES = [
     { id: 'PO', label: 'PO' },
     { id: 'OO', label: 'OO' },
     { id: 'RT', label: 'RT' },
-    { id: 'KIT', label: 'ESP' }
+    { id: 'ESP', label: 'ESP', legacyId: 'KIT' }
 ];
 
 export function StageStepper({ currentStage, onStageClick, readOnly = false, stageHistory = [] }) {
     // Encontrar o índice da etapa atual
-    const currentIndex = STAGES.findIndex(s => s.id === currentStage);
+    const currentIndex = STAGES.findIndex(s => s.id === currentStage || s.legacyId === currentStage);
 
     // Helper para calcular dias na etapa
-    const getStageDays = (stageId) => {
-        // Filtra todas as entradas de histórico para esta etapa
-        const entries = stageHistory.filter(h => h.stage === stageId);
+    const getStageDays = (stageObj) => {
+        // Filtra todas as entradas de histórico para esta etapa ou sua versão legada
+        const entries = stageHistory.filter(h => h.stage === stageObj.id || (stageObj.legacyId && h.stage === stageObj.legacyId));
         if (entries.length === 0) return null;
 
         // Soma durações (em minutos)
@@ -61,7 +61,7 @@ export function StageStepper({ currentStage, onStageClick, readOnly = false, sta
                     const isCompleted = index < currentIndex;
                     const isCurrent = index === currentIndex;
                     const isFuture = index > currentIndex;
-                    const days = getStageDays(stage.id);
+                    const days = getStageDays(stage);
 
                     return (
                         <div

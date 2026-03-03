@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { fluxoApi } from '@/api/fluxoClient';
+import { useAuth } from '@/context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Edit2, Clock, Calendar, User, Building2, Layers, AlertTriangle, Trash2, Timer, RotateCcw, PackageCheck, RefreshCw } from "lucide-react";
+import { ArrowLeft, Edit2, Clock, Calendar, User, Building2, Layers, AlertTriangle, Trash2, Timer, RotateCcw, PackageCheck, RefreshCw, CheckCircle2 } from "lucide-react";
 import StatusBadge from '@/Components/demands/StatusBadge';
 import PriorityBadge from '@/Components/demands/PriorityBadge';
 import StatusTimeline from '@/Components/demands/StatusTimeline';
+import DemandProcessChart from '@/Components/demands/DemandProcessChart';
 import { StageStepper } from '@/Components/demands/StageStepper';
 import DemandForm from '@/Components/demands/DemandForm';
 import ReopenDemandModal from '@/Components/demands/ReopenDemandModal';
@@ -41,7 +43,8 @@ const ACTIVE_STATUSES = [
     "PENDÊNCIA COMERCIAL",
     "PENDÊNCIA SUPRIMENTOS",
     "PENDÊNCIA FORNECEDOR",
-    "REABERTA"
+    "REABERTA",
+    "ASSINADA"
 ];
 
 const MANAGER_ROLES = ['manager', 'admin', 'gestor'];
@@ -51,18 +54,13 @@ export default function DemandDetailPage() {
     const urlParams = new URLSearchParams(window.location.search);
     const demandId = urlParams.get('id');
 
-    const [user, setUser] = useState(null);
+    const { user } = useAuth();
     const [showEditForm, setShowEditForm] = useState(false);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showReopenModal, setShowReopenModal] = useState(false);
     const [showRedeliverDialog, setShowRedeliverDialog] = useState(false);
-
-    useEffect(() => {
-        const stored = localStorage.getItem('fluxo_user');
-        if (stored) {
-            setUser(JSON.parse(stored));
-        }
-    }, []);
+    const [showAssinadaDialog, setShowAssinadaDialog] = useState(false);
+    const [showProcessMap, setShowProcessMap] = useState(false);
 
     const { data: demand, isLoading: loadingDemand } = useQuery({
         queryKey: ['demand', demandId],
@@ -89,15 +87,7 @@ export default function DemandDetailPage() {
 
     const { data: reopenings = [] } = useQuery({
         queryKey: ['reopenings', demandId],
-        queryFn: async () => {
-            const token = localStorage.getItem('fluxo_token');
-            const base = `${window.location.protocol}//${window.location.hostname}:3000`;
-            const res = await fetch(`${base}/demands/${demandId}/reopenings`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (!res.ok) return [];
-            return res.json();
-        },
+        queryFn: () => fluxoApi.demands.reopenings(demandId).catch(() => []),
         enabled: !!demandId
     });
 
@@ -147,7 +137,7 @@ export default function DemandDetailPage() {
                                 body: `A demanda "${demand.product}" foi ${newStatus === 'ENTREGUE' ? 'entregue' : 'cancelada'}.\n\nAcesse o sistema para mais detalhes.`
                             });
                         } catch (e) {
-                            console.log('Erro ao enviar notificação:', e);
+                            console.error('Erro ao enviar notificação:', e);
                         }
                     }
                 }
@@ -198,16 +188,7 @@ export default function DemandDetailPage() {
     });
 
     const redeliverMutation = useMutation({
-        mutationFn: async () => {
-            const token = localStorage.getItem('fluxo_token');
-            const base = `${window.location.protocol}//${window.location.hostname}:3000`;
-            const res = await fetch(`${base}/demands/${demandId}/redeliver`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
-            });
-            if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Erro ao re-entregar'); }
-            return res.json();
-        },
+        mutationFn: () => fluxoApi.demands.redeliver(demandId),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['demand', demandId] });
             queryClient.invalidateQueries({ queryKey: ['history', demandId] });
@@ -219,17 +200,18 @@ export default function DemandDetailPage() {
         onError: (err) => toast.error(err.message)
     });
 
+    const markAssinadaMutation = useMutation({
+        mutationFn: () => updateMutation.mutateAsync({ status: 'ASSINADA' }),
+        onSuccess: () => {
+            setShowAssinadaDialog(false);
+            toast.success('Demanda marcada como ASSINADA!');
+        }
+    });
+
     const [showClearHistoryDialog, setShowClearHistoryDialog] = useState(false);
 
     const clearHistoryMutation = useMutation({
-        mutationFn: async () => {
-            // Using new endpoint
-            const response = await fetch(`http://localhost:3000/demands/${demandId}/history`, {
-                method: 'DELETE',
-            });
-            if (!response.ok) throw new Error('Falha ao limpar histórico');
-            return response.json();
-        },
+        mutationFn: () => fluxoApi.demands.clearHistory(demandId),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['history', demandId] });
             setShowClearHistoryDialog(false);
@@ -283,7 +265,7 @@ export default function DemandDetailPage() {
         isAfter(new Date(), parseISO(demand.expected_delivery_date));
 
     // Calcular tempo total da demanda em dias
-    const FINAL_STATUSES = ['ENTREGUE', 'CANCELADA'];
+    const FINAL_STATUSES = ['ENTREGUE', 'CANCELADA', 'ASSINADA'];
     const sortedHistory = [...history].sort((a, b) => new Date(a.changed_at) - new Date(b.changed_at));
     let totalDemandDays = 0;
     if (demand.created_date) {
@@ -307,6 +289,28 @@ export default function DemandDetailPage() {
                         </Button>
                     </Link>
                     <div className="flex items-center gap-2">
+                        {/* Botão Visualizar Processo: para admin */}
+                        {user?.role === 'admin' && (
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowProcessMap(true)}
+                                className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                            >
+                                <Layers className="w-4 h-4 mr-2" />
+                                Mapa do Processo
+                            </Button>
+                        )}
+                        {/* Botão Assinada: só para admin quando ENTREGUE */}
+                        {user?.role === 'admin' && demand?.status === 'ENTREGUE' && (
+                            <Button
+                                variant="default"
+                                onClick={() => setShowAssinadaDialog(true)}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                            >
+                                <CheckCircle2 className="w-4 h-4 mr-2" />
+                                Marcar como Assinada
+                            </Button>
+                        )}
                         {/* Botão Reabrir: só para gestor+ quando ENTREGUE */}
                         {user && MANAGER_ROLES.includes(user.role) && demand?.status === 'ENTREGUE' && (
                             <Button
@@ -659,6 +663,28 @@ export default function DemandDetailPage() {
                 </AlertDialogContent>
             </AlertDialog>
 
+            {/* Confirmação de Assinada */}
+            <AlertDialog open={showAssinadaDialog} onOpenChange={setShowAssinadaDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Marcar como Assinada?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Isso irá atualizar o status da demanda para <strong>ASSINADA</strong>, sinalizando o fim do ciclo do processo de Contrato.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={markAssinadaMutation.isPending}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => markAssinadaMutation.mutate()}
+                            disabled={markAssinadaMutation.isPending}
+                            className="bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-600"
+                        >
+                            {markAssinadaMutation.isPending ? 'Salvando...' : 'Confirmar Assinatura'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -678,6 +704,18 @@ export default function DemandDetailPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Modal do Mapa de Processo */}
+            <Dialog open={showProcessMap} onOpenChange={setShowProcessMap}>
+                <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0 border-0 bg-transparent shadow-none [&>button]:text-white [&>button]:opacity-70 hover:[&>button]:opacity-100 hover:[&>button]:bg-white/10 [&>button]:right-4 [&>button]:top-4 [&>button]:rounded-full [&>button]:p-1.5">
+                    <DialogHeader className="sr-only">
+                        <DialogTitle>Mapa do Processo da Demanda</DialogTitle>
+                    </DialogHeader>
+                    {user?.role === 'admin' && (
+                        <DemandProcessChart history={history} demandCreatedAt={demand.created_date} />
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

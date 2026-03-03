@@ -8,6 +8,16 @@ const AuthContext = createContext({});
 const TOKEN_KEY = 'fluxo_token';
 const USER_KEY = 'fluxo_user';
 
+const ROLE_PERMISSIONS = {
+    admin: ['view_all', 'manage_users', 'view_executive_dashboard', 'edit_contracts', 'manage_settings'],
+    viewer: ['view_all', 'view_executive_dashboard'],
+    executive: ['view_all', 'view_executive_dashboard'],
+    manager: ['view_department_dashboard', 'edit_demands'],
+    analyst: ['view_assigned_demands', 'edit_demands'],
+    client: ['view_own_demands'],
+    requester: ['view_own_demands']
+};
+
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -22,16 +32,6 @@ export const AuthProvider = ({ children }) => {
                 try {
                     const userData = JSON.parse(storedUser);
 
-                    const rolePermissions = {
-                        admin: ['view_all', 'manage_users', 'view_executive_dashboard', 'edit_contracts', 'manage_settings'],
-                        viewer: ['view_all', 'view_executive_dashboard'],
-                        executive: ['view_all', 'view_executive_dashboard'],
-                        manager: ['view_department_dashboard', 'edit_demands'],
-                        analyst: ['view_assigned_demands', 'edit_demands'],
-                        client: ['view_own_demands'],
-                        requester: ['view_own_demands']
-                    };
-
                     const userRole = (userData.role || 'USER').toLowerCase();
 
                     // Compatibility adapter
@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }) => {
                     }
 
                     // Ensure backwards compatible sessions get permissions injected on load
-                    userData.permissions = rolePermissions[userRole] || [];
+                    userData.permissions = ROLE_PERMISSIONS[userRole] || [];
 
                     setUser(userData);
                 } catch (e) {
@@ -76,16 +76,6 @@ export const AuthProvider = ({ children }) => {
             localStorage.setItem(TOKEN_KEY, token);
 
             // Define the RBAC matrix (Capabilities per Role)
-            const rolePermissions = {
-                admin: ['view_all', 'manage_users', 'view_executive_dashboard', 'edit_contracts', 'manage_settings'],
-                viewer: ['view_all', 'view_executive_dashboard'],
-                executive: ['view_all', 'view_executive_dashboard'],
-                manager: ['view_department_dashboard', 'edit_demands'],
-                analyst: ['view_assigned_demands', 'edit_demands'],
-                client: ['view_own_demands'],
-                requester: ['view_own_demands']
-            };
-
             const userRole = (userData.role || 'USER').toLowerCase();
 
             // Build user object with compatibility fields
@@ -93,7 +83,7 @@ export const AuthProvider = ({ children }) => {
                 ...userData,
                 full_name: userData.full_name || userData.name,
                 perfil: userData.perfil || userRole.toUpperCase(),
-                permissions: rolePermissions[userRole] || [],
+                permissions: ROLE_PERMISSIONS[userRole] || [],
                 must_change_password: password === '123' || password === '1234'
             };
 

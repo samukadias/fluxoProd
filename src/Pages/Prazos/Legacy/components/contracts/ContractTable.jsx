@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Contract } from "@/entities/Contract";
+import { Contract } from "@/Entities/Contract";
 
 const statusColors = {
   "Ativo": "bg-green-100 text-green-800",
@@ -51,6 +51,11 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate, 
   const deleteMutation = useDeleteContract();
   const [currentPage, setCurrentPage] = React.useState(1);
   const [sortConfig, setSortConfig] = React.useState({ key: null, direction: 'asc' });
+
+  // Helper function to check if user is an analyst
+  const isAnalyst = React.useMemo(() => {
+    return user?.perfil === "ANALISTA" || user?.role === "analyst";
+  }, [user]);
 
 
 
@@ -119,7 +124,7 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate, 
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Analista Responsável</TableHead>
+                  <TableHead>{isAnalyst ? 'Objeto do Contrato' : 'Analista Responsável'}</TableHead>
                   <TableHead>{clientView === 'cliente' ? 'Cliente' : 'Grupo Cliente'}</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Vencimento</TableHead>
@@ -181,7 +186,16 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate, 
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Analista Responsável</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    className="p-0 h-auto font-medium hover:bg-transparent group"
+                    onClick={() => requestSort(isAnalyst ? 'objeto_contrato' : 'analista_responsavel')}
+                  >
+                    {isAnalyst ? 'Objeto do Contrato' : 'Analista Responsável'}
+                    {getSortIcon(isAnalyst ? 'objeto_contrato' : 'analista_responsavel')}
+                  </Button>
+                </TableHead>
                 <TableHead>
                   <Button
                     variant="ghost"
@@ -233,7 +247,15 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate, 
             <TableBody>
               {currentContracts.map((contract) => (
                 <TableRow key={contract.id} className="hover:bg-gray-50">
-                  <TableCell className="font-medium">{contract.analista_responsavel}</TableCell>
+                  <TableCell className="font-medium">
+                    {isAnalyst ? (
+                      <span className="line-clamp-2 text-xs" title={contract.objeto_contrato || ""}>
+                        {contract.objeto_contrato || "-"}
+                      </span>
+                    ) : (
+                      contract.analista_responsavel || "-"
+                    )}
+                  </TableCell>
                   <TableCell>{(clientView === 'cliente' ? contract.cliente : contract.grupo_cliente) || "-"}</TableCell>
                   <TableCell>{contract.contrato}</TableCell>
                   <TableCell>

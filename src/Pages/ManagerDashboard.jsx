@@ -1,15 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { fluxoApi } from '@/api/fluxoClient';
+import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Clock, AlertTriangle, CheckCircle2, TrendingUp, Layers, Briefcase, Timer, List } from "lucide-react";
-import { Button } from "@/Components/ui/button";
-import StatsCard from '@/Components/dashboard/StatsCard';
-import BottleneckChart from '@/Components/dashboard/BottleneckChart';
-import BottleneckBarChart from '@/Components/dashboard/BottleneckBarChart';
-import ComplexityChart from '@/Components/dashboard/ComplexityChart';
-import QualifiedDemandsChart from '@/Components/dashboard/QualifiedDemandsChart';
+import { Button } from "@/components/ui/button";
+import StatsCard from '@/components/dashboard/StatsCard';
+import BottleneckChart from '@/components/dashboard/BottleneckChart';
+import BottleneckBarChart from '@/components/dashboard/BottleneckBarChart';
+import ComplexityChart from '@/components/dashboard/ComplexityChart';
+import QualifiedDemandsChart from '@/components/dashboard/QualifiedDemandsChart';
 import { calculateWorkDays } from '@/Components/demands/EffortCalculator';
 import { isAfter, parseISO, format, getYear, subMonths, isSameMonth } from 'date-fns';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
@@ -44,19 +45,12 @@ const CLOSED_STATUSES = ["ENTREGUE", "CANCELADA", "TRIAGEM NÃO ELEGÍVEL"];
 
 
 export default function ManagerDashboard() {
+    const { user } = useAuth();
     const currentYear = getYear(new Date());
     const [selectedYear, setSelectedYear] = useState(String(currentYear));
     const [selectedAnalyst, setSelectedAnalyst] = useState('all');
-    const [selectedFilter, setSelectedFilter] = useState(null); // 'backlog', 'tratativa', 'open', 'overdue', 'delivered', 'total'
+    const [selectedFilter, setSelectedFilter] = useState(null);
     const [selectedHeatmapStatus, setSelectedHeatmapStatus] = useState(null);
-    const [user, setUser] = useState(null);
-
-    useEffect(() => {
-        const stored = localStorage.getItem('fluxo_user') || localStorage.getItem('user');
-        if (stored) {
-            setUser(JSON.parse(stored));
-        }
-    }, []);
 
     const { data: demands = [] } = useQuery({
         queryKey: ['demands'],
@@ -435,21 +429,26 @@ export default function ManagerDashboard() {
 
         filteredStageHistory.forEach(h => {
             if (h.stage && h.duration_minutes) {
-                if (!stageTotals[h.stage]) {
-                    stageTotals[h.stage] = { totalMinutes: 0, count: 0 };
+                // Map legacy Stage "KIT" to "ESP" to match the new flow
+                let stageName = h.stage;
+                if (stageName === 'KIT') stageName = 'ESP';
+
+                if (!stageTotals[stageName]) {
+                    stageTotals[stageName] = { totalMinutes: 0, count: 0 };
                 }
-                stageTotals[h.stage].totalMinutes += h.duration_minutes;
-                stageTotals[h.stage].count += 1;
+                stageTotals[stageName].totalMinutes += h.duration_minutes;
+                stageTotals[stageName].count += 1;
             }
         });
 
-        const averages = Object.entries(stageTotals).map(([stage, data]) => ({
-            stage,
-            avgDays: data.count > 0 ? (data.totalMinutes / 1440).toFixed(1) : 0
-        })).sort((a, b) => {
-            // Sort by logical order if possible
-            const order = ["Triagem", "Qualificação", "PO", "OO", "RT", "KIT"];
-            return order.indexOf(a.stage) - order.indexOf(b.stage);
+        const order = ["Triagem", "Qualificação", "PO", "OO", "RT", "ESP"];
+
+        const averages = order.map(stage => {
+            const data = stageTotals[stage] || { totalMinutes: 0, count: 0 };
+            return {
+                stage,
+                avgDays: data.count > 0 ? (data.totalMinutes / 1440).toFixed(1) : 0
+            };
         });
 
         return averages;

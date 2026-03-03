@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { usePersistedFilters } from '@/hooks/usePersistedFilters';
 import { fluxoApi } from '@/api/fluxoClient';
+import { useAuth } from '@/context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Plus, LayoutGrid, List, Settings } from "lucide-react";
@@ -11,17 +12,25 @@ import DemandForm from '@/components/demands/DemandForm';
 import ReopeningReasonsManager from '@/Components/demands/ReopeningReasonsManager';
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function DemandsPage() {
     const queryClient = useQueryClient();
-    const [user, setUser] = useState(() => {
-        const stored = localStorage.getItem('fluxo_user');
-        return stored ? JSON.parse(stored) : null;
-    });
+    const { user } = useAuth();
     const [showForm, setShowForm] = useState(false);
     const [duplicateData, setDuplicateData] = useState(null);
     const [viewMode, setViewMode] = useState('grid');
     const [showReasonsManager, setShowReasonsManager] = useState(false);
+    const [demandToDelete, setDemandToDelete] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = viewMode === 'grid' ? 18 : 24;
     const [filters, setFilters] = usePersistedFilters('cdpc_filters', {
@@ -30,7 +39,7 @@ export default function DemandsPage() {
         analyst_id: 'all',
         client_id: 'all',
         cycle_id: 'all',
-        complexity: 'all'
+        weight: 'all'
     });
 
     // Reset to page 1 whenever filters change
@@ -59,15 +68,17 @@ export default function DemandsPage() {
     });
 
     // Filtra usuários para CDPC
-    const analysts = users.filter(u =>
-        ['analyst', 'manager', 'admin'].includes(u.role) &&
-        (!u.department || u.department === 'CDPC')
-    );
-
-    const requesters = users.filter(u =>
-        ['requester', 'analyst', 'manager', 'admin'].includes(u.role) &&
-        (!u.department || u.department === 'CDPC')
-    );
+    const { analysts, requesters } = useMemo(() => {
+        const cdpcAnalysts = users.filter(u =>
+            ['analyst', 'manager', 'admin'].includes(u.role) &&
+            (!u.department || u.department === 'CDPC')
+        );
+        const cdpcRequesters = users.filter(u =>
+            ['requester', 'analyst', 'manager', 'admin'].includes(u.role) &&
+            (!u.department || u.department === 'CDPC')
+        );
+        return { analysts: cdpcAnalysts, requesters: cdpcRequesters };
+    }, [users]);
 
     const createMutation = useMutation({
         mutationFn: async (data) => {
@@ -119,9 +130,7 @@ export default function DemandsPage() {
     });
 
     const handleDelete = (id) => {
-        if (confirm('Tem certeza que deseja excluir esta demanda? Esta ação não pode ser desfeita.')) {
-            deleteMutation.mutate(id);
-        }
+        setDemandToDelete(id);
     };
 
     const handleDuplicate = (demand) => {
@@ -130,46 +139,48 @@ export default function DemandsPage() {
         setShowForm(true);
     };
 
-    const filteredDemands = demands.filter(d => {
-        // Role-based filtering
-        if (user?.role === 'analyst') {
-            const myAnalystProfile = analysts.find(a => a.email === user.email);
-            if (myAnalystProfile && d.analyst_id !== myAnalystProfile.id) {
+    const filteredDemands = useMemo(() => {
+        return demands.filter(d => {
+            // Role-based filtering
+            if (user?.role === 'analyst') {
+                const myAnalystProfile = analysts.find(a => a.email === user.email);
+                if (myAnalystProfile && d.analyst_id !== myAnalystProfile.id) {
+                    return false;
+                }
+            }
+            if (user?.role === 'requester') {
+                const myRequesterProfile = requesters.find(r => r.email === user.email);
+                if (myRequesterProfile && d.requester_id !== myRequesterProfile.id) {
+                    return false;
+                }
+            }
+
+            // Client-side Filters
+            if (filters.search) {
+                const search = filters.search.toLowerCase();
+                if (!d.product?.toLowerCase().includes(search) &&
+                    !d.demand_number?.toLowerCase().includes(search)) {
+                    return false;
+                }
+            }
+
+            if (filters.status === 'active') {
+                if (['ENTREGUE', 'CANCELADA'].includes(d.status)) return false;
+            } else if (filters.status !== 'all' && d.status !== filters.status) {
                 return false;
             }
-        }
-        if (user?.role === 'requester') {
-            const myRequesterProfile = requesters.find(r => r.email === user.email);
-            if (myRequesterProfile && d.requester_id !== myRequesterProfile.id) {
-                return false;
-            }
-        }
 
-        // Client-side Filters
-        if (filters.search) {
-            const search = filters.search.toLowerCase();
-            if (!d.product?.toLowerCase().includes(search) &&
-                !d.demand_number?.toLowerCase().includes(search)) {
-                return false;
-            }
-        }
+            if (filters.analyst_id !== 'all' && d.analyst_id !== filters.analyst_id) return false;
+            if (filters.client_id !== 'all' && d.client_id !== filters.client_id) return false;
+            if (filters.cycle_id !== 'all' && d.cycle_id !== filters.cycle_id) return false;
+            if (filters.weight !== 'all' && String(d.weight || 4) !== filters.weight) return false;
 
-        if (filters.status === 'active') {
-            if (['ENTREGUE', 'CANCELADA'].includes(d.status)) return false;
-        } else if (filters.status !== 'all' && d.status !== filters.status) {
-            return false;
-        }
+            return true;
+        });
+    }, [demands, filters, user, analysts, requesters]);
 
-        if (filters.analyst_id !== 'all' && d.analyst_id !== filters.analyst_id) return false;
-        if (filters.client_id !== 'all' && d.client_id !== filters.client_id) return false;
-        if (filters.cycle_id !== 'all' && d.cycle_id !== filters.cycle_id) return false;
-        if (filters.complexity !== 'all' && d.complexity !== filters.complexity) return false;
-
-        return true;
-    });
-
-    const analystsMap = Object.fromEntries(analysts.map(a => [a.id, a]));
-    const clientsMap = Object.fromEntries(clients.map(c => [c.id, c]));
+    const analystsMap = useMemo(() => Object.fromEntries(analysts.map(a => [a.id, a])), [analysts]);
+    const clientsMap = useMemo(() => Object.fromEntries(clients.map(c => [c.id, c])), [clients]);
 
     const totalPages = Math.ceil(filteredDemands.length / ITEMS_PER_PAGE);
     const paginatedDemands = filteredDemands.slice(
@@ -342,6 +353,31 @@ export default function DemandsPage() {
                     <ReopeningReasonsManager />
                 </DialogContent>
             </Dialog>
+
+            {/* Delete Alert Dialog */}
+            <AlertDialog open={!!demandToDelete} onOpenChange={(open) => !open && setDemandToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir Demanda?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Tem certeza que deseja excluir esta demanda? Esta ação não pode ser desfeita e todos os históricos associados serão perdidos.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                deleteMutation.mutate(demandToDelete);
+                                setDemandToDelete(null);
+                            }}
+                            className="bg-red-600 hover:bg-red-700"
+                            disabled={deleteMutation.isPending}
+                        >
+                            {deleteMutation.isPending ? "Excluindo..." : "Sim, Excluir"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

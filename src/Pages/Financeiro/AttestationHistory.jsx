@@ -17,6 +17,16 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 
@@ -25,6 +35,7 @@ export default function AttestationHistory() {
     const { contractId } = useParams();
     const queryClient = useQueryClient();
     const [showForm, setShowForm] = useState(false);
+    const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
     const [editingAttestation, setEditingAttestation] = useState(null);
     const [contract, setContract] = useState(null);
 
@@ -101,6 +112,20 @@ export default function AttestationHistory() {
             queryClient.invalidateQueries({ queryKey: ['attestations', cid] });
             setShowForm(false);
             setEditingAttestation(null);
+        }
+    });
+
+    const generateScheduleMutation = useMutation({
+        mutationFn: () => fluxoApi.entities.FinanceContract.generateSchedule(cid),
+        onSuccess: (res) => {
+            queryClient.invalidateQueries({ queryKey: ['attestations', cid] });
+            toast.success(res.message || 'Cronograma gerado com sucesso!');
+            setShowGenerateConfirm(false);
+        },
+        onError: (error) => {
+            console.error('❌ [Mutation] Erro ao gerar:', error);
+            toast.error('Erro ao gerar cronograma: ' + (error.response?.data?.error || error.message));
+            setShowGenerateConfirm(false);
         }
     });
 
@@ -183,16 +208,27 @@ export default function AttestationHistory() {
                                 </Badge>
                             </div>
                         </div>
-                        <Button
-                            onClick={() => {
-                                setEditingAttestation(null);
-                                setShowForm(true);
-                            }}
-                            className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20"
-                        >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Nova Atestação
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowGenerateConfirm(true)}
+                                className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                                disabled={generateScheduleMutation.isPending || (attestations.length > 0 && attestations.length >= 2)}
+                            >
+                                <Calendar className="w-4 h-4 mr-2" />
+                                {generateScheduleMutation.isPending ? 'Gerando...' : 'Gerar Cronograma'}
+                            </Button>
+                            <Button
+                                onClick={() => {
+                                    setEditingAttestation(null);
+                                    setShowForm(true);
+                                }}
+                                className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20"
+                            >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Nova Atestação
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
@@ -353,6 +389,32 @@ export default function AttestationHistory() {
                     />
                 </DialogContent>
             </Dialog>
+
+            {/* Gerar Cronograma Confirmation */}
+            <AlertDialog open={showGenerateConfirm} onOpenChange={setShowGenerateConfirm}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Gerar Cronograma Automático?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta ação irá ler as datas de início e fim do contrato e o seu valor total,
+                            e irá gerar automaticamente parcelas em branco de atestação para cada mês do período.
+                            <br /><br />
+                            <strong>Atenção:</strong> Utilize esta função apenas no início do contrato para agilizar o trabalho.
+                            As parcelas repetidas serão ignoradas.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={generateScheduleMutation.isPending}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => generateScheduleMutation.mutate()}
+                            disabled={generateScheduleMutation.isPending}
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                            {generateScheduleMutation.isPending ? 'Gerando...' : 'Sim, Gerar Parcelas'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

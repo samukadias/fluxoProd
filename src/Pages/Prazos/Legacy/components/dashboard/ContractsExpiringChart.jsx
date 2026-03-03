@@ -5,7 +5,7 @@ import { format, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar } from "lucide-react";
 
-export default function ContractsExpiringChart({ contracts, isLoading }) {
+export default function ContractsExpiringChart({ contracts, isLoading, onMonthClick }) {
     const currentYear = new Date().getFullYear();
 
     const getData = () => {
@@ -92,6 +92,12 @@ export default function ContractsExpiringChart({ contracts, isLoading }) {
                                 fill="#6366f1"
                                 radius={[4, 4, 0, 0]}
                                 barSize={40}
+                                cursor="pointer"
+                                onClick={(data) => {
+                                    if (onMonthClick && data) {
+                                        onMonthClick(data.monthIndex);
+                                    }
+                                }}
                             />
                         </BarChart>
                     </ResponsiveContainer>

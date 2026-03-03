@@ -48,6 +48,20 @@ const authorizeAction = (req, res, next) => {
     if (req.user && req.user.role === 'viewer') {
         const method = req.method.toUpperCase();
         if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+            // Exceção: Permitir que o visualizador atualize apenas a própria senha (no 1º acesso)
+            if (method === 'PUT' && req.path === `/users/${req.user.id}`) {
+                const bodyKeys = Object.keys(req.body || {});
+                console.log(`[AUTH DEBUG] User ${req.user.id} attempting PUT to themselves`);
+                console.log(`[AUTH DEBUG] Body keys: `, bodyKeys);
+                const isOnlyUpdatingPassword = bodyKeys.every(k => k === 'password' || k === 'must_change_password');
+                if (isOnlyUpdatingPassword && bodyKeys.includes('password')) {
+                    console.log(`[AUTH DEBUG] Allowing viewer to change their password`);
+                    return next();
+                }
+                console.log(`[AUTH DEBUG] Blocked because payload was invalid. Only allowed: password, must_change_password`);
+            } else {
+                console.log(`[AUTH DEBUG] Blocked a ${method} request to ${req.path} by user ${req.user.id}`);
+            }
             return res.status(403).json({ error: 'Acesso negado. Perfil de apenas leitura.' });
         }
     }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Contract } from "@/entities/Contract";
-import { User } from "@/entities/User";
+import { Contract } from "@/Entities/Contract";
+import { User } from "@/Entities/User";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl, formatCurrency, formatCompactCurrency } from "@/utils/legacy";
 import {
@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { differenceInDays, format } from "date-fns";
+import { differenceInDays, format, parseISO, isValid } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 import StatsCard from "../components/dashboard/StatsCard";
 import ContractAlerts from "../components/dashboard/ContractAlerts";
@@ -29,6 +30,7 @@ export default function Dashboard() {
   const { user } = useAuth(); // Use AuthContext directly, assuming it's synced with localStorage now
   const [isLoading, setIsLoading] = useState(true);
   const [analystFilter, setAnalystFilter] = useState("all");
+  const [selectedMonth, setSelectedMonth] = useState(null);
   const navigate = useNavigate();
 
   // Extract unique analysts for filter
@@ -116,7 +118,6 @@ export default function Dashboard() {
   const stats = getContractStats();
   const billingProgress = stats.totalValue > 0 ? (stats.totalBilled / stats.totalValue) * 100 : 0;
 
-  // Título personalizado
   const getDashboardTitle = () => {
     if (user?.role === "client") return "Meu Painel";
     if (user?.role === "analyst") return "Meus Contratos";
@@ -124,6 +125,17 @@ export default function Dashboard() {
   };
 
   const isManager = user?.department === 'GOR' || (user?.department === 'COCR' && user?.role === 'manager') || user?.perfil === 'GESTOR';
+
+  const selectedMonthContracts = useMemo(() => {
+    if (selectedMonth === null) return [];
+
+    const currentYear = new Date().getFullYear();
+    return filteredExpiryContracts.filter(contract => {
+      if (!contract.data_fim_efetividade) return false;
+      const date = parseISO(contract.data_fim_efetividade);
+      return isValid(date) && date.getFullYear() === currentYear && date.getMonth() === selectedMonth;
+    }).sort((a, b) => new Date(a.data_fim_efetividade) - new Date(b.data_fim_efetividade));
+  }, [selectedMonth, filteredExpiryContracts]);
 
   return (
     <div className="p-6 bg-slate-50 min-h-screen space-y-6">
@@ -246,7 +258,66 @@ export default function Dashboard() {
                 </Select>
               </div>
             </div>
-            <ContractsExpiringChart contracts={filteredExpiryContracts} isLoading={isLoading} />
+            <ContractsExpiringChart
+              contracts={filteredExpiryContracts}
+              isLoading={isLoading}
+              onMonthClick={(monthIndex) => setSelectedMonth(monthIndex === selectedMonth ? null : monthIndex)}
+            />
+
+            {selectedMonth !== null && (
+              <div className="mt-4 bg-white border border-indigo-100 rounded-xl shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4">
+                <div className="bg-indigo-50/50 p-4 border-b border-indigo-100 flex justify-between items-center">
+                  <h3 className="font-semibold text-indigo-900 text-sm flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-indigo-600" />
+                    Contratos vencendo em {format(new Date(new Date().getFullYear(), selectedMonth, 1), "MMMM 'de' yyyy", { locale: ptBR })}
+                  </h3>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                      {selectedMonthContracts.length} registro(s)
+                    </span>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedMonth(null)} className="h-7 text-xs text-indigo-400 hover:text-indigo-600">
+                      Fechar
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="max-h-[300px] overflow-y-auto">
+                  {selectedMonthContracts.length > 0 ? (
+                    <table className="w-full text-sm text-left">
+                      <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0 shadow-sm">
+                        <tr>
+                          <th className="px-4 py-3 font-semibold">Contrato / Cliente</th>
+                          <th className="px-4 py-3 font-semibold">Analista</th>
+                          <th className="px-4 py-3 font-semibold">Vencimento</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {selectedMonthContracts.map((c) => (
+                          <tr key={c.id} className="hover:bg-indigo-50/30 transition-colors">
+                            <td className="px-4 py-3">
+                              <div className="font-semibold text-slate-800">{c.contrato}</div>
+                              <div className="text-xs text-slate-500 mt-0.5">{c.cliente}</div>
+                            </td>
+                            <td className="px-4 py-3 text-slate-600">
+                              {c.analista_responsavel || "-"}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="font-medium text-slate-700">
+                                {format(parseISO(c.data_fim_efetividade), "dd/MM/yyyy")}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="p-8 text-center text-slate-400 text-sm">
+                      Nenhum contrato vencendo neste mês.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid lg:grid-cols-3 gap-6">

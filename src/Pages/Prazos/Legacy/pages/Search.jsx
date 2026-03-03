@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Contract } from "@/entities/Contract";
+import { Contract } from "@/Entities/Contract";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,8 +23,8 @@ export default function Search() {
     vencimento: "all",
     valorMin: "",
     valorMax: "",
-    dataInicioMin: "",
-    dataInicioMax: "",
+    valorMin: "",
+    valorMax: "",
     dataFimMin: "",
     dataFimMax: ""
   });
@@ -120,17 +120,7 @@ export default function Search() {
       );
     }
 
-    // Date ranges
-    if (searchFilters.dataInicioMin) {
-      filtered = filtered.filter(contract =>
-        contract.data_inicio_efetividade >= searchFilters.dataInicioMin
-      );
-    }
-    if (searchFilters.dataInicioMax) {
-      filtered = filtered.filter(contract =>
-        contract.data_inicio_efetividade <= searchFilters.dataInicioMax
-      );
-    }
+    // Date ranges (Expiration)
     if (searchFilters.dataFimMin) {
       filtered = filtered.filter(contract =>
         contract.data_fim_efetividade >= searchFilters.dataFimMin
@@ -164,8 +154,6 @@ export default function Search() {
       vencimento: "all",
       valorMin: "",
       valorMax: "",
-      dataInicioMin: "",
-      dataInicioMax: "",
       dataFimMin: "",
       dataFimMax: ""
     });
@@ -291,17 +279,17 @@ export default function Search() {
 
               <div className="h-px bg-gray-100" />
 
-              {/* Date Range - Start */}
+              {/* Date Range - End / Expiration */}
               <div className="space-y-3">
-                <label className="text-sm font-semibold text-gray-900">Início de Vigência</label>
+                <label className="text-sm font-semibold text-gray-900">Período de Vencimento</label>
                 <div className="space-y-2">
                   <div className="space-y-1">
                     <span className="text-xs text-gray-500">De</span>
                     <Input
                       type="date"
                       className="bg-gray-50 text-sm"
-                      value={searchFilters.dataInicioMin}
-                      onChange={(e) => updateFilter("dataInicioMin", e.target.value)}
+                      value={searchFilters.dataFimMin}
+                      onChange={(e) => updateFilter("dataFimMin", e.target.value)}
                     />
                   </div>
                   <div className="space-y-1">
@@ -309,8 +297,8 @@ export default function Search() {
                     <Input
                       type="date"
                       className="bg-gray-50 text-sm"
-                      value={searchFilters.dataInicioMax}
-                      onChange={(e) => updateFilter("dataInicioMax", e.target.value)}
+                      value={searchFilters.dataFimMax}
+                      onChange={(e) => updateFilter("dataFimMax", e.target.value)}
                     />
                   </div>
                 </div>

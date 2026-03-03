@@ -1,8 +1,10 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Filter, X } from "lucide-react";
 
 export default function ContractFilters({ filters, onFiltersChange, contracts }) {
   const updateFilter = (key, value) => {
@@ -44,9 +46,46 @@ export default function ContractFilters({ filters, onFiltersChange, contracts })
     return Array.from(analysts).sort();
   }, [contracts]);
 
+  const hasActiveFilters =
+    (filters.cliente && filters.cliente !== "all") ||
+    (filters.analista && filters.analista !== "all") ||
+    (filters.status && filters.status !== "all") ||
+    (filters.vencimento && filters.vencimento !== "all") ||
+    (filters.search && filters.search !== "");
+
+  const clearFilters = () => {
+    onFiltersChange({
+      search: "",
+      status: "all",
+      analista: "all",
+      cliente: "all",
+      vencimento: "all"
+    });
+    setSearchInput("");
+  };
+
   return (
     <Card>
-      <CardContent className="p-6">
+      <CardHeader className="pb-4 border-b">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Filter className="w-5 h-5" />
+            Filtros
+          </CardTitle>
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="h-8 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              <X className="w-4 h-4 mr-1" />
+              Limpar Filtros
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="p-6 pt-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="space-y-2">
             <Label>Cliente</Label>

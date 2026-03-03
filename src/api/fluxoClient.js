@@ -2,18 +2,18 @@ import axios from 'axios';
 
 // Dynamically determine the base URL based on the current hostname
 const getBaseUrl = () => {
-    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-        return 'http://127.0.0.1:3000';
-    }
+    // If explicitly set via environment variable, use it
+    if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
 
+    // In browser context, always point to the same hostname that served the frontend, 
+    // but on port 3000 where the backend runs.
+    // This allows LAN access (e.g., 192.168.x.x) to work automatically without hardcoding IPs.
     if (typeof window !== 'undefined') {
         const hostname = window.location.hostname;
-        if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-            return `http://${hostname}:3000`;
-        }
+        return `${window.location.protocol}//${hostname}:3000`;
     }
 
-    return import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    return 'http://localhost:3000';
 };
 
 export const fluxClient = axios.create({
@@ -95,7 +95,10 @@ export const fluxoApi = {
         Requester: createCrud('requesters'),
         User: createCrud('users'),
         Contract: createCrud('contracts'),
-        FinanceContract: createCrud('finance_contracts'),
+        FinanceContract: {
+            ...createCrud('finance_contracts'),
+            generateSchedule: (id) => fluxClient.post(`/contracts/${id}/generate-attestations`).then(res => res.data)
+        },
         DeadlineContract: createCrud('deadline_contracts'),
         Invoice: createCrud('invoices'),
         MonthlyAttestation: createCrud('attestations'),
@@ -103,6 +106,11 @@ export const fluxoApi = {
         Analyst: createCrud('analysts'),
         TermoConfirmacao: createCrud('termos_confirmacao'),
         StageHistory: createCrud('stage_history'),
+    },
+    demands: {
+        reopenings: (demandId) => fluxClient.get(`/demands/${demandId}/reopenings`).then(res => res.data),
+        redeliver: (demandId) => fluxClient.post(`/demands/${demandId}/redeliver`).then(res => res.data),
+        clearHistory: (demandId) => fluxClient.delete(`/demands/${demandId}/history`).then(res => res.data),
     },
     auth: {
         login: (email, password) => fluxClient.post('/auth/login', { email, password }).then(res => res.data),
@@ -121,6 +129,10 @@ export const fluxoApi = {
         Core: {
             SendEmail: (data) => fluxClient.post('/integrations/email', data).then(res => res.data),
         }
+    },
+    metrics: {
+        cdpc: () => fluxClient.get('/metrics/cdpc').then(res => res.data),
+        cocr: () => fluxClient.get('/metrics/cocr').then(res => res.data),
     }
 };
 

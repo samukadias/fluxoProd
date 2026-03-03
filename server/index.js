@@ -22,6 +22,7 @@ const demandRoutes = require('./routes/demands');
 const reopeningRoutes = require('./routes/reopenings');
 const { router: notificationRoutes, generateExpiringContractNotifications } = require('./routes/notifications');
 const activityRoutes = require('./routes/activity');
+const metricsRoutes = require('./routes/metrics');
 
 // Services
 const backupService = require('./services/backupService');
@@ -32,22 +33,9 @@ const app = express();
 // MIDDLEWARE
 // ========================================
 
-// CORS - restricted to known origins
-const allowedOrigins = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-];
-
-// Also allow LAN access
-if (process.env.LAN_ORIGIN) {
-    allowedOrigins.push(process.env.LAN_ORIGIN);
-}
-
+// CORS - Allow all origins for this internal network application
 app.use(cors({
-    origin: (origin, callback) => {
-        // Allow all origins in this development/intranet environment to prevent CORS blocks
-        callback(null, true);
-    },
+    origin: '*', // Allow all origins to connect
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['X-Total-Count'],
@@ -69,6 +57,118 @@ app.use((err, req, res, next) => {
 // PUBLIC ROUTES (no auth required)
 // ========================================
 app.use('/auth', authRoutes);
+
+app.post('/contracts/:id/generate-attestations', async (req, res) => {
+    const contractId = req.params.id;
+    const client = await db.connect();
+
+    try {
+        await client.query('BEGIN');
+
+        // 1. Get the Contract details
+        const contractRes = await client.query('SELECT * FROM finance_contracts WHERE id = $1', [contractId]);
+        if (contractRes.rows.length === 0) {
+            throw new Error('Contrato financeiro não encontrado');
+        }
+
+        const contract = contractRes.rows[0];
+
+        // Get generic contract info which holds the dates and values
+        // Note: The UI for finance passes the ID from `finance_contracts`. 
+        // We must find the corresponding row in `contracts` using the common `pd_number`.
+        // The main table might store this in `pd_number`.
+        const pdNumber = contract.pd_number;
+        console.log(`[Generate Schedule] Buscando contrato mestre com PD: ${pdNumber}`);
+        const genericContractRes = await client.query('SELECT * FROM contracts WHERE pd_number = $1 OR contrato_cliente = $1', [pdNumber]);
+        const contractDetails = genericContractRes.rows[0] || {};
+
+        console.log(`[Generate Schedule] Contrato Mestre Encontrado? ${!!genericContractRes.rows[0]}. Data Inicio: ${contractDetails.data_inicio_efetividade}, Valor: ${contractDetails.valor_contrato}`);
+
+
+        // Coalesce standard or legacy column names
+        let cStartDate = contractDetails.start_date || contractDetails.data_inicio_efetividade;
+        let cEndDate = contractDetails.end_date || contractDetails.data_fim_efetividade;
+        let cTotalValue = contractDetails.total_value || contractDetails.valor_contrato || 0;
+
+        // Fallback to deadline_contracts if the main contracts table doesn't have the dates
+        if (!cStartDate || !cEndDate) {
+            console.log(`[Generate Schedule] Datas não encontradas na contracts. Tentando na deadline_contracts...`);
+            const legacyContractRes = await client.query('SELECT * FROM deadline_contracts WHERE contrato = $1', [pdNumber]);
+            const legacyDetails = legacyContractRes.rows[0];
+
+            if (legacyDetails) {
+                console.log(`[Generate Schedule] Encontrado na deadline_contracts. Data Inicio: ${legacyDetails.data_inicio_efetividade}`);
+                cStartDate = legacyDetails.data_inicio_efetividade;
+                cEndDate = legacyDetails.data_fim_efetividade;
+                cTotalValue = legacyDetails.valor_contrato || 0;
+            }
+        }
+
+        if (!cStartDate || !cEndDate) {
+            throw new Error('O contrato não possui data de início ou fim cadastradas na base geral de Contratos.');
+        }
+
+        const startDate = new Date(cStartDate);
+        const endDate = new Date(cEndDate);
+        let totalValue = parseFloat(cTotalValue) || 0;
+
+        if (totalValue <= 0) {
+            throw new Error('O contrato não possui um Valor de Contrato válido para divisão.');
+        }
+
+        // 2. Calculate the months
+        let months = (endDate.getFullYear() - startDate.getFullYear()) * 12;
+        months -= startDate.getMonth();
+        months += endDate.getMonth();
+
+        // Inclusive count (month 1 to month 12 is 12 elapsed changes + 1? Usually standard diff is fine just adding 1 to cover the edges if start/end in same month)
+        // A standard approach for 'number of installments' is just the exact month diff + 1 depending on precise dates.
+        const numInstallments = Math.max(1, months + 1);
+        const installmentValue = (totalValue / numInstallments).toFixed(2);
+
+        // 3. Insert draft attestations
+        const inserted = [];
+        for (let i = 0; i < numInstallments; i++) {
+            // Calculate current month's reference
+            const currentMonth = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
+            // Format to YYYY-MM
+            const refMonth = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+
+            const insertQuery = `
+                INSERT INTO monthly_attestations (
+                    contract_id, client_name, pd_number, responsible_analyst, 
+                    reference_month, billed_amount, paid_amount
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                RETURNING *
+            `;
+            const values = [
+                contractId,
+                contract.client_name,
+                contract.pd_number,
+                contract.responsible_analyst,
+                refMonth,
+                installmentValue,
+                0 // paid is 0 for future drafts
+            ];
+
+            const result = await client.query(insertQuery, values);
+            inserted.push(result.rows[0]);
+        }
+
+        await client.query('COMMIT');
+        res.status(200).json({
+            message: `Cronograma gerado: ${numInstallments} parcelas de ${installmentValue}`,
+            attestations: inserted
+        });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('[Generate Attestations Error]:', err.message);
+        res.status(400).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
 
 // ========================================
 // PROTECTED ROUTES (JWT required)
@@ -133,6 +233,12 @@ app.use('/', reopeningRoutes);
 
 // Demand sub-routes: /:id/reopenings, /:id/reopen, /:id/redeliver
 app.use('/demands', reopeningRoutes);
+
+// ========================================
+// CUSTOM ROUTES
+// ========================================
+
+
 
 // ========================================
 // GENERIC CRUD ROUTES (with audit trail)
