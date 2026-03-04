@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const cron = require('node-cron');
 const bcrypt = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
 
 // Database & Infrastructure
 const db = require('./db');
@@ -23,6 +24,8 @@ const reopeningRoutes = require('./routes/reopenings');
 const { router: notificationRoutes, generateExpiringContractNotifications } = require('./routes/notifications');
 const activityRoutes = require('./routes/activity');
 const metricsRoutes = require('./routes/metrics');
+const adminRoutes = require('./routes/admin');
+
 
 // Services
 const backupService = require('./services/backupService');
@@ -53,10 +56,17 @@ app.use((err, req, res, next) => {
     next(err);
 });
 
-// ========================================
-// PUBLIC ROUTES (no auth required)
-// ========================================
-app.use('/auth', authRoutes);
+// Rate Limiting: prevent brute-force attacks on the login endpoint
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 20, // Max 20 requests per IP per window
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' },
+    skipSuccessfulRequests: true, // Only count failed attempts
+});
+
+app.use('/auth', loginLimiter, authRoutes);
 
 app.post('/contracts/:id/generate-attestations', async (req, res) => {
     const contractId = req.params.id;
@@ -178,6 +188,8 @@ app.use(authorizeAction);
 
 // Custom routes (must come BEFORE generic CRUD routes)
 app.use('/demands', demandRoutes);
+app.use('/admin', adminRoutes);
+
 
 // Entity creation with user account sync
 const handleEntityWithUserCreation = async (req, res, tableName, role) => {
@@ -233,6 +245,9 @@ app.use('/', reopeningRoutes);
 
 // Demand sub-routes: /:id/reopenings, /:id/reopen, /:id/redeliver
 app.use('/demands', reopeningRoutes);
+
+// Metrics
+app.use('/metrics', metricsRoutes);
 
 // ========================================
 // CUSTOM ROUTES

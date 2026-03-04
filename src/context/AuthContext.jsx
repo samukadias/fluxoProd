@@ -12,7 +12,7 @@ const ROLE_PERMISSIONS = {
     admin: ['view_all', 'manage_users', 'view_executive_dashboard', 'edit_contracts', 'manage_settings'],
     viewer: ['view_all', 'view_executive_dashboard'],
     executive: ['view_all', 'view_executive_dashboard'],
-    manager: ['view_department_dashboard', 'edit_demands'],
+    manager: ['view_department_dashboard', 'view_executive_dashboard', 'edit_demands'],
     analyst: ['view_assigned_demands', 'edit_demands'],
     client: ['view_own_demands'],
     requester: ['view_own_demands']
@@ -138,6 +138,19 @@ export const AuthProvider = ({ children }) => {
             clearInterval(intervalId);
             events.forEach(event => document.removeEventListener(event, updateActivity));
         };
+    }, [user]);
+
+    // Heartbeat — updates last_seen_at every 60s so admin can track online users
+    useEffect(() => {
+        if (!user) return;
+
+        const sendPing = () => {
+            fluxClient.post('/auth/ping').catch(() => { }); // silent fail, non-critical
+        };
+
+        sendPing(); // immediate ping on session start
+        const intervalId = setInterval(sendPing, 60 * 1000);
+        return () => clearInterval(intervalId);
     }, [user]);
 
     return (

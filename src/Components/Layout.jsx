@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation, Outlet } from 'react-router-dom';
-import { LayoutDashboard, List, Settings, LogOut, Menu, DollarSign, CalendarClock, FileText, UserCog, BarChart3, GitBranch, Database, Search, Activity, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, List, Settings, LogOut, Menu, DollarSign, CalendarClock, FileText, UserCog, BarChart3, GitBranch, Database, Search, Activity, ChevronLeft, ChevronRight, Server } from 'lucide-react';
 import NotificationCenter from './NotificationCenter';
 import ForcePasswordChangeModal from "./ForcePasswordChangeModal";
 import { cn } from "@/lib/utils";
@@ -130,6 +130,9 @@ const SidebarContent = ({ isCollapsed, setIsCollapsed, user, setOpen, onLogout }
                     )}
                     {user?.permissions?.includes('manage_settings') && (
                         <SidebarItem icon={Settings} label="Administração" to="/settings" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
+                    )}
+                    {(user?.role === 'admin') && (
+                        <SidebarItem icon={Server} label="Monitor do Sistema" to="/admin/monitor" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
                     )}
                 </>
             )}

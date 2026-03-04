@@ -131,7 +131,7 @@ export const fluxoApi = {
         }
     },
     metrics: {
-        cdpc: () => fluxClient.get('/metrics/cdpc').then(res => res.data),
+        cdpc: (params) => fluxClient.get('/metrics/cdpc', { params }).then(res => res.data),
         cocr: () => fluxClient.get('/metrics/cocr').then(res => res.data),
     }
 };

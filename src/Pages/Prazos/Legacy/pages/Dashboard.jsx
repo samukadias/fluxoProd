@@ -287,6 +287,7 @@ export default function Dashboard() {
                       <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0 shadow-sm">
                         <tr>
                           <th className="px-4 py-3 font-semibold">Contrato / Cliente</th>
+                          <th className="px-4 py-3 font-semibold">Status</th>
                           <th className="px-4 py-3 font-semibold">Analista</th>
                           <th className="px-4 py-3 font-semibold">Vencimento</th>
                         </tr>
@@ -297,6 +298,14 @@ export default function Dashboard() {
                             <td className="px-4 py-3">
                               <div className="font-semibold text-slate-800">{c.contrato}</div>
                               <div className="text-xs text-slate-500 mt-0.5">{c.cliente}</div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium 
+                                ${c.status === 'Ativo' ? 'bg-green-100 text-green-800' :
+                                  c.status === 'Expirado' ? 'bg-red-100 text-red-800' :
+                                    'bg-gray-100 text-gray-800'}`}>
+                                {c.status || "-"}
+                              </span>
                             </td>
                             <td className="px-4 py-3 text-slate-600">
                               {c.analista_responsavel || "-"}

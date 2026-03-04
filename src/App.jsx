@@ -28,6 +28,7 @@ const DataManagementLegacy = lazy(() => import("./pages/Prazos/Legacy/pages/Data
 const SearchLegacy = lazy(() => import("./pages/Prazos/Legacy/pages/Search"));
 const ActivityLog = lazy(() => import("./pages/ActivityLog"));
 const GerencialDashboard = lazy(() => import("./Pages/Gerencial/GerencialDashboard"));
+const SystemMonitor = lazy(() => import('./pages/SystemMonitor'));
 
 // Components
 import UserNotRegisteredError from "./components/UserNotRegisteredError";
@@ -100,6 +101,7 @@ function AppRoutes() {
                     <Route index element={<Navigate to={getHomeRoute(user)} replace />} />
                     <Route path="dashboard" element={<Dashboard />} />
                     <Route path="gerencial" element={<GerencialDashboard />} />
+                    <Route path="admin/monitor" element={<SystemMonitor />} />
                     <Route path="demands" element={<Demands />} />
                     <Route path="demand-detail" element={<DemandDetail />} />
                     <Route path="settings" element={<Settings />} />

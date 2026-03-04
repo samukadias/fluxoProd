@@ -481,6 +481,34 @@ const initDb = async () => {
             )
         `);
 
+        // ========================================
+        // PERFORMANCE INDEXES
+        // ========================================
+        // demands - columns most used in WHERE and ORDER BY clauses
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_demands_status ON demands(status)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_demands_cycle_id ON demands(cycle_id)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_demands_client_id ON demands(client_id)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_demands_analyst_id ON demands(analyst_id)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_demands_artifact ON demands(artifact)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_demands_delivery_date ON demands(delivery_date)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_demands_created_date ON demands(created_date)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_demands_qualification_date ON demands(qualification_date)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_demands_weight ON demands(weight)`);
+
+        // contracts - columns most used in WHERE clauses (metrics + listings)
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_contracts_status ON contracts(status)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_contracts_cliente ON contracts(cliente)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_contracts_tipo_tratativa ON contracts(tipo_tratativa)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_contracts_data_fim ON contracts(data_fim_efetividade)`);
+
+        // notifications - for fast per-user queries
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read)`);
+
+        // activity_log - for user-based audit filtering
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_activity_log_user_id ON activity_log(user_id)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_activity_log_entity ON activity_log(entity)`);
+
         console.log('✅ Database tables initialized successfully');
     } catch (err) {
         console.error('Error initializing database:', err);

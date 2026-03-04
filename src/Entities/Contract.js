@@ -41,8 +41,11 @@ export class Contract {
             created_by: dbContract.created_by,
             created_at: dbContract.created_at,
             updated_at: dbContract.updated_at,
+            margem_bruta: dbContract.margem_bruta !== null && dbContract.margem_bruta !== undefined ? parseFloat(dbContract.margem_bruta) : null,
+            margem_liquida: dbContract.margem_liquida !== null && dbContract.margem_liquida !== undefined ? parseFloat(dbContract.margem_liquida) : null,
             daysUntilExpiry: (() => {
                 if (!dbContract.data_fim_efetividade) return null;
+                if (dbContract.status !== 'Ativo' && dbContract.status !== 'Expirado' && dbContract.status !== 'Vencido') return null;
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 const endDate = new Date(dbContract.data_fim_efetividade);
@@ -89,6 +92,8 @@ export class Contract {
             contrato_novo: contract.contrato_novo,
             termo_novo: contract.termo_novo,
             created_by: contract.created_by,
+            margem_bruta: contract.margem_bruta,
+            margem_liquida: contract.margem_liquida,
         };
     }
 
@@ -127,6 +132,8 @@ export class Contract {
                 contrato_novo: { type: "string" },
                 termo_novo: { type: "string" },
                 created_by: { type: "string" },
+                margem_bruta: { type: ["number", "null"] },
+                margem_liquida: { type: ["number", "null"] },
             },
             required: ["analista_responsavel", "cliente", "contrato"]
         };

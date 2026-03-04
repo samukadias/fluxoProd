@@ -35,8 +35,8 @@ export default function Contracts() {
   // pois o campo status_vencimento no banco está vazio na maioria dos registros
   const calcStatusVencimento = (contract) => {
     if (!contract.data_fim_efetividade) return 'Normal';
-    // Contratos não-Ativos não têm status de vencimento relevante
-    if (contract.status && contract.status !== 'Ativo') return null;
+    // Contratos não-Ativos e não-Expirados não têm status de vencimento relevante
+    if (contract.status && contract.status !== 'Ativo' && contract.status !== 'Expirado' && contract.status !== 'Vencido') return null;
 
     const today = startOfDay(new Date());
     const endDate = startOfDay(new Date(contract.data_fim_efetividade));

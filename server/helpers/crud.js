@@ -10,7 +10,7 @@ const ALLOWED_SORT_FIELDS = {
     status_history: ['id', 'demand_id', 'changed_at', 'from_status', 'to_status'],
     stage_history: ['id', 'demand_id', 'stage', 'entered_at', 'exited_at', 'duration_minutes'],
     finance_contracts: ['id', 'client_name', 'pd_number', 'responsible_analyst', 'created_at'],
-    deadline_contracts: ['id', 'cliente', 'contrato', 'data_inicio_efetividade', 'data_fim_efetividade', 'status'],
+    archive_prazos_contracts: ['id', 'cliente', 'contrato', 'data_inicio_efetividade', 'data_fim_efetividade', 'status'],
     cycles: ['id', 'name'],
     requesters: ['id', 'name', 'email'],
     holidays: ['id', 'date', 'name'],
@@ -31,7 +31,7 @@ const ALLOWED_FILTER_COLUMNS = {
     status_history: ['id', 'demand_id', 'from_status', 'to_status'],
     stage_history: ['id', 'demand_id', 'stage'],
     finance_contracts: ['id', 'client_name', 'pd_number', 'responsible_analyst', 'sei_process_number'],
-    deadline_contracts: ['id', 'analista_responsavel', 'cliente', 'contrato', 'status', 'status_vencimento', 'grupo_cliente'],
+    archive_prazos_contracts: ['id', 'analista_responsavel', 'cliente', 'contrato', 'status', 'status_vencimento', 'grupo_cliente'],
     cycles: ['id', 'name'],
     requesters: ['id', 'name', 'email'],
     holidays: ['id', 'name'],
@@ -39,6 +39,26 @@ const ALLOWED_FILTER_COLUMNS = {
     contracts: ['id', 'cliente', 'contrato', 'status', 'client_name', 'responsible_analyst'],
     notifications: ['id', 'user_id', 'type', 'read', 'entity_type'],
     activity_log: ['id', 'user_id', 'action', 'entity', 'entity_id'],
+};
+
+// Whitelist of allowed write columns per table (Mass Assignment Protection)
+const ALLOWED_WRITE_COLUMNS = {
+    demands: ['product', 'demand_number', 'status', 'artifact', 'complexity', 'weight', 'client_id', 'analyst_id', 'cycle_id', 'requester_id', 'created_date', 'qualification_date', 'expected_delivery_date', 'delivery_date', 'observation', 'frozen_time_minutes', 'last_frozen_at', 'support_analyst_id', 'delivery_date_change_reason', 'contract_id', 'stage', 'value', 'architect_support_analyst_id', 'margem_bruta', 'margem_liquida'],
+    clients: ['name', 'sigla', 'active'],
+    analysts: ['name', 'email'],
+    users: ['name', 'email', 'password', 'role', 'department', 'profile_type', 'allowed_modules', 'must_change_password'],
+    monthly_attestations: ['contract_id', 'reference_month', 'client_name', 'pd_number', 'responsible_analyst', 'billed_amount', 'paid_amount', 'status', 'report_generation_date', 'notes'],
+    status_history: ['demand_id', 'from_status', 'to_status', 'changed_by', 'changed_at', 'note'],
+    stage_history: ['demand_id', 'stage', 'entered_at', 'exited_at', 'duration_minutes'],
+    finance_contracts: ['client_name', 'pd_number', 'responsible_analyst', 'sei_process_number', 'start_date', 'end_date', 'total_value', 'notes'],
+    archive_prazos_contracts: ['analista_responsavel', 'cliente', 'grupo_cliente', 'contrato', 'termo', 'status', 'status_vencimento', 'data_inicio_efetividade', 'data_fim_efetividade', 'data_limite_andamento', 'valor_contrato', 'valor_faturado', 'valor_cancelado', 'valor_a_faturar', 'valor_novo_contrato', 'objeto', 'tipo_tratativa', 'tipo_aditamento', 'etapa', 'secao_responsavel', 'observacao', 'numero_processo_sei_nosso', 'numero_processo_sei_cliente', 'contrato_cliente', 'contrato_anterior', 'numero_pnpp_crm', 'sei', 'contrato_novo', 'termo_novo', 'created_by', 'margem_bruta', 'margem_liquida'],
+    cycles: ['name'],
+    requesters: ['name', 'email'],
+    holidays: ['date', 'name', 'type'],
+    confirmation_terms: ['numero_tc', 'contrato_associado_pd', 'valor_total'],
+    contracts: ['analista_responsavel', 'cliente', 'grupo_cliente', 'contrato', 'termo', 'status', 'status_vencimento', 'data_inicio_efetividade', 'data_fim_efetividade', 'data_limite_andamento', 'valor_contrato', 'valor_faturado', 'valor_cancelado', 'valor_a_faturar', 'valor_novo_contrato', 'valor_aditamento', 'objeto', 'tipo_tratativa', 'tipo_aditamento', 'etapa', 'secao_responsavel', 'esps', 'observacao', 'numero_processo_sei_nosso', 'numero_processo_sei_cliente', 'contrato_cliente', 'contrato_anterior', 'numero_pnpp_crm', 'sei', 'contrato_novo', 'termo_novo', 'created_by', 'margem_bruta', 'margem_liquida'],
+    notifications: ['user_id', 'type', 'message', 'entity_type', 'entity_id', 'read'],
+    activity_log: ['user_id', 'action', 'entity', 'entity_id', 'changes'],
 };
 
 /**
@@ -203,12 +223,25 @@ const createCrudRoutes = (app, resource, tableName) => {
     // Create
     app.post(`/${resource}`, async (req, res) => {
         try {
-            const body = { ...req.body };
+            const allowedWriteCols = ALLOWED_WRITE_COLUMNS[tableName] || ALLOWED_WRITE_COLUMNS[resource];
+            let body = { ...req.body };
+
+            // Mass Assignment Protection: strip fields not in whitelist
+            if (allowedWriteCols) {
+                Object.keys(body).forEach(key => {
+                    if (!allowedWriteCols.includes(key)) {
+                        delete body[key];
+                    }
+                });
+            }
+
             Object.keys(body).forEach(key => {
                 if (body[key] === '') body[key] = null;
             });
 
             const keys = Object.keys(body);
+            if (keys.length === 0) return res.status(400).json({ error: 'No valid fields to insert.' });
+
             const values = Object.values(body);
             const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
             const query = `INSERT INTO ${tableName} (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`;
@@ -223,7 +256,18 @@ const createCrudRoutes = (app, resource, tableName) => {
     // Update
     app.put(`/${resource}/:id`, async (req, res) => {
         try {
-            const body = { ...req.body };
+            const allowedWriteCols = ALLOWED_WRITE_COLUMNS[tableName] || ALLOWED_WRITE_COLUMNS[resource];
+            let body = { ...req.body };
+
+            // Mass Assignment Protection: strip fields not in whitelist
+            if (allowedWriteCols) {
+                Object.keys(body).forEach(key => {
+                    if (!allowedWriteCols.includes(key)) {
+                        delete body[key];
+                    }
+                });
+            }
+
             Object.keys(body).forEach(key => {
                 if (body[key] === '') body[key] = null;
             });
@@ -267,4 +311,4 @@ const createCrudRoutes = (app, resource, tableName) => {
     });
 };
 
-module.exports = { createCrudRoutes, validatePagination, handleError, ALLOWED_SORT_FIELDS, ALLOWED_FILTER_COLUMNS };
+module.exports = { createCrudRoutes, validatePagination, handleError, ALLOWED_SORT_FIELDS, ALLOWED_FILTER_COLUMNS, ALLOWED_WRITE_COLUMNS };

@@ -92,4 +92,24 @@ router.get('/me', authenticateToken, async (req, res) => {
     }
 });
 
+/**
+ * POST /auth/ping
+ * Heartbeat — updates last_seen_at for the authenticated user.
+ * Called by the frontend every 60 seconds.
+ */
+router.post('/ping', authenticateToken, async (req, res) => {
+    try {
+        await db.query(
+            'UPDATE users SET last_seen_at = NOW() WHERE id = $1',
+            [req.user.id]
+        );
+        res.json({ ok: true });
+    } catch (err) {
+        // Non-critical — don't crash anything, just log
+        console.error('[AUTH PING ERROR]:', err.message);
+        res.json({ ok: false });
+    }
+});
+
 module.exports = router;
+

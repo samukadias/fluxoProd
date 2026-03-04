@@ -494,14 +494,6 @@ export default function ContractForm({
                     onChange={(e) => handleInputChange("sei", e.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="esp">ESP (Legado - Apenas Leitura/Consulta)</Label>
-                  <Input
-                    id="esp"
-                    value={formData.esp}
-                    onChange={(e) => handleInputChange("esp", e.target.value)}
-                  />
-                </div>
               </CardContent>
             </Card>
 

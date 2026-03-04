@@ -265,6 +265,10 @@ export default function ContractTable({ contracts, isLoading, onContractUpdate, 
                   </TableCell>
                   <TableCell>
                     {(() => {
+                      if (contract.status !== 'Ativo' && contract.status !== 'Expirado' && contract.status !== 'Vencido') {
+                        return "-";
+                      }
+
                       let status = contract.status_vencimento;
                       const days = contract.daysUntilExpiry;
 
