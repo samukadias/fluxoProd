@@ -43,7 +43,16 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
         client_name: '',
         pd_number: '',
         responsible_analyst: user?.name || user?.full_name || '',
-        esps: []
+        gestor_email: '',
+        esps: [],
+        // Campos preenchidos automaticamente do COCR ao selecionar o PD:
+        cocr_contract_id: null,
+        grupo_cliente: '',
+        termo: '',
+        objeto: '',
+        data_inicio_efetividade: '',
+        data_fim_efetividade: '',
+        status_vigencia: '',
     });
 
     const [availablePDs, setAvailablePDs] = useState([]);
@@ -66,7 +75,15 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
                 client_name: contract.client_name || '',
                 pd_number: contract.pd_number || '',
                 responsible_analyst: contract.responsible_analyst || '',
-                esps: parsedEsps
+                gestor_email: contract.gestor_email || '',
+                esps: parsedEsps,
+                cocr_contract_id: contract.cocr_contract_id || null,
+                grupo_cliente: contract.grupo_cliente || '',
+                termo: contract.termo || '',
+                objeto: contract.objeto || '',
+                data_inicio_efetividade: contract.data_inicio_efetividade || '',
+                data_fim_efetividade: contract.data_fim_efetividade || '',
+                status_vigencia: contract.status_vigencia || '',
             });
         } else if (user) {
             // Se for novo contrato (não tem contract prop), preenche com o usuário logado
@@ -126,19 +143,32 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
         let coCrEsps = [];
 
         if (selectedContract && selectedContract.esps) {
+            let rawEsps = [];
             if (Array.isArray(selectedContract.esps)) {
-                coCrEsps = selectedContract.esps;
+                rawEsps = selectedContract.esps;
             } else {
-                try {
-                    coCrEsps = JSON.parse(selectedContract.esps);
-                } catch { }
+                try { rawEsps = JSON.parse(selectedContract.esps); } catch { }
             }
+            // Garantir que cada ESP tenha o campo esp_value (CVAC) que o COCR não tem
+            coCrEsps = rawEsps.map(esp => ({
+                esp_number: esp.esp_number || esp.number || '',
+                object_description: esp.object_description || esp.description || '',
+                esp_value: esp.esp_value || '',
+            }));
         }
 
         setFormData(prev => ({
             ...prev,
             pd_number: value,
-            esps: coCrEsps // Overwrite with COCR default when explicitly changing the dropdown
+            esps: coCrEsps,
+            // Carrega dados do COCR automaticamente
+            cocr_contract_id: selectedContract?.id || null,
+            grupo_cliente: selectedContract?.grupo_cliente || '',
+            termo: selectedContract?.termo || '',
+            objeto: selectedContract?.objeto_contrato || selectedContract?.objeto || '',
+            data_inicio_efetividade: selectedContract?.data_inicio_efetividade || '',
+            data_fim_efetividade: selectedContract?.data_fim_efetividade || '',
+            status_vigencia: selectedContract?.status || '',
         }));
     };
 
@@ -230,7 +260,7 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
                             {availablePDs.length > 0 ? (
                                 <Select
                                     value={formData.pd_number}
-                                    onValueChange={(value) => updateField('pd_number', value)}
+                                    onValueChange={(value) => handlePdNumberChange(value)}
                                     required
                                 >
                                     <SelectTrigger className="mt-1">
@@ -255,54 +285,6 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
                                     disabled={!formData.client_name}
                                 />
                             )}
-
-                            {/* Selected Contract Details Card */}
-                            {(() => {
-                                const selectedContract = prazosContracts.find(
-                                    c => c.cliente === formData.client_name && c.contrato === formData.pd_number
-                                );
-
-                                if (selectedContract) {
-                                    return (
-                                        <div className="mt-3 p-3 bg-blue-50/50 border border-blue-100 rounded-lg text-sm space-y-2 animate-in fade-in slide-in-from-top-2">
-                                            <div className="flex items-start justify-between">
-                                                <span className="font-semibold text-blue-900">Resumo do Contrato (COCR)</span>
-                                                <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold ${selectedContract.status === 'Ativo' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
-                                                    }`}>
-                                                    {selectedContract.status || 'N/A'}
-                                                </span>
-                                            </div>
-
-                                            {selectedContract.objeto && (
-                                                <div className="text-slate-700">
-                                                    <span className="font-medium text-slate-900 block text-xs uppercase tracking-wide opacity-70 mb-0.5">Objeto:</span>
-                                                    <p className="line-clamp-3 leading-relaxed">{selectedContract.objeto}</p>
-                                                </div>
-                                            )}
-
-                                            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-blue-100/50">
-                                                <div>
-                                                    <span className="font-medium text-slate-900 block text-xs uppercase tracking-wide opacity-70">Vigência:</span>
-                                                    <span className="text-slate-600">
-                                                        {selectedContract.data_inicio_efetividade ? new Date(selectedContract.data_inicio_efetividade).toLocaleDateString() : '-'}
-                                                        {' a '}
-                                                        {selectedContract.data_fim_efetividade ? new Date(selectedContract.data_fim_efetividade).toLocaleDateString() : '-'}
-                                                    </span>
-                                                </div>
-                                                <div>
-                                                    <span className="font-medium text-slate-900 block text-xs uppercase tracking-wide opacity-70">Valor Global:</span>
-                                                    <span className="text-slate-600">
-                                                        {selectedContract.valor_contrato ?
-                                                            new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedContract.valor_contrato)
-                                                            : '-'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                }
-                                return null;
-                            })()}
                         </div>
                         <div>
                             <Label htmlFor="responsible_analyst" className="text-slate-700">
@@ -316,7 +298,6 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
                                     <SelectValue placeholder="Selecione um analista" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {/* Adicionar usuário logado se não estiver na lista e tiver nome */}
                                     {user && (user.name || user.full_name) && !analysts.find(a => a.name === (user.name || user.full_name)) && (
                                         <SelectItem value={user.name || user.full_name}>
                                             {user.name || user.full_name}
@@ -330,6 +311,101 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
                                 </SelectContent>
                             </Select>
                         </div>
+                    </div>
+
+                    {/* Card COCR unificado — largura total, aparece ao selecionar o PD */}
+                    {(() => {
+                        const sc = prazosContracts.find(
+                            c => c.cliente === formData.client_name && c.contrato === formData.pd_number
+                        );
+                        if (!sc) return null;
+
+                        const startDate = sc.data_inicio_efetividade ? new Date(sc.data_inicio_efetividade) : null;
+                        const endDate = sc.data_fim_efetividade ? new Date(sc.data_fim_efetividade) : null;
+                        const months = startDate && endDate
+                            ? (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth())
+                            : null;
+                        const isAtivo = sc.status === 'Ativo' || sc.status === 'ativo' || sc.status_vencimento === 'Dentro do prazo';
+
+                        return (
+                            <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-2">
+                                <div className="flex items-center justify-between px-4 py-2.5 bg-blue-600/10 border-b border-blue-100">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                        <span className="text-xs font-bold text-blue-800 uppercase tracking-wider">Dados do COCR — Preenchidos Automaticamente</span>
+                                    </div>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${isAtivo
+                                        ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200'
+                                        : 'bg-slate-100 text-slate-500 ring-1 ring-slate-200'
+                                        }`}>
+                                        {sc.status || sc.status_vencimento || 'N/A'}
+                                    </span>
+                                </div>
+                                <div className="p-4 space-y-3">
+                                    {sc.objeto && (
+                                        <div>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Objeto do Contrato</span>
+                                            <p className="text-slate-800 text-sm font-medium leading-relaxed line-clamp-2">{sc.objeto}</p>
+                                        </div>
+                                    )}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3 pt-2 border-t border-blue-100/70">
+                                        {sc.grupo_cliente && (
+                                            <div>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Sigla / Grupo</span>
+                                                <p className="font-bold text-blue-700 text-sm mt-0.5">{sc.grupo_cliente}</p>
+                                            </div>
+                                        )}
+                                        {sc.termo && (
+                                            <div>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Termo</span>
+                                                <p className="font-semibold text-slate-700 text-sm mt-0.5">{sc.termo}</p>
+                                            </div>
+                                        )}
+                                        {(startDate || endDate) && (
+                                            <div>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Vigência</span>
+                                                <p className="font-semibold text-slate-700 text-sm mt-0.5">
+                                                    {startDate ? startDate.toLocaleDateString('pt-BR') : '?'}
+                                                    {' → '}
+                                                    {endDate ? endDate.toLocaleDateString('pt-BR') : '?'}
+                                                </p>
+                                                {months !== null && (
+                                                    <p className="text-[10px] text-slate-400 mt-0.5">{months} {months === 1 ? 'mês' : 'meses'}</p>
+                                                )}
+                                            </div>
+                                        )}
+                                        {sc.valor_contrato && (
+                                            <div>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Valor Global</span>
+                                                <p className="font-bold text-slate-800 text-sm mt-0.5">
+                                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(sc.valor_contrato)}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {(sc.numero_processo_sei_nosso || sc.sei) && (
+                                        <div className="pt-2 border-t border-blue-100/70">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Processo SEI (COCR)</span>
+                                            <p className="font-mono text-xs text-slate-600 mt-0.5">{sc.numero_processo_sei_nosso || sc.sei}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* E-mail / SEI do Gestor */}
+                    <div>
+                        <Label htmlFor="gestor_email" className="text-slate-700">
+                            Endereço SEI ou E-mail do Gestor
+                        </Label>
+                        <Input
+                            id="gestor_email"
+                            value={formData.gestor_email}
+                            onChange={(e) => updateField('gestor_email', e.target.value)}
+                            placeholder="Ex: sei@orgao.gov.br ou fulano@empresa.com.br"
+                            className="mt-1"
+                        />
                     </div>
                 </CardContent>
             </Card>

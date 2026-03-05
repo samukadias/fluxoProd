@@ -47,10 +47,27 @@ const ALLOWED_WRITE_COLUMNS = {
     clients: ['name', 'sigla', 'active'],
     analysts: ['name', 'email'],
     users: ['name', 'email', 'password', 'role', 'department', 'profile_type', 'allowed_modules', 'must_change_password'],
-    monthly_attestations: ['contract_id', 'reference_month', 'client_name', 'pd_number', 'responsible_analyst', 'billed_amount', 'paid_amount', 'status', 'report_generation_date', 'notes'],
+    monthly_attestations: ['contract_id', 'reference_month', 'client_name', 'pd_number', 'responsible_analyst', 'billed_amount', 'paid_amount', 'status', 'notes', 'observations',
+        // Campos de datas do processo
+        'report_generation_date', 'report_send_date', 'attestation_return_date', 'invoice_send_to_client_date', 'invoice_send_date',
+        // Campos financeiros CVAC
+        'measurement_value', 'esp_value',
+        // NF-e
+        'invoice_number', 'nfe_issue_date', 'nfe_sharepoint_date',
+        // SEI e ESP
+        'esp_number', 'sei_process_number', 'sei_send_area',
+        // Gestor
+        'gestor_email'
+    ],
     status_history: ['demand_id', 'from_status', 'to_status', 'changed_by', 'changed_at', 'note'],
     stage_history: ['demand_id', 'stage', 'entered_at', 'exited_at', 'duration_minutes'],
-    finance_contracts: ['client_name', 'pd_number', 'responsible_analyst', 'sei_process_number', 'start_date', 'end_date', 'total_value', 'notes'],
+    finance_contracts: ['client_name', 'pd_number', 'responsible_analyst', 'sei_process_number', 'start_date', 'end_date', 'total_value', 'notes',
+        // Campos CVAC
+        'esps', 'gestor_email',
+        // Campos carregados automaticamente do COCR
+        'cocr_contract_id', 'grupo_cliente', 'termo', 'objeto',
+        'data_inicio_efetividade', 'data_fim_efetividade', 'status_vigencia'
+    ],
     archive_prazos_contracts: ['analista_responsavel', 'cliente', 'grupo_cliente', 'contrato', 'termo', 'status', 'status_vencimento', 'data_inicio_efetividade', 'data_fim_efetividade', 'data_limite_andamento', 'valor_contrato', 'valor_faturado', 'valor_cancelado', 'valor_a_faturar', 'valor_novo_contrato', 'objeto', 'tipo_tratativa', 'tipo_aditamento', 'etapa', 'secao_responsavel', 'observacao', 'numero_processo_sei_nosso', 'numero_processo_sei_cliente', 'contrato_cliente', 'contrato_anterior', 'numero_pnpp_crm', 'sei', 'contrato_novo', 'termo_novo', 'created_by', 'margem_bruta', 'margem_liquida'],
     cycles: ['name'],
     requesters: ['name', 'email'],

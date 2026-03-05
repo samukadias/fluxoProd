@@ -122,8 +122,8 @@ app.post('/contracts/:id/generate-attestations', async (req, res) => {
         const endDate = new Date(cEndDate);
         let totalValue = parseFloat(cTotalValue) || 0;
 
-        if (totalValue <= 0) {
-            throw new Error('O contrato não possui um Valor de Contrato válido para divisão.');
+        if (totalValue < 0) {
+            throw new Error('O valor do contrato não pode ser negativo.');
         }
 
         // 2. Calculate the months
@@ -136,7 +136,6 @@ app.post('/contracts/:id/generate-attestations', async (req, res) => {
         const numInstallments = Math.max(1, months + 1);
         const installmentValue = (totalValue / numInstallments).toFixed(2);
 
-        // 3. Insert draft attestations
         const inserted = [];
         for (let i = 0; i < numInstallments; i++) {
             // Calculate current month's reference
@@ -157,8 +156,8 @@ app.post('/contracts/:id/generate-attestations', async (req, res) => {
                 contract.pd_number,
                 contract.responsible_analyst,
                 refMonth,
-                installmentValue,
-                0 // paid is 0 for future drafts
+                0, // billed_amount sempre começa em zero — preenchido manualmente ao faturar
+                0  // paid_amount sempre zero para parcelas futuras
             ];
 
             const result = await client.query(insertQuery, values);
@@ -167,7 +166,7 @@ app.post('/contracts/:id/generate-attestations', async (req, res) => {
 
         await client.query('COMMIT');
         res.status(200).json({
-            message: `Cronograma gerado: ${numInstallments} parcelas de ${installmentValue}`,
+            message: `Cronograma gerado: ${numInstallments} parcelas criadas`,
             attestations: inserted
         });
 

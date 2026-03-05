@@ -21,6 +21,7 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
         client_name: '',
         pd_number: '',
         responsible_analyst: '',
+        gestor_email: '',
         esp_number: '',
         sei_process_number: '',
         sei_send_area: '',
@@ -30,7 +31,10 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
         attestation_return_date: '',
         invoice_send_to_client_date: '',
         invoice_number: '',
+        nfe_issue_date: '',
+        nfe_sharepoint_date: '',
         billed_amount: 0,
+        measurement_value: 0,
         paid_amount: 0,
         invoice_send_date: '',
         observations: ''
@@ -45,6 +49,7 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                 client_name: attestation.client_name || '',
                 pd_number: attestation.pd_number || '',
                 responsible_analyst: attestation.responsible_analyst || '',
+                gestor_email: attestation.gestor_email || '',
                 esp_number: attestation.esp_number || '',
                 sei_process_number: attestation.sei_process_number || '',
                 sei_send_area: attestation.sei_send_area || '',
@@ -54,7 +59,10 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                 attestation_return_date: attestation.attestation_return_date ? attestation.attestation_return_date.split('T')[0] : '',
                 invoice_send_to_client_date: attestation.invoice_send_to_client_date ? attestation.invoice_send_to_client_date.split('T')[0] : '',
                 invoice_number: attestation.invoice_number || '',
+                nfe_issue_date: attestation.nfe_issue_date ? attestation.nfe_issue_date.split('T')[0] : '',
+                nfe_sharepoint_date: attestation.nfe_sharepoint_date ? attestation.nfe_sharepoint_date.split('T')[0] : '',
                 billed_amount: attestation.billed_amount || 0,
+                measurement_value: attestation.measurement_value || 0,
                 paid_amount: attestation.paid_amount || 0,
                 invoice_send_date: attestation.invoice_send_date ? attestation.invoice_send_date.split('T')[0] : '',
                 observations: attestation.observations || ''
@@ -63,9 +71,10 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
             setFormData(prev => ({
                 ...prev,
                 contract_id: contract.id,
-                client_name: contract.company_name || contract.company_name || contract.client_name || '', // Adapter para diferentes nomes de campo
+                client_name: contract.company_name || contract.client_name || '',
                 pd_number: contract.pd_number || '',
-                responsible_analyst: contract.responsible_analyst || contract.analista_responsavel || ''
+                responsible_analyst: contract.responsible_analyst || contract.analista_responsavel || '',
+                gestor_email: contract.gestor_email || '',
             }));
         }
     }, [attestation, contract]);
@@ -123,6 +132,37 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
     };
 
     const pendency = (formData.billed_amount || 0) - (formData.paid_amount || 0);
+    const gap = (formData.measurement_value || 0) - (formData.billed_amount || 0);
+
+    // Helper para extrair ESPs do contrato
+    const getEsps = () => {
+        if (contract && contract.esps) {
+            if (typeof contract.esps === 'string') {
+                try { return JSON.parse(contract.esps); } catch (e) { return []; }
+            }
+            return contract.esps;
+        }
+        return [];
+    };
+
+    const contractEsps = getEsps();
+
+    // Calcular período de vigência do contrato (lido do contrato)
+    const vigencyPeriod = (() => {
+        const start = contract?.data_inicio_efetividade;
+        const end = contract?.data_fim_efetividade;
+        if (!start || !end) return null;
+        const s = new Date(start);
+        const e = new Date(end);
+        const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
+        return `${months} ${months === 1 ? 'mês' : 'meses'} (${s.toLocaleDateString('pt-BR')} a ${e.toLocaleDateString('pt-BR')})`;
+    })();
+
+    // Valor da ESP selecionada
+    const selectedEspValue = (() => {
+        const esp = contractEsps.find(e => e.esp_number === formData.esp_number);
+        return esp?.esp_value ? parseFloat(esp.esp_value) : null;
+    })();
 
     const generateMonthOptions = () => {
         const options = [];
@@ -136,19 +176,6 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
         return options;
     };
 
-    // Helper para extrair ESPs do contrato
-    const getEsps = () => {
-        if (contract && contract.esps) {
-            // Se vier como string (JSON não parseado pelo driver pg)
-            if (typeof contract.esps === 'string') {
-                try { return JSON.parse(contract.esps); } catch (e) { return []; }
-            }
-            return contract.esps;
-        }
-        return [];
-    };
-
-    const contractEsps = getEsps();
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -244,6 +271,43 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                 </CardContent>
             </Card>
 
+            {/* Vigência, Valor da ESP e Gestor */}
+            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
+                <CardHeader className="border-b border-slate-100 pb-4">
+                    <CardTitle className="flex items-center gap-2 text-slate-800">
+                        <Calendar className="w-5 h-5 text-blue-600" />
+                        Vigência, Gestor e Valor da ESP
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {vigencyPeriod && (
+                            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Período de Vigência do Contrato</span>
+                                <p className="text-slate-800 font-medium mt-1">{vigencyPeriod}</p>
+                            </div>
+                        )}
+                        {selectedEspValue !== null && (
+                            <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                                <span className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Valor Total da ESP Selecionada</span>
+                                <p className="text-blue-900 font-bold text-xl mt-1">
+                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedEspValue)}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                    <div>
+                        <Label className="text-slate-700">Endereço SEI ou E-mail do Gestor</Label>
+                        <Input
+                            value={formData.gestor_email}
+                            onChange={(e) => updateField('gestor_email', e.target.value)}
+                            placeholder="Ex: 00000.000000/0000-00 ou gestor@email.com.br"
+                            className="mt-1"
+                        />
+                    </div>
+                </CardContent>
+            </Card>
+
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
                 <CardHeader className="border-b border-slate-100 pb-4">
                     <CardTitle className="flex items-center gap-2 text-slate-800">
@@ -252,7 +316,7 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                         <div>
                             <Label className="text-slate-700 text-sm">Data Geração Relatório</Label>
                             <Input
@@ -263,7 +327,7 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                             />
                         </div>
                         <div>
-                            <Label className="text-slate-700 text-sm">Envio p/ Atestação</Label>
+                            <Label className="text-slate-700 text-sm">Data Envio da Medição</Label>
                             <Input
                                 type="date"
                                 value={formData.report_send_date}
@@ -272,7 +336,7 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                             />
                         </div>
                         <div>
-                            <Label className="text-slate-700 text-sm">Retorno Atestação</Label>
+                            <Label className="text-slate-700 text-sm">Data Retorno do Ateste</Label>
                             <Input
                                 type="date"
                                 value={formData.attestation_return_date}
@@ -281,7 +345,7 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                             />
                         </div>
                         <div>
-                            <Label className="text-slate-700 text-sm">Envio Fatura p/ Cliente</Label>
+                            <Label className="text-slate-700 text-sm">Data Envio Faturamento</Label>
                             <Input
                                 type="date"
                                 value={formData.invoice_send_to_client_date}
@@ -301,9 +365,10 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* NF-e dados */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
-                            <Label className="text-slate-700">Número da Nota Fiscal</Label>
+                            <Label className="text-slate-700">Número da NF-e</Label>
                             <Input
                                 value={formData.invoice_number}
                                 onChange={(e) => updateField('invoice_number', e.target.value)}
@@ -312,7 +377,25 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                             />
                         </div>
                         <div>
-                            <Label className="text-slate-700">Envio da NF p/ Cliente</Label>
+                            <Label className="text-slate-700">Data Emissão NF-e</Label>
+                            <Input
+                                type="date"
+                                value={formData.nfe_issue_date}
+                                onChange={(e) => updateField('nfe_issue_date', e.target.value)}
+                                className="mt-1"
+                            />
+                        </div>
+                        <div>
+                            <Label className="text-slate-700">Dispon. NF-e (SharePoint)</Label>
+                            <Input
+                                type="date"
+                                value={formData.nfe_sharepoint_date}
+                                onChange={(e) => updateField('nfe_sharepoint_date', e.target.value)}
+                                className="mt-1"
+                            />
+                        </div>
+                        <div>
+                            <Label className="text-slate-700">Data Envio NF-e ao Cliente</Label>
                             <Input
                                 type="date"
                                 value={formData.invoice_send_date}
@@ -321,9 +404,24 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                             />
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Valores financeiros */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
-                            <Label className="text-slate-700">Valor Faturado (Enviado)</Label>
+                            <Label className="text-slate-700">Valor Medição (Apontado)</Label>
+                            <div className="relative mt-1">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">R$</span>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={formData.measurement_value}
+                                    onChange={(e) => updateField('measurement_value', parseFloat(e.target.value) || 0)}
+                                    className="pl-10"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <Label className="text-slate-700">Valor Faturado (NF-e)</Label>
                             <div className="relative mt-1">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">R$</span>
                                 <Input
@@ -337,7 +435,19 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                             </div>
                         </div>
                         <div>
-                            <Label className="text-slate-700">Valor Pago (Recebido)</Label>
+                            <Label className="text-slate-700">GAP (Apontado - Faturado)</Label>
+                            <div className={`mt-1 p-2.5 rounded-lg border font-semibold text-center ${gap > 0 ? 'bg-amber-50 border-amber-200 text-amber-700'
+                                : gap < 0 ? 'bg-red-50 border-red-200 text-red-700'
+                                    : 'bg-green-50 border-green-200 text-green-700'
+                                }`}>
+                                {gap !== 0
+                                    ? `R$ ${Math.abs(gap).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                    : 'Sem GAP'
+                                }
+                            </div>
+                        </div>
+                        <div>
+                            <Label className="text-slate-700">Valor Recebido (Pago)</Label>
                             <div className="relative mt-1">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">R$</span>
                                 <Input
@@ -350,19 +460,12 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                                 />
                             </div>
                         </div>
-                        <div>
-                            <Label className="text-slate-700">Pendência</Label>
-                            <div className={`mt-1 p-2.5 rounded-lg border font-semibold text-center ${pendency > 0
-                                ? 'bg-red-50 border-red-200 text-red-700'
-                                : 'bg-green-50 border-green-200 text-green-700'
-                                }`}>
-                                {pendency > 0
-                                    ? `R$ ${pendency.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                                    : 'Não há pendências'
-                                }
-                            </div>
-                        </div>
                     </div>
+                    {pendency > 0 && (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium">
+                            ⚠️ Pendência de Recebimento: R$ {pendency.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 

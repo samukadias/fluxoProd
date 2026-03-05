@@ -37,6 +37,7 @@ export default function AttestationHistory() {
     const [showForm, setShowForm] = useState(false);
     const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
     const [editingAttestation, setEditingAttestation] = useState(null);
+    const [deletingAttestation, setDeletingAttestation] = useState(null);
     const [contract, setContract] = useState(null);
 
     // Se não tiver param na URL, tentar query param (retrocompatibilidade)
@@ -112,6 +113,19 @@ export default function AttestationHistory() {
             queryClient.invalidateQueries({ queryKey: ['attestations', cid] });
             setShowForm(false);
             setEditingAttestation(null);
+        }
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: (id) => fluxoApi.entities.MonthlyAttestation.delete(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['attestations', cid] });
+            toast.success('Atestação excluída.');
+            setDeletingAttestation(null);
+        },
+        onError: (error) => {
+            toast.error('Erro ao excluir: ' + (error.response?.data?.error || error.message));
+            setDeletingAttestation(null);
         }
     });
 
@@ -246,9 +260,16 @@ export default function AttestationHistory() {
                                 getEsps().map((esp, i) => (
                                     <Badge key={i} variant="outline" className="py-2 px-3">
                                         <span className="font-semibold">{esp.esp_number}</span>
-                                        <span className="text-slate-500 ml-2">
-                                            {esp.object_description?.substring(0, 40)}...
-                                        </span>
+                                        {esp.esp_value && (
+                                            <span className="text-blue-600 font-semibold ml-2">
+                                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(esp.esp_value))}
+                                            </span>
+                                        )}
+                                        {esp.object_description && (
+                                            <span className="text-slate-500 ml-2 text-xs">
+                                                — {esp.object_description?.substring(0, 35)}...
+                                            </span>
+                                        )}
                                     </Badge>
                                 ))
                             ) : (
@@ -290,82 +311,94 @@ export default function AttestationHistory() {
                                     <TableRow className="bg-slate-50 border-b border-slate-100">
                                         <TableHead className="font-semibold text-slate-700">Mês</TableHead>
                                         <TableHead className="font-semibold text-slate-700">ESP</TableHead>
-                                        <TableHead className="font-semibold text-slate-700">Relatório</TableHead>
-                                        <TableHead className="font-semibold text-slate-700">Atestação</TableHead>
+                                        <TableHead className="font-semibold text-slate-700">Medição (Enviado)</TableHead>
+                                        <TableHead className="font-semibold text-slate-700 text-right">Apontado</TableHead>
                                         <TableHead className="font-semibold text-slate-700 text-right">Faturado</TableHead>
-                                        <TableHead className="font-semibold text-slate-700 text-right">Pago</TableHead>
+                                        <TableHead className="font-semibold text-slate-700 text-right">GAP</TableHead>
+                                        <TableHead className="font-semibold text-slate-700">NF-e</TableHead>
                                         <TableHead className="font-semibold text-slate-700 text-center">Status</TableHead>
                                         <TableHead className="font-semibold text-slate-700 text-center">Ações</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    <AnimatePresence>
-                                        {attestations.map((att, index) => {
-                                            const pendency = (att.billed_amount || 0) - (att.paid_amount || 0);
-                                            const hasPendency = pendency > 0;
+                                    {attestations.map((att) => {
+                                        const pendency = (att.billed_amount || 0) - (att.paid_amount || 0);
+                                        const gap = (att.measurement_value || 0) - (att.billed_amount || 0);
+                                        const hasPendency = pendency > 0;
 
-                                            return (
-                                                <motion.tr
-                                                    key={att.id}
-                                                    initial={{ opacity: 0, x: -20 }}
-                                                    animate={{ opacity: 1, x: 0 }}
-                                                    exit={{ opacity: 0, x: -20 }}
-                                                    transition={{ delay: index * 0.05 }}
-                                                    className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${hasPendency ? 'bg-red-50/30' : ''
-                                                        }`}
-                                                >
-                                                    <TableCell className="font-medium text-slate-800">
-                                                        {formatMonth(att.reference_month)}
-                                                    </TableCell>
-                                                    <TableCell className="text-slate-600">
-                                                        {att.esp_number || '-'}
-                                                    </TableCell>
-                                                    <TableCell className="text-slate-600">
-                                                        <div className="text-xs">
-                                                            <div>Gerado: {formatDate(att.report_generation_date)}</div>
-                                                            <div>Enviado: {formatDate(att.report_send_date)}</div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-slate-600">
-                                                        <div className="text-xs">
-                                                            <div>Retorno: {formatDate(att.attestation_return_date)}</div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-right text-slate-700 font-medium">
-                                                        {formatCurrency(att.billed_amount)}
-                                                    </TableCell>
-                                                    <TableCell className="text-right text-slate-700 font-medium">
-                                                        {formatCurrency(att.paid_amount)}
-                                                    </TableCell>
-                                                    <TableCell className="text-center">
-                                                        {hasPendency ? (
-                                                            <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200">
-                                                                <AlertTriangle className="w-3 h-3 mr-1" />
-                                                                {formatCurrency(pendency)}
-                                                            </Badge>
-                                                        ) : (
-                                                            <Badge className="bg-green-100 text-green-700 border-green-200">
-                                                                <CheckCircle2 className="w-3 h-3 mr-1" />
-                                                                Quitado
-                                                            </Badge>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-center">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => {
-                                                                setEditingAttestation(att);
-                                                                setShowForm(true);
-                                                            }}
-                                                        >
-                                                            <Edit className="w-4 h-4" />
-                                                        </Button>
-                                                    </TableCell>
-                                                </motion.tr>
-                                            );
-                                        })}
-                                    </AnimatePresence>
+                                        return (
+                                            <TableRow
+                                                key={att.id}
+                                                className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${hasPendency ? 'bg-red-50/30' : ''}`}
+                                            >
+                                                <TableCell className="font-medium text-slate-800">
+                                                    {formatMonth(att.reference_month)}
+                                                </TableCell>
+                                                <TableCell className="text-slate-600">
+                                                    {att.esp_number || '-'}
+                                                </TableCell>
+                                                <TableCell className="text-slate-600">
+                                                    <div className="text-xs space-y-0.5">
+                                                        {att.report_generation_date && <div>Gerado: {formatDate(att.report_generation_date)}</div>}
+                                                        {att.report_send_date && <div>Enviado: {formatDate(att.report_send_date)}</div>}
+                                                        {att.attestation_return_date && <div>Retorno: {formatDate(att.attestation_return_date)}</div>}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right text-slate-700 font-medium">
+                                                    {att.measurement_value ? formatCurrency(att.measurement_value) : '-'}
+                                                </TableCell>
+                                                <TableCell className="text-right text-slate-700 font-medium">
+                                                    {formatCurrency(att.billed_amount)}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {att.measurement_value ? (
+                                                        <span className={`font-semibold ${gap > 0 ? 'text-amber-600' : gap < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                                            {gap === 0 ? '–' : `R$ ${Math.abs(gap).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                                        </span>
+                                                    ) : '-'}
+                                                </TableCell>
+                                                <TableCell className="text-slate-600 text-xs">
+                                                    {att.invoice_number && <div className="font-medium">{att.invoice_number}</div>}
+                                                    {att.nfe_issue_date && <div>Emissão: {formatDate(att.nfe_issue_date)}</div>}
+                                                    {att.nfe_sharepoint_date && <div>SP: {formatDate(att.nfe_sharepoint_date)}</div>}
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    {hasPendency ? (
+                                                        <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200">
+                                                            <AlertTriangle className="w-3 h-3 mr-1" />
+                                                            {formatCurrency(pendency)}
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge className="bg-green-100 text-green-700 border-green-200">
+                                                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                                                            Quitado
+                                                        </Badge>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setEditingAttestation(att);
+                                                            setShowForm(true);
+                                                        }}
+                                                    >
+                                                        <Edit className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                        onClick={() => setDeletingAttestation(att)}
+                                                    >
+                                                        <span className="sr-only">Excluir</span>
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4h6v2" /></svg>
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
                                 </TableBody>
                             </Table>
                         </div>
@@ -389,6 +422,30 @@ export default function AttestationHistory() {
                     />
                 </DialogContent>
             </Dialog>
+
+            {/* Delete Confirmation */}
+            <AlertDialog open={!!deletingAttestation} onOpenChange={(open) => !open && setDeletingAttestation(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir Atestação?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Você tem certeza que deseja excluir a atestação de{' '}
+                            <strong>{deletingAttestation && formatMonth(deletingAttestation.reference_month)}</strong>?
+                            Esta ação não pode ser desfeita.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => deleteMutation.mutate(deletingAttestation.id)}
+                            disabled={deleteMutation.isPending}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            {deleteMutation.isPending ? 'Excluindo...' : 'Sim, Excluir'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             {/* Gerar Cronograma Confirmation */}
             <AlertDialog open={showGenerateConfirm} onOpenChange={setShowGenerateConfirm}>

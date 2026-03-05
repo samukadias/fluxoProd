@@ -239,10 +239,33 @@ const initDb = async () => {
                 sei_process_number VARCHAR(50),
                 sei_send_area VARCHAR(100),
                 esps JSONB DEFAULT '[]',
+                cocr_contract_id INTEGER,
+                grupo_cliente VARCHAR(100),
+                termo VARCHAR(100),
+                objeto TEXT,
+                data_inicio_efetividade TIMESTAMP,
+                data_fim_efetividade TIMESTAMP,
+                status_vigencia VARCHAR(50),
+                gestor_email VARCHAR(255),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        // Finance Contracts — migration for existing rows
+        const financeContractMigrations = [
+            'ADD COLUMN IF NOT EXISTS cocr_contract_id INTEGER',
+            'ADD COLUMN IF NOT EXISTS grupo_cliente VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS termo VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS objeto TEXT',
+            'ADD COLUMN IF NOT EXISTS data_inicio_efetividade TIMESTAMP',
+            'ADD COLUMN IF NOT EXISTS data_fim_efetividade TIMESTAMP',
+            'ADD COLUMN IF NOT EXISTS status_vigencia VARCHAR(50)',
+            'ADD COLUMN IF NOT EXISTS gestor_email VARCHAR(255)',
+        ];
+        for (const col of financeContractMigrations) {
+            try { await db.query(`ALTER TABLE finance_contracts ${col}`); } catch (e) { /* exists */ }
+        }
 
         // Deadline Contracts
         await db.query(`
@@ -361,6 +384,12 @@ const initDb = async () => {
         const attestationCols = [
             'ADD COLUMN IF NOT EXISTS sei_process_number VARCHAR(50)',
             'ADD COLUMN IF NOT EXISTS sei_send_area VARCHAR(100)',
+            'ADD COLUMN IF NOT EXISTS measurement_value DECIMAL(15, 2)',
+            'ADD COLUMN IF NOT EXISTS esp_value DECIMAL(15, 2)',
+            'ADD COLUMN IF NOT EXISTS gestor_email VARCHAR(255)',
+            'ADD COLUMN IF NOT EXISTS nfe_sharepoint_date DATE',
+            'ADD COLUMN IF NOT EXISTS nfe_issue_date DATE',
+            'ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
         ];
         for (const col of attestationCols) {
             try { await db.query(`ALTER TABLE monthly_attestations ${col}`); } catch (e) { /* exists */ }

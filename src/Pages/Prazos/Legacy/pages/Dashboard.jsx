@@ -41,12 +41,7 @@ export default function Dashboard() {
     return [...new Set(analysts)].sort();
   }, [contracts]);
 
-  // Filter contracts specifically for the chart
-  const filteredExpiryContracts = useMemo(() => {
-    if (analystFilter === "all") return contracts;
-    return contracts.filter(c => c.analista_responsavel === analystFilter);
-  }, [contracts, analystFilter]);
-
+  // filteredContracts agora é alias de filteredContracts (filtro de analista centralizado abaixo)
   useEffect(() => {
     // Only load if user is defined
     if (user) {
@@ -91,10 +86,16 @@ export default function Dashboard() {
     setIsLoading(false);
   };
 
+  // Contratos filtrados pelo analista selecionado (afeta cards e gráfico)
+  const filteredContracts = useMemo(() => {
+    if (analystFilter === "all") return contracts;
+    return contracts.filter(c => c.analista_responsavel === analystFilter);
+  }, [contracts, analystFilter]);
+
   const getContractStats = () => {
     const today = new Date();
-    const activeContracts = contracts.filter(c => c.status === "Ativo");
-    const expiredContracts = contracts.filter(c => c.status === "Expirado");
+    const activeContracts = filteredContracts.filter(c => c.status === "Ativo");
+    const expiredContracts = filteredContracts.filter(c => c.status === "Expirado");
 
     const expiringContracts = activeContracts.filter(contract => {
       if (!contract.data_fim_efetividade) return false;
@@ -102,11 +103,11 @@ export default function Dashboard() {
       return daysUntilExpiry <= 60 && daysUntilExpiry >= 0;
     });
 
-    const totalValue = contracts.reduce((sum, contract) => sum + (contract.valor_contrato || 0), 0);
-    const totalBilled = contracts.reduce((sum, contract) => sum + (contract.valor_faturado || 0), 0);
+    const totalValue = activeContracts.reduce((sum, contract) => sum + (contract.valor_contrato || 0), 0);
+    const totalBilled = activeContracts.reduce((sum, contract) => sum + (contract.valor_faturado || 0), 0);
 
     return {
-      total: contracts.length,
+      total: filteredContracts.length,
       active: activeContracts.length,
       expired: expiredContracts.length,
       expiring: expiringContracts.length,
@@ -130,12 +131,12 @@ export default function Dashboard() {
     if (selectedMonth === null) return [];
 
     const currentYear = new Date().getFullYear();
-    return filteredExpiryContracts.filter(contract => {
+    return filteredContracts.filter(contract => {
       if (!contract.data_fim_efetividade) return false;
       const date = parseISO(contract.data_fim_efetividade);
       return isValid(date) && date.getFullYear() === currentYear && date.getMonth() === selectedMonth;
     }).sort((a, b) => new Date(a.data_fim_efetividade) - new Date(b.data_fim_efetividade));
-  }, [selectedMonth, filteredExpiryContracts]);
+  }, [selectedMonth, filteredContracts]);
 
   return (
     <div className="p-6 bg-slate-50 min-h-screen space-y-6">
@@ -259,7 +260,7 @@ export default function Dashboard() {
               </div>
             </div>
             <ContractsExpiringChart
-              contracts={filteredExpiryContracts}
+              contracts={filteredContracts}
               isLoading={isLoading}
               onMonthClick={(monthIndex) => setSelectedMonth(monthIndex === selectedMonth ? null : monthIndex)}
             />
@@ -331,11 +332,11 @@ export default function Dashboard() {
 
           <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
-              <ContractAlerts contracts={contracts} isLoading={isLoading} />
-              <RecentContracts contracts={contracts} isLoading={isLoading} />
+              <ContractAlerts contracts={filteredContracts} isLoading={isLoading} />
+              <RecentContracts contracts={filteredContracts} isLoading={isLoading} />
             </div>
             <div>
-              <FinancialOverview contracts={contracts} isLoading={isLoading} />
+              <FinancialOverview contracts={filteredContracts} isLoading={isLoading} />
             </div>
           </div>
         </>

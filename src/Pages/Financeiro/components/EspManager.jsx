@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export default function EspManager({ esps, onChange }) {
     const addEsp = () => {
-        onChange([...esps, { esp_number: '', object_description: '' }]);
+        onChange([...esps, { esp_number: '', object_description: '', esp_value: '' }]);
     };
 
     const removeEsp = (index) => {
@@ -55,7 +55,7 @@ export default function EspManager({ esps, onChange }) {
                                 className="p-4 bg-gradient-to-r from-slate-50 to-white rounded-xl border border-slate-200 shadow-sm"
                             >
                                 <div className="flex items-start gap-4">
-                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div>
                                             <Label className="text-xs text-slate-500 mb-1 block">
                                                 Número da ESP
@@ -77,6 +77,24 @@ export default function EspManager({ esps, onChange }) {
                                                 placeholder="Descreva o objeto da ESP..."
                                                 className="bg-white min-h-[80px]"
                                             />
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs text-slate-500 mb-1 block">
+                                                Valor da ESP (R$)
+                                            </Label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">R$</span>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={esp.esp_value || ''}
+                                                    onChange={(e) => updateEsp(index, 'esp_value', e.target.value)}
+                                                    placeholder="0,00"
+                                                    className="bg-white pl-9"
+                                                />
+                                            </div>
+                                            <p className="text-xs text-slate-400 mt-1">Fixo — altere em aditamento</p>
                                         </div>
                                     </div>
                                     <Button
