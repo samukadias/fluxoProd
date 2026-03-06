@@ -43,7 +43,7 @@ export default function DashboardFilters({
                         </Button>
                     )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className={`grid grid-cols-1 md:grid-cols-${analysts && analysts.length > 0 ? '6' : '5'} gap-4`}>
                     <div>
                         <Label className="text-xs text-slate-500 mb-1 block">Cliente</Label>
                         <Select
@@ -96,6 +96,23 @@ export default function DashboardFilters({
                         </Select>
                     </div>
                     <div>
+                        <Label className="text-xs text-slate-500 mb-1 block">Ano</Label>
+                        <Select
+                            value={filters.year}
+                            onValueChange={(value) => onFilterChange({ ...filters, year: value })}
+                        >
+                            <SelectTrigger className="bg-white">
+                                <SelectValue placeholder="Todos" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todos</SelectItem>
+                                {Array.from(new Set(months.map(m => m.value.split('-')[0]))).sort((a, b) => b.localeCompare(a)).map(year => (
+                                    <SelectItem key={year} value={year}>{year}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
                         <Label className="text-xs text-slate-500 mb-1 block">Mês</Label>
                         <Select
                             value={filters.month}
@@ -106,9 +123,18 @@ export default function DashboardFilters({
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Todos</SelectItem>
-                                {months.map(m => (
-                                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                                ))}
+                                {/* Exibe apenas o número ou nome do mês curto, ou continua mantendo a label dependendo se tem ano selecionado, mas aqui pegamos um de cada */}
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(num => {
+                                    const monthStr = String(num).padStart(2, '0');
+                                    const monthLabel = new Date(2000, num - 1, 1).toLocaleDateString('pt-BR', { month: 'long' });
+                                    // Pega a primeira letra maiúscula do mês
+                                    const capitalizedLabel = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+                                    return (
+                                        <SelectItem key={monthStr} value={monthStr}>
+                                            {capitalizedLabel}
+                                        </SelectItem>
+                                    );
+                                })}
                             </SelectContent>
                         </Select>
                     </div>

@@ -45,8 +45,10 @@ export default function PendencyTable({ attestations, onViewDetails }) {
                         </TableRow>
                     ) : (
                         attestations.map((att, index) => {
-                            const pendency = (att.billed_amount || 0) - (att.paid_amount || 0);
-                            const hasPendency = pendency > 0;
+                            const measurementValue = parseFloat(att.measurement_value) || 0;
+                            const billedAmount = parseFloat(att.billed_amount) || 0;
+                            const gap = measurementValue - billedAmount;
+                            const hasGap = gap > 0;
 
                             return (
                                 <motion.tr
@@ -54,7 +56,7 @@ export default function PendencyTable({ attestations, onViewDetails }) {
                                     initial={{ opacity: 0, x: -20 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: index * 0.05 }}
-                                    className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${hasPendency ? 'bg-red-50/30' : ''
+                                    className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${hasGap ? 'bg-red-50/30' : ''
                                         }`}
                                 >
                                     <TableCell className="font-medium text-slate-800">
@@ -65,22 +67,22 @@ export default function PendencyTable({ attestations, onViewDetails }) {
                                     <TableCell className="text-slate-600">{att.esp_number}</TableCell>
                                     <TableCell className="text-slate-600">{formatMonth(att.reference_month)}</TableCell>
                                     <TableCell className="text-right text-slate-700">
-                                        {formatCurrency(att.billed_amount)}
+                                        {formatCurrency(measurementValue)}
                                     </TableCell>
                                     <TableCell className="text-right text-slate-700">
-                                        {formatCurrency(att.paid_amount)}
+                                        {formatCurrency(billedAmount)}
                                     </TableCell>
-                                    <TableCell className={`text-right font-semibold ${hasPendency ? 'text-red-600' : 'text-green-600'
+                                    <TableCell className={`text-right font-semibold ${hasGap ? 'text-red-600' : 'text-green-600'
                                         }`}>
-                                        {hasPendency ? formatCurrency(pendency) : '-'}
+                                        {hasGap ? formatCurrency(gap) : '-'}
                                     </TableCell>
                                     <TableCell className="text-center">
                                         <div className="flex items-center justify-center gap-2">
-                                            {hasPendency ? (
+                                            {hasGap ? (
                                                 <>
                                                     <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200">
                                                         <AlertTriangle className="w-3 h-3 mr-1" />
-                                                        Pendente
+                                                        GAP Identificado
                                                     </Badge>
                                                     <Button
                                                         size="sm"
@@ -92,10 +94,20 @@ export default function PendencyTable({ attestations, onViewDetails }) {
                                                     </Button>
                                                 </>
                                             ) : (
-                                                <Badge className="bg-green-100 text-green-700 border-green-200">
-                                                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                                                    Quitado
-                                                </Badge>
+                                                <>
+                                                    <Badge className="bg-green-100 text-green-700 border-green-200">
+                                                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                                                        Sem GAP
+                                                    </Badge>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => onViewDetails && onViewDetails(att)}
+                                                        className="h-7 w-7 p-0"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                    </Button>
+                                                </>
                                             )}
                                         </div>
                                     </TableCell>

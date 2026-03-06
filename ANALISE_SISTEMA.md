@@ -32,13 +32,13 @@
 
 **Páginas existentes mas SEM LINK no menu:**
 
-| Página | Rota | Status |
-|--------|------|--------|
-| Análise | `/prazos/analise` | ❌ Sem menu |
-| Controle de Etapas | `/prazos/etapas` | ❌ Sem menu |
-| Gestão de Dados | `/prazos/gestao-dados` | ❌ Sem menu |
-| Pesquisa | Não tem rota | ❌ Sem rota nem menu |
-| Timeline | Não tem rota | ❌ Sem rota nem menu |
+| Página             | Rota                   | Status              |
+| ------------------ | ---------------------- | ------------------- |
+| Análise            | `/prazos/analise`      | ❌ Sem menu          |
+| Controle de Etapas | `/prazos/etapas`       | ❌ Sem menu          |
+| Gestão de Dados    | `/prazos/gestao-dados` | ❌ Sem menu          |
+| Pesquisa           | Não tem rota           | ❌ Sem rota nem menu |
+| Timeline           | Não tem rota           | ❌ Sem rota nem menu |
 
 **Impacto:** Usuários COCR não conseguem acessar funcionalidades importantes.
 
@@ -137,6 +137,14 @@ Home > COCR > Contratos > Editar #123
 - `DeadlineContract` → usa `deadline_contracts` ❌ (não existe mais)
 
 **Solução:** Remover referências a `DeadlineContract` do código.
+
+### 7. Renomear Aplicação (fluxoProd → GestaoGOR)
+
+**Detalhes:**
+- A aplicação amadureceu e o novo nome reflete melhor o seu escopo atual.
+- **Escopo Seguro (Frontend/Configuração):** Mudar títulos no HTML (UI), variáveis do `package.json`, nomes dos serviços no PM2/Docker e scripts `.bat`.
+- **Risco Alto (Banco de Dados):** O nome do banco `fluxo_prod` é hardcoded no código; recomendado manter internamente para evitar reconfiguração de infraestrutura crítica.
+- **Quando realizar:** Apenas durante uma **janela de manutenção programada**, com nenhum usuário ativo.
 
 ---
 

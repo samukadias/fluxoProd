@@ -15,6 +15,7 @@ export default function AnalystDashboard() {
         client: 'all',
         pd: 'all',
         esp: 'all',
+        year: 'all',
         month: 'all',
         analyst: analystName // Fixed to the analyst
     });
@@ -48,18 +49,26 @@ export default function AnalystDashboard() {
         if (filters.client !== 'all' && att.client_name !== filters.client) return false;
         if (filters.pd !== 'all' && att.pd_number !== filters.pd) return false;
         if (filters.esp !== 'all' && att.esp_number !== filters.esp) return false;
-        if (filters.month !== 'all' && att.reference_month !== filters.month) return false;
+
+        if (att.reference_month) {
+            const [attYear, attMonth] = att.reference_month.split('-');
+            if (filters.year !== 'all' && attYear !== filters.year) return false;
+            if (filters.month !== 'all' && attMonth !== filters.month) return false;
+        }
+
         return true;
     });
 
     const totalBilled = filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.billed_amount) || 0), 0);
-    const totalPaid = filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.paid_amount) || 0), 0);
-    const totalPendency = totalBilled - totalPaid;
+    const totalMeasurement = filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.measurement_value) || 0), 0);
 
-    // Contagem de registros únicos de clientes com pendência
+    const totalPaid = filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.paid_amount) || 0), 0);
+    const totalGap = totalMeasurement - totalBilled;
+
+    // Contagem de registros únicos de clientes com pendência (GAP > 0)
     const clientsWithPendency = new Set(
         filteredAttestations
-            .filter(att => (parseFloat(att.billed_amount) || 0) - (parseFloat(att.paid_amount) || 0) > 0)
+            .filter(att => (parseFloat(att.measurement_value) || 0) - (parseFloat(att.billed_amount) || 0) > 0)
             .map(att => att.client_name)
     ).size;
 
@@ -74,8 +83,8 @@ export default function AnalystDashboard() {
         <div className="p-6 bg-slate-50 min-h-screen">
             <div className="max-w-7xl mx-auto">
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-slate-900">Meu Painel de Pendências</h1>
-                    <p className="text-slate-600 mt-1 pb-1 border-b">Acompanhe suas responsabilidades financeiras</p>
+                    <h1 className="text-3xl font-bold text-slate-900">Meu Painel de Atestações</h1>
+                    <p className="text-slate-600 mt-1 pb-1 border-b">Acompanhe suas medições apontadas, valores faturados e análise de GAP</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -87,23 +96,23 @@ export default function AnalystDashboard() {
                         icon={DollarSign}
                     />
                     <PendencyCard
-                        title="Total Pago"
-                        value={formatCurrency(totalPaid)}
-                        subtitle="Valores recebidos"
+                        title="Total Apontado"
+                        value={formatCurrency(totalMeasurement)}
+                        subtitle="Métrica de medição base"
                         type="success"
                         icon={CheckCircle2}
                     />
                     <PendencyCard
-                        title="Total Pendente"
-                        value={formatCurrency(totalPendency)}
-                        subtitle={totalPendency > 0 ? 'Aguardando pagamento' : 'Tudo quitado'}
-                        type={totalPendency > 0 ? 'danger' : 'success'}
+                        title="Total GAP"
+                        value={formatCurrency(totalGap)}
+                        subtitle={totalGap > 0 ? 'Diferença: Apontado - Faturado' : 'Sem GAPs no período'}
+                        type={totalGap > 0 ? 'danger' : 'success'}
                         icon={AlertTriangle}
                     />
                     <PendencyCard
-                        title="Clientes com Pendência"
+                        title="Clientes com GAP"
                         value={clientsWithPendency}
-                        subtitle="Clientes únicos"
+                        subtitle="Clientes únicos apresentando GAP"
                         type={clientsWithPendency > 0 ? 'warning' : 'success'}
                         icon={Users}
                     />

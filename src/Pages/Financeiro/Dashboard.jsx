@@ -19,6 +19,7 @@ export default function Dashboard() {
         client: 'all',
         pd: 'all',
         esp: 'all',
+        year: 'all',
         month: 'all',
         analyst: 'all'
     });
@@ -82,17 +83,28 @@ export default function Dashboard() {
         if (filters.client !== 'all' && att.client_name !== filters.client) return false;
         if (filters.pd !== 'all' && att.pd_number !== filters.pd) return false;
         if (filters.esp !== 'all' && att.esp_number !== filters.esp) return false;
-        if (filters.month !== 'all' && att.reference_month !== filters.month) return false;
         if (filters.analyst !== 'all' && att.responsible_analyst !== filters.analyst) return false;
+
+        if (att.reference_month) {
+            const [attYear, attMonth] = att.reference_month.split('-');
+            if (filters.year !== 'all' && attYear !== filters.year) return false;
+            // O value do mês que vem do Select agora é apenas os dois dígitos (ex: "02")
+            if (filters.month !== 'all' && attMonth !== filters.month) return false;
+        }
+
         return true;
     });
 
-    // Calcular métricas
+    // Calcular métricas com a nova regra de GAP (Apontado - Faturado)
     const totalBilled = filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.billed_amount) || 0), 0);
+    const totalMeasurement = filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.measurement_value) || 0), 0);
+
     const totalPaid = filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.paid_amount) || 0), 0);
-    const totalPendency = totalBilled - totalPaid;
+    const totalGap = totalMeasurement - totalBilled;
+
+    // Contagem de registros com GAP
     const pendencyCount = filteredAttestations.filter(att =>
-        (parseFloat(att.billed_amount) || 0) - (parseFloat(att.paid_amount) || 0) > 0
+        (parseFloat(att.measurement_value) || 0) - (parseFloat(att.billed_amount) || 0) > 0
     ).length;
 
     const formatCurrency = (value) => {
@@ -107,8 +119,8 @@ export default function Dashboard() {
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-slate-900">Dashboard de Pendências</h1>
-                    <p className="text-slate-600 mt-1">Acompanhe os valores pendentes de pagamento</p>
+                    <h1 className="text-3xl font-bold text-slate-900">Dashboard de Atestações</h1>
+                    <p className="text-slate-600 mt-1">Acompanhe medição apontada, faturada e análise de GAP</p>
                 </div>
 
                 {/* Cards */}
@@ -116,28 +128,28 @@ export default function Dashboard() {
                     <PendencyCard
                         title="Total Faturado"
                         value={formatCurrency(totalBilled)}
-                        subtitle={`${filteredAttestations.length} registros`}
+                        subtitle={`${filteredAttestations.length} registros no mês`}
                         type="default"
                         icon={DollarSign}
                     />
                     <PendencyCard
-                        title="Total Pago"
-                        value={formatCurrency(totalPaid)}
-                        subtitle="Valores recebidos"
+                        title="Total Apontado"
+                        value={formatCurrency(totalMeasurement)}
+                        subtitle="Métrica de medição base"
                         type="success"
                         icon={CheckCircle2}
                     />
                     <PendencyCard
-                        title="Total Pendente"
-                        value={formatCurrency(totalPendency)}
-                        subtitle={totalPendency > 0 ? 'Aguardando pagamento' : 'Tudo quitado'}
-                        type={totalPendency > 0 ? 'danger' : 'success'}
+                        title="Total GAP"
+                        value={formatCurrency(totalGap)}
+                        subtitle={totalGap > 0 ? 'Diferença: Apontado - Faturado' : 'Sem GAPs no período'}
+                        type={totalGap > 0 ? 'danger' : 'success'}
                         icon={AlertTriangle}
                     />
                     <PendencyCard
-                        title="Clientes com Pendência"
+                        title="Clientes com GAP"
                         value={pendencyCount}
-                        subtitle={`Registros pendentes`}
+                        subtitle="Registros apresentando GAP"
                         type={pendencyCount > 0 ? 'warning' : 'success'}
                         icon={Users}
                     />
