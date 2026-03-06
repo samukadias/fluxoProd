@@ -5,6 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import CurrencyInput from "@/components/ui/currency-input";
+
 
 export default function EspManager({ esps, onChange }) {
     const addEsp = () => {
@@ -82,20 +84,12 @@ export default function EspManager({ esps, onChange }) {
                                             <Label className="text-xs text-slate-500 mb-1 block">
                                                 Valor da ESP (R$)
                                             </Label>
-                                            <div className="relative">
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">R$</span>
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    value={esp.esp_value || ''}
-                                                    onChange={(e) => updateEsp(index, 'esp_value', e.target.value)}
-                                                    placeholder="0,00"
-                                                    className="bg-white pl-9"
-                                                />
-                                            </div>
-                                            <p className="text-xs text-slate-400 mt-1">Fixo — altere em aditamento</p>
+                                            <CurrencyInput
+                                                value={esp.esp_value || 0}
+                                                onChange={(value) => updateEsp(index, 'esp_value', value)}
+                                            />
                                         </div>
+
                                     </div>
                                     <Button
                                         type="button"

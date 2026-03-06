@@ -4,15 +4,18 @@ import { Contract } from "@/entities/Contract";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, AlertTriangle, CheckCircle, Plus, DollarSign, Clock } from "lucide-react";
+import { FileText, AlertTriangle, CheckCircle, Plus, DollarSign, Clock, Calendar } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl, formatCurrency, formatCompactCurrency } from "@/utils/legacy";
-import { format, addMonths, isBefore } from "date-fns";
+import { format, addMonths, isBefore, parseISO, isValid } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import ContractsExpiringChart from "../components/dashboard/ContractsExpiringChart";
 
 export default function AnalystDashboard() {
     const { user } = useAuth();
     const [contracts, setContracts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedMonth, setSelectedMonth] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -146,6 +149,84 @@ export default function AnalystDashboard() {
                         </div>
                     </CardContent>
                 </Card>
+            </div>
+
+            {/* Gráfico de Previsão de Vencimentos */}
+            <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-gray-900">Previsão de Vencimentos</h2>
+                <ContractsExpiringChart
+                    contracts={contracts}
+                    isLoading={isLoading}
+                    onMonthClick={(monthIndex) => setSelectedMonth(monthIndex === selectedMonth ? null : monthIndex)}
+                />
+
+                {selectedMonth !== null && (() => {
+                    const currentYear = new Date().getFullYear();
+                    const monthContracts = contracts.filter(c => {
+                        if (!c.data_fim_efetividade) return false;
+                        const date = parseISO(c.data_fim_efetividade);
+                        return isValid(date) && date.getFullYear() === currentYear && date.getMonth() === selectedMonth;
+                    }).sort((a, b) => new Date(a.data_fim_efetividade) - new Date(b.data_fim_efetividade));
+
+                    return (
+                        <div className="mt-4 bg-white border border-indigo-100 rounded-xl shadow-sm overflow-hidden">
+                            <div className="bg-indigo-50/50 p-4 border-b border-indigo-100 flex justify-between items-center">
+                                <h3 className="font-semibold text-indigo-900 text-sm flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-indigo-600" />
+                                    Contratos vencendo em {format(new Date(currentYear, selectedMonth, 1), "MMMM 'de' yyyy", { locale: ptBR })}
+                                </h3>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                                        {monthContracts.length} registro(s)
+                                    </span>
+                                    <Button variant="ghost" size="sm" onClick={() => setSelectedMonth(null)} className="h-7 text-xs text-indigo-400 hover:text-indigo-600">
+                                        Fechar
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="max-h-[300px] overflow-y-auto">
+                                {monthContracts.length > 0 ? (
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0 shadow-sm">
+                                            <tr>
+                                                <th className="px-4 py-3 font-semibold">Contrato / Cliente</th>
+                                                <th className="px-4 py-3 font-semibold">Status</th>
+                                                <th className="px-4 py-3 font-semibold">Vencimento</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {monthContracts.map((c) => (
+                                                <tr key={c.id} className="hover:bg-indigo-50/30 transition-colors">
+                                                    <td className="px-4 py-3">
+                                                        <div className="font-semibold text-slate-800">{c.contrato}</div>
+                                                        <div className="text-xs text-slate-500 mt-0.5">{c.cliente}</div>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium 
+                                                            ${c.status === 'Ativo' ? 'bg-green-100 text-green-800' :
+                                                              c.status === 'Expirado' ? 'bg-red-100 text-red-800' :
+                                                              'bg-gray-100 text-gray-800'}`}>
+                                                            {c.status || "-"}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <span className="font-medium text-slate-700">
+                                                            {format(parseISO(c.data_fim_efetividade), "dd/MM/yyyy")}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                ) : (
+                                    <div className="p-8 text-center text-slate-400 text-sm">
+                                        Nenhum contrato vencendo neste mês.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
 
             {/* Lista de Contratos a Vencer */}

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Contract } from "@/Entities/Contract";
 import { User } from "@/Entities/User";
 import { Link, useNavigate } from "react-router-dom";
@@ -26,14 +27,45 @@ import DexAlert from "../components/dashboard/DexAlert";
 import { useAuth } from "@/context/AuthContext";
 
 export default function Dashboard() {
-  const [contracts, setContracts] = useState([]);
-  const { user } = useAuth(); // Use AuthContext directly, assuming it's synced with localStorage now
-  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
   const [analystFilter, setAnalystFilter] = useState("all");
   const [selectedMonth, setSelectedMonth] = useState(null);
   const navigate = useNavigate();
 
-  // Extract unique analysts for filter
+  const { data: allContracts = [], isLoading } = useQuery({
+    queryKey: ['cocr-contracts', user?.id, user?.role, user?.department],
+    queryFn: async () => {
+      let contractData = await Contract.list("-created_date");
+
+      const department = user.department;
+      const role = user.role;
+      const userName = (user.name || user.full_name || "").trim().toLowerCase();
+      const userEmail = (user.email || "").trim().toLowerCase();
+      const canViewAll = department === 'GOR' || (department === 'COCR' && role === 'manager') || user.perfil === 'GESTOR';
+
+      if (!canViewAll) {
+        if (role === 'analyst' || user.perfil === 'ANALISTA') {
+          contractData = contractData.filter(c => {
+            const cAnalyst = (c.analista_responsavel || "").trim().toLowerCase();
+            return cAnalyst === userName || cAnalyst === userEmail;
+          });
+        } else if (role === 'client') {
+          contractData = contractData.filter(c => {
+            const cClient = (c.cliente || "").trim().toLowerCase();
+            return cClient === userName;
+          });
+        }
+      }
+      return contractData;
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000, // 5 min — compartilhado via React Query cache
+  });
+
+  // Alias para manter compatibilidade com o restante do componente
+  const contracts = allContracts;
+
+  // Extrai analistas únicos para o filtro de analista
   const activeAnalysts = useMemo(() => {
     const analysts = contracts
       .map(c => c.analista_responsavel)
@@ -41,50 +73,6 @@ export default function Dashboard() {
     return [...new Set(analysts)].sort();
   }, [contracts]);
 
-  // filteredContracts agora é alias de filteredContracts (filtro de analista centralizado abaixo)
-  useEffect(() => {
-    // Only load if user is defined
-    if (user) {
-      loadContracts();
-    }
-  }, [user]);
-
-  const loadContracts = async () => {
-    setIsLoading(true);
-    try {
-      // Fetch all contracts (or filtered by API if backend supported it, but client-side filter is fine for now)
-      let contractData = await Contract.list("-created_date");
-
-      // LOGICA DE PERMISSÃO / FILTRO
-      const department = user.department; // GOR, COCR, etc
-      const role = user.role; // manager, analyst, client
-      const userName = (user.name || user.full_name || "").trim().toLowerCase();
-      const userEmail = (user.email || "").trim().toLowerCase();
-
-      // Se for GOR ou Gestor COCR, vê tudo.
-      const canViewAll = department === 'GOR' || (department === 'COCR' && role === 'manager') || user.perfil === 'GESTOR';
-
-      if (!canViewAll) {
-        if (role === 'analyst' || user.perfil === 'ANALISTA') {
-          contractData = contractData.filter(c => {
-            const cAnalyst = (c.analista_responsavel || "").trim().toLowerCase();
-            return cAnalyst === userName || cAnalyst === userEmail; // Tenta bater nome ou email
-          });
-        } else if (role === 'client') {
-          contractData = contractData.filter(c => {
-            const cClient = (c.cliente || "").trim().toLowerCase();
-            // Assumindo que o Nome do Usuário Cliente é igual ao nome do Cliente no contrato
-            return cClient === userName;
-          });
-        }
-      }
-
-      setContracts(contractData);
-    } catch (error) {
-      console.error("Erro ao carregar contratos:", error);
-    }
-    setIsLoading(false);
-  };
 
   // Contratos filtrados pelo analista selecionado (afeta cards e gráfico)
   const filteredContracts = useMemo(() => {
@@ -165,38 +153,6 @@ export default function Dashboard() {
         <DexAlert contracts={contracts} isLoading={isLoading} />
       )}
 
-      {/* Acesso Rápido - Ferramentas de Gestão */}
-      {isManager && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Link to="/prazos/analise">
-            <Button variant="outline" className="w-full h-auto py-4 flex flex-col items-center gap-2 hover:bg-blue-50 border-blue-200">
-              <TrendingUp className="w-6 h-6 text-blue-600" />
-              <div className="text-center">
-                <span className="block font-semibold text-gray-900">Saúde da Carteira</span>
-                <span className="text-xs text-gray-500">Rentabilidade e riscos</span>
-              </div>
-            </Button>
-          </Link>
-          <Link to="/prazos/etapas">
-            <Button variant="outline" className="w-full h-auto py-4 flex flex-col items-center gap-2 hover:bg-green-50 border-green-200">
-              <Calendar className="w-6 h-6 text-green-600" />
-              <div className="text-center">
-                <span className="block font-semibold text-gray-900">Controle de Etapas</span>
-                <span className="text-xs text-gray-500">Fluxo de renovações</span>
-              </div>
-            </Button>
-          </Link>
-          <Link to="/prazos/gestao-dados">
-            <Button variant="outline" className="w-full h-auto py-4 flex flex-col items-center gap-2 hover:bg-purple-50 border-purple-200">
-              <Plus className="w-6 h-6 text-purple-600" />
-              <div className="text-center">
-                <span className="block font-semibold text-gray-900">Gestão de Dados</span>
-                <span className="text-xs text-gray-500">Migração e transferências</span>
-              </div>
-            </Button>
-          </Link>
-        </div>
-      )}
 
       {/* CARDS SIMPLE DASHBOARD (Visible to ALL) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

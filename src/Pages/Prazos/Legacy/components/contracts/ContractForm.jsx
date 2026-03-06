@@ -37,6 +37,14 @@ export default function ContractForm({
     return users;
   }, [users, currentUser]);
 
+  // Extrai grupos únicos (sigla) a partir da lista de clientes carregada
+  const availableGroups = React.useMemo(() => {
+    const siglas = existingClients
+      .map(c => c.sigla)
+      .filter(s => s && s.trim() !== '');
+    return [...new Set(siglas)].sort();
+  }, [existingClients]);
+
   const [formData, setFormData] = useState({
     analista_responsavel: "",
     cliente: "",
@@ -289,14 +297,23 @@ export default function ContractForm({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="grupo_cliente">Grupo Cliente</Label>
-                <Input
-                  id="grupo_cliente"
+                <Select
                   value={formData.grupo_cliente}
-                  readOnly
-                  disabled
-                  className="bg-gray-100 cursor-not-allowed"
-                />
+                  onValueChange={(value) => handleInputChange("grupo_cliente", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o grupo..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableGroups.map((grupo) => (
+                      <SelectItem key={grupo} value={grupo}>
+                        {grupo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="contrato">Número do Contrato *</Label>
                 <Input

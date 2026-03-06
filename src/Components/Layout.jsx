@@ -226,6 +226,21 @@ const SidebarContent = ({ isCollapsed, setIsCollapsed, user, setOpen, onLogout }
                     <span className="font-semibold text-sm">Sair da Conta</span>
                 </Button>
             )}
+
+            {/* Footer / Version Info */}
+            <div className={cn(
+                "mt-4 mb-1 w-full flex flex-col items-center justify-center transition-opacity duration-300 opacity-50 hover:opacity-100 cursor-default",
+                isCollapsed ? "hidden" : "flex"
+            )}>
+                <p className="text-[11px] text-slate-400 font-semibold tracking-wide uppercase">Gestão GOR <span className="text-indigo-400">v1.0</span></p>
+                <p className="text-[9px] text-slate-500 mt-0.5">Desenvolvido por Samuel Dias</p>
+            </div>
+            {isCollapsed && (
+                <div className="mt-3 mb-1 w-full flex justify-center opacity-40 cursor-default">
+                    <p className="text-[9px] text-slate-500 font-mono font-bold tracking-tighter">v1.0</p>
+                </div>
+            )}
+
         </div>
     </div>
 );

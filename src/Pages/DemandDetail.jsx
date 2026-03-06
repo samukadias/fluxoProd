@@ -65,45 +65,53 @@ export default function DemandDetailPage() {
     const { data: demand, isLoading: loadingDemand } = useQuery({
         queryKey: ['demand', demandId],
         queryFn: () => fluxoApi.entities.Demand.get(demandId),
-        enabled: !!demandId
+        enabled: !!demandId,
+        staleTime: 2 * 60 * 1000, // 2 min
     });
 
     const { data: history = [] } = useQuery({
         queryKey: ['history', demandId],
         queryFn: () => fluxoApi.entities.StatusHistory.list({ demand_id: demandId, sort: 'changed_at' }),
-        enabled: !!demandId
+        enabled: !!demandId,
+        staleTime: 2 * 60 * 1000,
     });
 
     const { data: holidays = [] } = useQuery({
         queryKey: ['holidays'],
-        queryFn: () => fluxoApi.entities.Holiday.list()
+        queryFn: () => fluxoApi.entities.Holiday.list(),
+        staleTime: 15 * 60 * 1000, // 15 min — feriados raramente mudam
     });
 
     const { data: stageHistory = [] } = useQuery({
         queryKey: ['stage-history', demandId],
         queryFn: () => fluxoApi.entities.StageHistory.list({ demand_id: demandId }),
-        enabled: !!demandId
+        enabled: !!demandId,
+        staleTime: 2 * 60 * 1000,
     });
 
     const { data: reopenings = [] } = useQuery({
         queryKey: ['reopenings', demandId],
         queryFn: () => fluxoApi.demands.reopenings(demandId).catch(() => []),
-        enabled: !!demandId
+        enabled: !!demandId,
+        staleTime: 2 * 60 * 1000,
     });
 
     const { data: users = [] } = useQuery({
         queryKey: ['users'],
-        queryFn: () => fluxoApi.entities.User.list()
+        queryFn: () => fluxoApi.entities.User.list(),
+        staleTime: 15 * 60 * 1000,
     });
 
     const { data: clients = [] } = useQuery({
         queryKey: ['clients'],
-        queryFn: () => fluxoApi.entities.Client.list()
+        queryFn: () => fluxoApi.entities.Client.list(),
+        staleTime: 15 * 60 * 1000,
     });
 
     const { data: cycles = [] } = useQuery({
         queryKey: ['cycles'],
-        queryFn: () => fluxoApi.entities.Cycle.list()
+        queryFn: () => fluxoApi.entities.Cycle.list(),
+        staleTime: 15 * 60 * 1000,
     });
 
     // Filtros unificados com lógica de perservação do valor atual
@@ -379,7 +387,7 @@ export default function DemandDetailPage() {
                                 <div className="flex items-start justify-between gap-4">
                                     <div>
                                         <div className="flex items-center gap-3 mb-2">
-                                            <span className="text-sm font-mono text-slate-500">
+                                            <span className="text-sm font-mono font-bold text-slate-600">
                                                 #{demand.demand_number || demand.id?.slice(-6)}
                                             </span>
                                             {isOverdue && (

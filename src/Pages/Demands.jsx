@@ -28,7 +28,7 @@ export default function DemandsPage() {
     const { user } = useAuth();
     const [showForm, setShowForm] = useState(false);
     const [duplicateData, setDuplicateData] = useState(null);
-    const [viewMode, setViewMode] = useState('grid');
+    const [viewMode, setViewMode] = useState('list');
     const [showReasonsManager, setShowReasonsManager] = useState(false);
     const [demandToDelete, setDemandToDelete] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
@@ -39,7 +39,8 @@ export default function DemandsPage() {
         analyst_id: 'all',
         client_id: 'all',
         cycle_id: 'all',
-        weight: 'all'
+        weight: 'all',
+        sortBy: 'date_desc'
     });
 
     // Reset to page 1 whenever filters change
@@ -140,7 +141,7 @@ export default function DemandsPage() {
     };
 
     const filteredDemands = useMemo(() => {
-        return demands.filter(d => {
+        const filtered = demands.filter(d => {
             // Role-based filtering
             if (user?.role === 'analyst') {
                 const myAnalystProfile = analysts.find(a => a.email === user.email);
@@ -177,7 +178,21 @@ export default function DemandsPage() {
 
             return true;
         });
+
+        // Ordenação
+        const sortBy = filters.sortBy || 'date_desc';
+        return [...filtered].sort((a, b) => {
+            switch (sortBy) {
+                case 'date_asc': return new Date(a.created_date) - new Date(b.created_date);
+                case 'date_desc': return new Date(b.created_date) - new Date(a.created_date);
+                case 'alpha_asc': return (a.product || '').localeCompare(b.product || '', 'pt-BR');
+                case 'alpha_desc': return (b.product || '').localeCompare(a.product || '', 'pt-BR');
+                case 'priority': return (a.weight ?? 4) - (b.weight ?? 4);
+                default: return 0;
+            }
+        });
     }, [demands, filters, user, analysts, requesters]);
+
 
     const analystsMap = useMemo(() => Object.fromEntries(analysts.map(a => [a.id, a])), [analysts]);
     const clientsMap = useMemo(() => Object.fromEntries(clients.map(c => [c.id, c])), [clients]);
@@ -287,6 +302,7 @@ export default function DemandsPage() {
                                     client={clientsMap[demand.client_id]}
                                     onDelete={(user?.role === 'analyst' || user?.role === 'viewer') ? null : handleDelete}
                                     onDuplicate={handleDuplicate}
+                                    viewMode={viewMode}
                                 />
                             ))}
                         </div>

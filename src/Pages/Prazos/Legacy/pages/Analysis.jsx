@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+
 import { Contract } from "@/entities/Contract";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, AlertTriangle } from "lucide-react";
@@ -10,24 +12,14 @@ import ClientAnalysis from "../components/analysis/ClientAnalysis";
 import ExpiryAnalysis from "../components/analysis/ExpiryAnalysis";
 
 export default function Analysis() {
-  const [contracts, setContracts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [timeFilter, setTimeFilter] = useState('all'); // 'all', 'thisYear', 'last12Months'
+  const [timeFilter, setTimeFilter] = useState('all');
 
-  useEffect(() => {
-    loadContracts();
-  }, []);
+  const { data: contracts = [], isLoading } = useQuery({
+    queryKey: ['cocr-contracts-analysis'],
+    queryFn: () => Contract.list("-created_date"),
+    staleTime: 5 * 60 * 1000, // 5 min
+  });
 
-  const loadContracts = async () => {
-    setIsLoading(true);
-    try {
-      const data = await Contract.list("-created_date");
-      setContracts(data);
-    } catch (error) {
-      console.error("Erro ao carregar contratos:", error);
-    }
-    setIsLoading(false);
-  };
 
   const getFilteredContracts = () => {
     if (timeFilter === 'all') return contracts;

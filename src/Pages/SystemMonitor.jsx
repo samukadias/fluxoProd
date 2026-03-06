@@ -78,7 +78,7 @@ export default function SystemMonitor() {
 
     useEffect(() => {
         if (!autoRefresh) return;
-        const interval = setInterval(fetchStats, 5000);
+        const interval = setInterval(fetchStats, 30000);
         return () => clearInterval(interval);
     }, [autoRefresh, fetchStats]);
 

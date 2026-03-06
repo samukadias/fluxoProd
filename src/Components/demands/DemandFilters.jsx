@@ -3,7 +3,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Search, X } from "lucide-react";
+import { Search, X, ArrowUpDown } from "lucide-react";
+
 
 const STATUS_LIST = [
     "PENDENTE TRIAGEM",
@@ -37,7 +38,8 @@ export default function DemandFilters({
             analyst_id: 'all',
             client_id: 'all',
             cycle_id: 'all',
-            weight: 'all'
+            weight: 'all',
+            sortBy: 'date_desc'
         });
     };
 
@@ -46,7 +48,9 @@ export default function DemandFilters({
         filters.analyst_id !== 'all' ||
         filters.client_id !== 'all' ||
         filters.cycle_id !== 'all' ||
-        filters.weight !== 'all';
+        filters.weight !== 'all' ||
+        (filters.sortBy && filters.sortBy !== 'date_desc');
+
 
     return (
         <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
@@ -65,7 +69,7 @@ export default function DemandFilters({
                 )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-3 items-end">
                 <div className="lg:col-span-2 space-y-1.5">
                     <Label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Busca</Label>
                     <div className="relative">
@@ -135,6 +139,24 @@ export default function DemandFilters({
                 </div>
 
                 <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Ciclo</Label>
+                    <Select
+                        value={filters.cycle_id}
+                        onValueChange={(v) => setFilters({ ...filters, cycle_id: v })}
+                    >
+                        <SelectTrigger className="h-10 border-slate-200">
+                            <SelectValue placeholder="Ciclo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos os Ciclos</SelectItem>
+                            {[...cycles].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(c => (
+                                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Prioridade</Label>
                     <Select
                         value={filters.weight}
@@ -153,7 +175,30 @@ export default function DemandFilters({
                         </SelectContent>
                     </Select>
                 </div>
+
+                <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                        <ArrowUpDown className="w-3 h-3" />
+                        Ordenar
+                    </Label>
+                    <Select
+                        value={filters.sortBy || 'date_desc'}
+                        onValueChange={(v) => setFilters({ ...filters, sortBy: v })}
+                    >
+                        <SelectTrigger className="h-10 border-slate-200">
+                            <SelectValue placeholder="Ordenar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="date_desc">↓ Mais recentes</SelectItem>
+                            <SelectItem value="date_asc">↑ Mais antigas</SelectItem>
+                            <SelectItem value="alpha_asc">A → Z (produto)</SelectItem>
+                            <SelectItem value="alpha_desc">Z → A (produto)</SelectItem>
+                            <SelectItem value="priority">Prioridade (maior → menor)</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
+
         </div>
     );
 }

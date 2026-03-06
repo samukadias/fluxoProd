@@ -4,6 +4,45 @@ const cors = require('cors');
 const cron = require('node-cron');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
+const fs = require('fs');
+const path = require('path');
+
+// ========================================
+// PERSISTENT LOGGER
+// ========================================
+const LOG_DIR = path.join(__dirname, 'logs');
+const LOG_FILE = path.join(LOG_DIR, 'server.log');
+const MAX_LOG_BYTES = 5 * 1024 * 1024; // 5 MB — rotate when exceeded
+
+if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
+
+function writeLog(level, message) {
+    const line = `[${new Date().toISOString()}] [${level}] ${message}\n`;
+    // Console mirror
+    if (level === 'ERROR') process.stderr.write(line);
+    else process.stdout.write(line);
+    // File write (rotate if needed)
+    try {
+        if (fs.existsSync(LOG_FILE) && fs.statSync(LOG_FILE).size > MAX_LOG_BYTES) {
+            fs.renameSync(LOG_FILE, LOG_FILE + '.old');
+        }
+        fs.appendFileSync(LOG_FILE, line);
+    } catch (_) { /* never crash because of logging */ }
+}
+
+// ========================================
+// GLOBAL ERROR HANDLERS (prevent silent crashes)
+// ========================================
+process.on('uncaughtException', (err) => {
+    writeLog('ERROR', `uncaughtException: ${err.stack || err.message}`);
+    process.exit(1); // exit so the OS / PM2 can restart
+});
+
+process.on('unhandledRejection', (reason) => {
+    const msg = reason instanceof Error ? reason.stack : String(reason);
+    writeLog('ERROR', `unhandledRejection: ${msg}`);
+    // Do NOT exit — unhandled promise rejections are usually recoverable
+});
 
 // Database & Infrastructure
 const db = require('./db');
@@ -293,16 +332,16 @@ const start = async () => {
     while (retries > 0) {
         try {
             await initDb();
-            console.log("✅ Database initialized successfully");
+            writeLog('INFO', 'Database initialized successfully');
             break;
         } catch (error) {
-            console.error(`❌ Database connection failed: ${error.message}`);
+            writeLog('ERROR', `Database connection failed: ${error.message}`);
             retries -= 1;
             if (retries === 0) {
-                console.error("❌ Max retries reached. Exiting...");
+                writeLog('ERROR', 'Max retries reached. Exiting...');
                 process.exit(1);
             }
-            console.log(`⏳ Retrying in 5 seconds... (${retries} retries left)`);
+            writeLog('WARN', `Retrying in 5 seconds... (${retries} retries left)`);
             await new Promise(res => setTimeout(res, 5000));
         }
     }
@@ -314,7 +353,7 @@ const start = async () => {
     }
 
     app.listen(port, () => {
-        console.log(`✅ Server running on port ${port}`);
+        writeLog('INFO', `Server running on port ${port}`);
     });
 
     // Daily cron: generate expiring contract notifications at 8am

@@ -23,11 +23,17 @@ export default function Contracts() {
 
   const [filters, setFilters] = usePersistedFilters("cocr_filters", {
     search: "",
-    status: searchParams.get("status") || "all",
+    status: "all",
     analista: "all",
     cliente: "all",
-    vencimento: searchParams.get("vencimento") || "all"
+    vencimento: "all"
+  }, {
+    // URL params têm prioridade máxima: ao navegar do Dashboard com ?vencimento=expiring,
+    // o filtro é aplicado mesmo que o sessionStorage tenha um valor diferente salvo.
+    status: searchParams.get("status") || undefined,
+    vencimento: searchParams.get("vencimento") || undefined,
   });
+
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [clientView, setClientView] = useState('grupo'); // 'cliente' | 'grupo'
 

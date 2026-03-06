@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+
 import { Contract } from "@/entities/Contract";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,26 +13,16 @@ import { Calendar, AlertTriangle, CheckCircle2, Search, Eye, TrendingUp } from "
 import ContractDetailsModal from "../components/stagecontrol/ContractDetailsModal";
 
 export default function StageControl() {
-  const [contracts, setContracts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [contractFilter, setContractFilter] = useState("");
   const [selectedContracts, setSelectedContracts] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
 
-  useEffect(() => {
-    loadContracts();
-  }, []);
+  const { data: contracts = [], isLoading } = useQuery({
+    queryKey: ['cocr-contracts-stage'],
+    queryFn: () => Contract.list("-created_date"),
+    staleTime: 5 * 60 * 1000, // 5 min
+  });
 
-  const loadContracts = async () => {
-    setIsLoading(true);
-    try {
-      const data = await Contract.list("-created_date");
-      setContracts(data);
-    } catch (error) {
-      console.error("Erro ao carregar contratos:", error);
-    }
-    setIsLoading(false);
-  };
 
   const getStageRangeForProrrogacao = (stageName) => {
     const ranges = {
