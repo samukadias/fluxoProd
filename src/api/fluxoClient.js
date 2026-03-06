@@ -39,17 +39,36 @@ fluxClient.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// Response interceptor: handle 401 (expired/invalid token)
+// Response interceptor: handle 401 (expired/invalid token) and Network Errors (Offline/Down)
 fluxClient.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 401) {
-            // Token expired or invalid - clear session and redirect to login
-            const currentPath = window.location.pathname;
-            if (currentPath !== '/login' && currentPath !== '/') {
-                localStorage.removeItem('fluxo_token');
-                localStorage.removeItem('fluxo_user');
-                window.location.href = '/login';
+        // Pass through silent ping requests without firing global disruption events
+        if (error.config?._isPingRequest) {
+            return Promise.reject(error);
+        }
+
+        // 1. Connection dropped entirely or server unresponsive (e.g. timeout, DNS failure)
+        if (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.message?.includes('timeout')) {
+            window.dispatchEvent(new Event('system-offline'));
+        }
+
+        // 2. Server returned an error, check if it's a fatal gateway/server down error
+        if (error.response) {
+            const status = error.response.status;
+
+            if (status === 502 || status === 503 || status === 504) {
+                window.dispatchEvent(new Event('system-offline'));
+            }
+
+            if (status === 401) {
+                // Token expired or invalid - clear session and redirect to login
+                const currentPath = window.location.pathname;
+                if (currentPath !== '/login' && currentPath !== '/') {
+                    localStorage.removeItem('fluxo_token');
+                    localStorage.removeItem('fluxo_user');
+                    window.location.href = '/login';
+                }
             }
         }
         return Promise.reject(error);
