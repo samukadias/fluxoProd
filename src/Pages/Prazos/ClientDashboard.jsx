@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Contract } from '@/entities/Contract';
+import { Contract } from '@/Entities/Contract';
 import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 import { FileText, TrendingUp, Calendar, DollarSign, List, FilterX } from "lucide-react";
 import StatsCard from '@/Components/dashboard/StatsCard'; // Reusing existing component if compatible, or I'll inline a simple one. 
@@ -62,7 +62,7 @@ export default function ClientDashboard() {
             return daysUntil <= 60 && daysUntil >= 0;
         });
 
-        const totalValue = contracts.reduce((sum, c) => sum + (c.valor_contrato || 0), 0);
+        const totalValue = active.reduce((sum, c) => sum + (c.valor_contrato || 0), 0);
 
         return {
             total: contracts.length,
@@ -78,8 +78,8 @@ export default function ClientDashboard() {
 
         switch (selectedView) {
             case 'total':
-            case 'value': // Show all for value view as well? or maybe active only? Let's show all.
                 return contracts;
+            case 'value':
             case 'active':
                 return contracts.filter(c => c.status === "Ativo");
             case 'expiring':
@@ -94,7 +94,7 @@ export default function ClientDashboard() {
             case 'total': return 'Todos os Meus Contratos';
             case 'active': return 'Meus Contratos Ativos';
             case 'expiring': return 'Contratos Vencendo em Breve (2 meses)';
-            case 'value': return 'Visão Geral Financeira (Todos)';
+            case 'value': return 'Visão Geral Financeira (Contratos Ativos)';
             default: return '';
         }
     };

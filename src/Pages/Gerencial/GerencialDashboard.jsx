@@ -5,6 +5,7 @@ import { useCdpcMetricsQuery, useCocrMetricsQuery, useCyclesQuery } from '@/hook
 import CdpcTab from './components/CdpcTab';
 import CocrTab from './components/CocrTab';
 import CvacTab from './components/CvacTab';
+import GlobalFilterBar from './components/GlobalFilterBar';
 
 /**
  * GerencialDashboard — Visão Executiva.
@@ -25,17 +26,23 @@ export default function GerencialDashboard() {
 
     const [activeTab, setActiveTab] = useState(getInitialTab);
 
-    // --- Filtros CDPC ---
+    // --- Filtros Globais ---
     const currentMonthStr = String(new Date().getMonth() + 1).padStart(2, '0');
     const currentYearStr = String(new Date().getFullYear());
-    const [cdpcFilters, setCdpcFilters] = useState({
+    const [globalFilters, setGlobalFilters] = useState({
         month: currentMonthStr,
         year: currentYearStr,
-        cycle_id: '',
+        cycle_ids: [],
         artifact: '',
     });
 
     // --- React Query: busca dados com cache automático ---
+    // Join array para strings para enviar no query param (e.g. cycle_ids: '1,2,3')
+    const cdpcQueryParams = {
+        ...globalFilters,
+        cycle_ids: globalFilters.cycle_ids.length > 0 ? globalFilters.cycle_ids.join(',') : '',
+    };
+
     const {
         data: cdpcMetrics = {
             backlog: 0, entriesThisMonth: 0, deliveredThisMonth: 0, highPriorityThisMonth: 0,
@@ -46,13 +53,19 @@ export default function GerencialDashboard() {
         },
         isFetching: cdpcLoading,
         dataUpdatedAt: cdpcUpdatedAt,
-    } = useCdpcMetricsQuery(cdpcFilters);
+    } = useCdpcMetricsQuery(cdpcQueryParams);
+
+    // O backend COCR deverá ignorar cycle_ids e artifact, e usar apenas month e year
+    const cocrQueryParams = {
+        month: globalFilters.month,
+        year: globalFilters.year,
+    };
 
     const { data: cocrMetrics = {
         totalContracts: 0, globalValue: 0, expiringContracts: [],
         aditamentosMonthCount: 0, aditamentosMonthValue: 0,
         aguardandoAssinaturaCount: 0, aguardandoAssinaturaValue: 0,
-    } } = useCocrMetricsQuery();
+    } } = useCocrMetricsQuery(cocrQueryParams);
 
     const { data: cycles = [] } = useCyclesQuery();
 
@@ -70,11 +83,11 @@ export default function GerencialDashboard() {
         });
 
     const handleFilterChange = (key, value) => {
-        setCdpcFilters(prev => ({ ...prev, [key]: value }));
+        setGlobalFilters(prev => ({ ...prev, [key]: value }));
     };
 
     const handleFilterReset = () => {
-        setCdpcFilters({ month: currentMonthStr, year: currentYearStr, cycle_id: '', artifact: '' });
+        setGlobalFilters({ month: currentMonthStr, year: currentYearStr, cycle_ids: [], artifact: '' });
     };
 
     // Filtra as abas conforme departamento — admin/GOR vê tudo
@@ -90,7 +103,7 @@ export default function GerencialDashboard() {
         <div className="min-h-screen flex flex-col pt-4 overflow-hidden bg-slate-50 relative">
 
             {/* Cabeçalho */}
-            <header className="bg-white mx-6 rounded-2xl shadow-sm border border-slate-100 p-4 mb-6 flex justify-between items-center z-10 shrink-0">
+            <header className="bg-white mx-6 rounded-2xl shadow-sm border border-slate-100 p-4 mb-3 flex justify-between items-center z-10 shrink-0">
                 <div className="flex items-center gap-4">
                     <div className="bg-blue-600 text-white p-2.5 rounded-xl shadow-sm">
                         <PieChart className="w-6 h-6" />
@@ -113,8 +126,20 @@ export default function GerencialDashboard() {
                 </div>
             </header>
 
+            {/* Barra de Filtros Global */}
+            <div className="mx-6 mb-4 shrink-0 z-20">
+                <GlobalFilterBar
+                    filters={globalFilters}
+                    onFilterChange={handleFilterChange}
+                    onReset={handleFilterReset}
+                    cycles={cycles}
+                    defaultMonthStr={currentMonthStr}
+                    activeTab={activeTab}
+                />
+            </div>
+
             {/* Navegação de Abas */}
-            <div className="px-8 border-b border-slate-200 mb-6 flex gap-8 shrink-0">
+            <div className="px-8 border-b border-slate-200 mb-6 flex justify-center gap-8 shrink-0">
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
@@ -137,12 +162,8 @@ export default function GerencialDashboard() {
                 {activeTab === 'cdpc' && (
                     <CdpcTab
                         metrics={cdpcMetrics}
-                        filters={cdpcFilters}
-                        onFilterChange={handleFilterChange}
-                        onReset={handleFilterReset}
-                        cycles={cycles}
                         loading={cdpcLoading}
-                        defaultMonthStr={currentMonthStr}
+                        filters={globalFilters}
                         formatCurrency={formatCurrency}
                     />
                 )}
@@ -151,12 +172,15 @@ export default function GerencialDashboard() {
                     <CocrTab
                         metrics={cocrMetrics}
                         loading={cdpcLoading}
+                        filters={globalFilters}
                         formatCurrency={formatCurrency}
                     />
                 )}
 
                 {activeTab === 'cvac' && (
-                    <CvacTab />
+                    <CvacTab
+                        filters={globalFilters}
+                    />
                 )}
 
             </div>

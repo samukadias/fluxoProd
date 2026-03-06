@@ -7,7 +7,6 @@ import {
     TrendingDown,
     CheckCircle2,
 } from 'lucide-react';
-import CdpcFilterBar from './CdpcFilterBar';
 
 /**
  * CdpcTab — conteúdo completo da aba CDPC na Visão Executiva.
@@ -16,11 +15,7 @@ import CdpcFilterBar from './CdpcFilterBar';
 export default function CdpcTab({
     metrics,
     filters,
-    onFilterChange,
-    onReset,
-    cycles,
     loading,
-    defaultMonthStr,
     formatCurrency,
 }) {
     return (
@@ -31,13 +26,6 @@ export default function CdpcTab({
                     <h2 className="text-lg font-bold text-slate-800">Volume &amp; Capacidade</h2>
                     <p className="text-sm text-slate-500">Métricas de fluxo e entrega de propostas</p>
                 </div>
-                <CdpcFilterBar
-                    filters={filters}
-                    onFilterChange={onFilterChange}
-                    onReset={onReset}
-                    cycles={cycles}
-                    defaultMonthStr={defaultMonthStr}
-                />
             </div>
 
             {/* Cards Superiores - Primeira Linha */}

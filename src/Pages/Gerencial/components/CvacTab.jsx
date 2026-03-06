@@ -3,7 +3,7 @@ import { Landmark, Calendar, CheckCircle2, Clock, AlertCircle, TrendingUp, Alert
 import { useQuery } from '@tanstack/react-query';
 import { fluxoApi } from '@/api/fluxoClient';
 
-export default function CvacTab() {
+export default function CvacTab({ filters }) {
     const { data: attestations = [], isLoading: isLoadingAtt } = useQuery({
         queryKey: ['cvac-all-attestations'],
         queryFn: () => fluxoApi.entities.MonthlyAttestation.list()
@@ -14,14 +14,18 @@ export default function CvacTab() {
         queryFn: () => fluxoApi.entities.Contract.list()
     });
 
+    // Current period is based on filters, not the system date
+    const currentYearStr = filters?.year || String(new Date().getFullYear());
+    // Get month number avoiding 0-index date issues
+    const currentMonthNum = parseInt(filters?.month || (new Date().getMonth() + 1), 10);
+    const currentMonthRef = `${currentYearStr}-${String(currentMonthNum).padStart(2, '0')}`;
+
     const metrics = useMemo(() => {
-        const now = new Date();
-        const currentYearStr = now.getFullYear().toString();
-        const currentMonthStr = (now.getMonth() + 1).toString().padStart(2, '0');
-        const currentMonthRef = `${currentYearStr}-${currentMonthStr}`;
+        // Create a Date object for the filtered month to get its name
+        const filteredDate = new Date(parseInt(currentYearStr), currentMonthNum - 1, 1); // Month is 0-indexed for Date constructor
 
         const dateFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long' });
-        const monthName = dateFormatter.format(now);
+        const monthName = dateFormatter.format(filteredDate);
         const monthNameCapitalized = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
         // 1. Meta / Acumulado Anual baseada nos contratos globais estimados

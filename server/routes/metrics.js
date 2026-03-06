@@ -6,12 +6,12 @@ const router = express.Router();
 /**
  * GET /metrics/cdpc
  * High-performance aggregation for CDPC Dashboard
- * Supports Query Params: month, year, cycle_id, artifact
+ * Supports Query Params: month, year, cycle_ids, artifact
  */
 router.get('/cdpc', async (req, res) => {
     const client = await db.connect();
     try {
-        const { month, year, cycle_id, artifact } = req.query;
+        const { month, year, cycle_ids, artifact } = req.query;
 
         // Validate and parse year/month to prevent SQL injection via interpolation
         const rawYear = year ? parseInt(year, 10) : new Date().getFullYear();
@@ -32,10 +32,14 @@ router.get('/cdpc', async (req, res) => {
         let values = [];
         let paramsCount = 1;
 
-        if (cycle_id) {
-            baseWhere += ` AND cycle_id = $${paramsCount}`;
-            values.push(cycle_id);
-            paramsCount++;
+        if (cycle_ids) {
+            // Parses '1,2,3' string into [1, 2, 3] array
+            const idArray = cycle_ids.split(',').map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+            if (idArray.length > 0) {
+                baseWhere += ` AND cycle_id = ANY($${paramsCount}::int[])`;
+                values.push(idArray);
+                paramsCount++;
+            }
         }
         if (artifact) {
             // artifact can be OO, Kit, etc.
@@ -210,8 +214,28 @@ router.get('/cdpc', async (req, res) => {
  * High-performance aggregation for COCR Dashboard
  */
 router.get('/cocr', async (req, res) => {
+    // Note: the time filters on COCR only filter the volumes (aditamentos e contratos renovados no mês).
+    // The total pipeline/caixa values are global totals independent of the month filter unless specified by exact requirement.
     const client = await db.connect();
     try {
+        const { month, year } = req.query;
+
+        const rawYear = year ? parseInt(year, 10) : new Date().getFullYear();
+        const rawMonth = month ? parseInt(month, 10) : null;
+
+        const currentYear = rawYear;
+        const currentMonth = rawMonth;
+
+        // Mês atual é usado para aditamentos e relatórios de métrica. Usa created_at como proxy para data de referência se houver
+        // Como o contrato tem status Ativo, as medições de volume no período geralmente não dependem fortemente da aba a nao ser por renovação
+        const dateFilterAditamento = currentMonth
+            ? `AND EXTRACT(YEAR FROM created_at) = ${currentYear} AND EXTRACT(MONTH FROM created_at) = ${currentMonth}`
+            : `AND EXTRACT(YEAR FROM created_at) = ${currentYear}`;
+
+        const dateFilterAssinatura = currentMonth
+            ? `AND EXTRACT(YEAR FROM created_at) = ${currentYear} AND EXTRACT(MONTH FROM created_at) = ${currentMonth}`
+            : `AND EXTRACT(YEAR FROM created_at) = ${currentYear}`;
+
         const queries = {
             totals: `SELECT COUNT(*) as total_count, SUM(valor_contrato) as global_value FROM contracts WHERE status ILIKE 'Ativo'`,
             aditamentos: `
@@ -223,6 +247,7 @@ router.get('/cocr', async (req, res) => {
                     etapa ILIKE '%adit%' OR 
                     (tipo_aditamento IS NOT NULL AND TRIM(tipo_aditamento) != '')
                 )
+                ${dateFilterAditamento}
             `,
             assinaturas: `
                 SELECT COUNT(*) as count, SUM(valor_contrato) as total_value 
@@ -230,6 +255,7 @@ router.get('/cocr', async (req, res) => {
                 WHERE status ILIKE 'Ativo' 
                 AND tipo_tratativa ILIKE '%prorroga%' 
                 AND (etapa ILIKE '9.%' OR etapa ILIKE '9 %')
+                ${dateFilterAssinatura}
             `,
             expiring: `
                 SELECT contrato, cliente, termo, data_fim_efetividade, 
