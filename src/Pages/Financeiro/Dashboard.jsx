@@ -15,12 +15,16 @@ export default function Dashboard() {
     // Mas podemos pegar info extra aqui.
     // Vamos assumir que quem acessa /financeiro/dashboard tem permissão.
 
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear().toString();
+    const currentMonth = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+
     const [filters, setFilters] = useState({
         client: 'all',
         pd: 'all',
         esp: 'all',
-        year: 'all',
-        month: 'all',
+        year: currentYear,
+        month: currentMonth,
         analyst: 'all'
     });
 

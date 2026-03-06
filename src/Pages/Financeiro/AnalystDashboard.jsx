@@ -11,12 +11,16 @@ export default function AnalystDashboard() {
     const user = JSON.parse(localStorage.getItem('fluxo_user') || localStorage.getItem('user') || '{}');
     const analystName = user?.name;
 
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear().toString();
+    const currentMonth = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+
     const [filters, setFilters] = useState({
         client: 'all',
         pd: 'all',
         esp: 'all',
-        year: 'all',
-        month: 'all',
+        year: currentYear,
+        month: currentMonth,
         analyst: analystName // Fixed to the analyst
     });
 
