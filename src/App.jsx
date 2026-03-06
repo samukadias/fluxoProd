@@ -33,6 +33,7 @@ const SystemMonitor = lazy(() => import('./pages/SystemMonitor'));
 // Components
 import UserNotRegisteredError from "./components/UserNotRegisteredError";
 import Layout from "./components/Layout";
+import { ReloadPrompt } from "./components/ReloadPrompt";
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -148,6 +149,7 @@ function App() {
                     </BrowserRouter>
                 </AuthProvider>
                 <Toaster />
+                <ReloadPrompt />
             </TooltipProvider>
         </QueryClientProvider>
     );
