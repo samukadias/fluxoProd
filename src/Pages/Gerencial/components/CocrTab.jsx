@@ -97,23 +97,22 @@ export default function CocrTab({ metrics, loading, formatCurrency }) {
                             <h3 className="font-semibold text-slate-700 text-sm">Qualidade do Preço / Impacto Financeiro</h3>
                         </div>
                         <div className="grid grid-cols-2">
-                            <div className="p-6 border-r border-slate-100 text-center">
+                            <div className="p-6 border-r border-slate-100 text-center flex flex-col items-center justify-center">
                                 <div className="w-10 h-10 mx-auto bg-amber-50 rounded-full flex items-center justify-center mb-3">
                                     <TrendingDown className="w-5 h-5 text-amber-500" />
                                 </div>
                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Tabela Defasada</p>
-                                <p className="text-2xl font-bold text-amber-600 mb-1">4 contratos</p>
-                                <p className="text-sm text-slate-500 bg-slate-50 py-1 rounded w-fit mx-auto px-3">R$ 300.000 alocados</p>
+                                <p className="text-2xl font-bold text-slate-300 mb-1">0 contratos</p>
+                                <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider">- (Em Análise de Implementação)</p>
                             </div>
-                            <div className="p-6 text-center">
+                            <div className="p-6 text-center flex flex-col items-center justify-center">
                                 <div className="w-10 h-10 mx-auto bg-slate-100 rounded-full flex items-center justify-center mb-3">
                                     <TrendingDown className="w-5 h-5 text-slate-500" />
                                 </div>
                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Descontos Concedidos</p>
-                                <p className="text-2xl font-bold text-slate-700 mb-2">10 contratos</p>
+                                <p className="text-2xl font-bold text-slate-300 mb-2">0 contratos</p>
                                 <div className="flex flex-col items-center justify-center gap-1">
-                                    <span className="text-xs font-bold bg-red-100 text-red-700 px-2.5 py-1 rounded-md">Dif: -R$ 50.000</span>
-                                    <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider">(Tabela: R$ 550k • Final: R$ 500k)</p>
+                                    <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider">- (Em Análise de Implementação)</p>
                                 </div>
                             </div>
                         </div>
