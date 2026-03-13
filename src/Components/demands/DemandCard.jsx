@@ -63,6 +63,11 @@ export default function DemandCard({ demand, analyst, client, onDelete, onDuplic
                                     {demand.artifact}
                                 </span>
                                 <PriorityBadge weight={demand.weight} />
+                                {demand.value != null && (
+                                    <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded shadow-sm">
+                                        {Number(demand.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                    </span>
+                                )}
                             </div>
                         </div>
 
@@ -147,6 +152,11 @@ export default function DemandCard({ demand, analyst, client, onDelete, onDuplic
                                 <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 bg-red-100 px-1.5 py-0.5 rounded shrink-0">
                                     <AlertTriangle className="w-3 h-3" />
                                     ATRASADA
+                                </span>
+                            )}
+                            {demand.value != null && (
+                                <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded shadow-sm">
+                                    {Number(demand.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                 </span>
                             )}
                             <StatusBadge status={demand.status} size="sm" />

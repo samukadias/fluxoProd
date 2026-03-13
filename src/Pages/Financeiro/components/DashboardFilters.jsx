@@ -19,6 +19,7 @@ export default function DashboardFilters({
             client: 'all',
             pd: 'all',
             esp: 'all',
+            year: 'all',
             month: 'all'
         });
     };

@@ -24,7 +24,7 @@ export default function Dashboard() {
         pd: 'all',
         esp: 'all',
         year: currentYear,
-        month: currentMonth,
+        month: 'all',
         analyst: 'all'
     });
 
@@ -92,24 +92,33 @@ export default function Dashboard() {
         if (att.reference_month) {
             const [attYear, attMonth] = att.reference_month.split('-');
             if (filters.year !== 'all' && attYear !== filters.year) return false;
-            // O value do mês que vem do Select agora é apenas os dois dígitos (ex: "02")
             if (filters.month !== 'all' && attMonth !== filters.month) return false;
+        } else {
+            // Se não tem mês de referência e estamos filtrando por algo específico de data, esconde
+            if (filters.year !== 'all' || filters.month !== 'all') return false;
         }
 
         return true;
     });
 
-    // Calcular métricas com a nova regra de GAP (Apontado - Faturado)
+    // Calcular métricas financeiras reais
     const totalBilled = filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.billed_amount) || 0), 0);
-    const totalMeasurement = filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.measurement_value) || 0), 0);
-
     const totalPaid = filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.paid_amount) || 0), 0);
-    const totalGap = totalMeasurement - totalBilled;
+    const totalMeasurement = filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.measurement_value) || 0), 0);
+    const totalExpected = filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.expected_amount) || 0), 0);
+    
+    // Nova regra de pendência: Apontado - Faturado
+    const pendencyValue = totalMeasurement - totalBilled;
 
-    // Contagem de registros com GAP
+    // Contagem de registros com Pendência (Apontado > Faturado)
     const pendencyCount = filteredAttestations.filter(att =>
-        (parseFloat(att.measurement_value) || 0) - (parseFloat(att.billed_amount) || 0) > 0
+        (parseFloat(att.measurement_value) || 0) > (parseFloat(att.billed_amount) || 0)
     ).length;
+
+    // Filtrar para a tabela apenas quem tem pendência (Apontado > Faturado)
+    const attestationsWithPendency = filteredAttestations.filter(att => 
+        (parseFloat(att.measurement_value) || 0) > (parseFloat(att.billed_amount) || 0)
+    );
 
     const formatCurrency = (value) => {
         return new Intl.NumberFormat('pt-BR', {
@@ -128,33 +137,40 @@ export default function Dashboard() {
                 </div>
 
                 {/* Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <PendencyCard
-                        title="Total Faturado"
-                        value={formatCurrency(totalBilled)}
-                        subtitle={`${filteredAttestations.length} registros no mês`}
+                        title="Total Esperado"
+                        value={totalExpected}
+                        subtitle="Projeção de recebimento"
                         type="default"
                         icon={DollarSign}
                     />
                     <PendencyCard
-                        title="Total Apontado"
-                        value={formatCurrency(totalMeasurement)}
-                        subtitle="Métrica de medição base"
+                        title="Total Faturado"
+                        value={totalBilled}
+                        subtitle={`${filteredAttestations.length} notas emitidas`}
+                        type="default"
+                        icon={DollarSign}
+                    />
+                    <PendencyCard
+                        title="Total Recebido"
+                        value={totalPaid}
+                        subtitle="Valores liquidados"
                         type="success"
                         icon={CheckCircle2}
                     />
                     <PendencyCard
-                        title="Total GAP"
-                        value={formatCurrency(totalGap)}
-                        subtitle={totalGap > 0 ? 'Diferença: Apontado - Faturado' : 'Sem GAPs no período'}
-                        type={totalGap > 0 ? 'danger' : 'success'}
+                        title="Pendência"
+                        value={pendencyValue}
+                        subtitle={pendencyValue > 0 ? 'A faturar (Apontado - Faturado)' : 'Zero pendências'}
+                        type={pendencyValue > 0 ? 'danger' : 'success'}
                         icon={AlertTriangle}
                     />
                     <PendencyCard
-                        title="Clientes com GAP"
-                        value={pendencyCount}
-                        subtitle="Registros apresentando GAP"
-                        type={pendencyCount > 0 ? 'warning' : 'success'}
+                        title="Total Apontado"
+                        value={totalMeasurement}
+                        subtitle={`Registros filtrados: ${filteredAttestations.length}`}
+                        type="warning"
                         icon={Users}
                     />
                 </div>
@@ -193,7 +209,7 @@ export default function Dashboard() {
                         </div>
                     ) : (
                         <PendencyTable
-                            attestations={filteredAttestations}
+                            attestations={attestationsWithPendency}
                             onViewDetails={(att) => {
                                 setSelectedAttestation(att);
                                 setDetailsDialogOpen(true);

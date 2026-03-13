@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,8 +34,11 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
         nfe_issue_date: '',
         nfe_sharepoint_date: '',
         billed_amount: 0,
+        expected_amount: 0,
         measurement_value: 0,
         paid_amount: 0,
+        has_single_installment: false,
+        single_installment_amount: 0,
         invoice_send_date: '',
         observations: ''
     });
@@ -62,8 +65,11 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                 nfe_issue_date: attestation.nfe_issue_date ? attestation.nfe_issue_date.split('T')[0] : '',
                 nfe_sharepoint_date: attestation.nfe_sharepoint_date ? attestation.nfe_sharepoint_date.split('T')[0] : '',
                 billed_amount: attestation.billed_amount || 0,
+                expected_amount: attestation.expected_amount || 0,
                 measurement_value: attestation.measurement_value || 0,
                 paid_amount: attestation.paid_amount || 0,
+                has_single_installment: !!attestation.has_single_installment,
+                single_installment_amount: attestation.single_installment_amount || 0,
                 invoice_send_date: attestation.invoice_send_date ? attestation.invoice_send_date.split('T')[0] : '',
                 observations: attestation.observations || ''
             });
@@ -127,15 +133,15 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
         }
     };
 
-    const updateField = (field, value) => {
+    const updateField = useCallback((field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
-    };
+    }, []);
 
-    const pendency = (formData.billed_amount || 0) - (formData.paid_amount || 0);
-    const gap = (formData.measurement_value || 0) - (formData.billed_amount || 0);
+    const pendency = useMemo(() => (formData.billed_amount || 0) - (formData.paid_amount || 0), [formData.billed_amount, formData.paid_amount]);
+    const gap = useMemo(() => (formData.measurement_value || 0) - (formData.billed_amount || 0), [formData.measurement_value, formData.billed_amount]);
 
     // Helper para extrair ESPs do contrato
-    const getEsps = () => {
+    const contractEsps = useMemo(() => {
         if (contract && contract.esps) {
             if (typeof contract.esps === 'string') {
                 try { return JSON.parse(contract.esps); } catch (e) { return []; }
@@ -143,12 +149,10 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
             return contract.esps;
         }
         return [];
-    };
-
-    const contractEsps = getEsps();
+    }, [contract]);
 
     // Calcular período de vigência do contrato (lido do contrato)
-    const vigencyPeriod = (() => {
+    const vigencyPeriod = useMemo(() => {
         const start = contract?.data_inicio_efetividade;
         const end = contract?.data_fim_efetividade;
         if (!start || !end) return null;
@@ -156,15 +160,15 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
         const e = new Date(end);
         const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
         return `${months} ${months === 1 ? 'mês' : 'meses'} (${s.toLocaleDateString('pt-BR')} a ${e.toLocaleDateString('pt-BR')})`;
-    })();
+    }, [contract]);
 
     // Valor da ESP selecionada
-    const selectedEspValue = (() => {
+    const selectedEspValue = useMemo(() => {
         const esp = contractEsps.find(e => e.esp_number === formData.esp_number);
         return esp?.esp_value ? parseFloat(esp.esp_value) : null;
-    })();
+    }, [contractEsps, formData.esp_number]);
 
-    const generateMonthOptions = () => {
+    const monthOptions = useMemo(() => {
         const options = [];
         const now = new Date();
         for (let i = 0; i < 24; i++) {
@@ -174,8 +178,28 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
             options.push({ value, label });
         }
         return options;
+    }, []);
+
+
+
+    const formatToBRL = (value) => {
+        if (value === null || value === undefined) return '';
+        const number = typeof value === 'string' ? parseFloat(value.replace(/\D/g, '')) / 100 : value;
+        return new Intl.NumberFormat('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(number || 0);
     };
 
+    const parseCurrency = (value) => {
+        const cleanValue = value.replace(/\D/g, '');
+        return parseFloat(cleanValue) / 100;
+    };
+
+    const handleCurrencyChange = (field, value) => {
+        const numericValue = parseCurrency(value);
+        updateField(field, numericValue);
+    };
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -209,7 +233,7 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                                     <SelectValue placeholder="Selecione o mês" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {generateMonthOptions().map(opt => (
+                                    {monthOptions.map(opt => (
                                         <SelectItem key={opt.value} value={opt.value}>
                                             {opt.label}
                                         </SelectItem>
@@ -411,12 +435,10 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                             <div className="relative mt-1">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">R$</span>
                                 <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={formData.measurement_value}
-                                    onChange={(e) => updateField('measurement_value', parseFloat(e.target.value) || 0)}
-                                    className="pl-10"
+                                    type="text"
+                                    value={formatToBRL(formData.measurement_value)}
+                                    onChange={(e) => handleCurrencyChange('measurement_value', e.target.value)}
+                                    className="pl-10 text-right"
                                 />
                             </div>
                         </div>
@@ -425,12 +447,10 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                             <div className="relative mt-1">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">R$</span>
                                 <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={formData.billed_amount}
-                                    onChange={(e) => updateField('billed_amount', parseFloat(e.target.value) || 0)}
-                                    className="pl-10"
+                                    type="text"
+                                    value={formatToBRL(formData.billed_amount)}
+                                    onChange={(e) => handleCurrencyChange('billed_amount', e.target.value)}
+                                    className="pl-10 text-right"
                                 />
                             </div>
                         </div>
@@ -451,15 +471,58 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                             <div className="relative mt-1">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">R$</span>
                                 <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={formData.paid_amount}
-                                    onChange={(e) => updateField('paid_amount', parseFloat(e.target.value) || 0)}
-                                    className="pl-10"
+                                    type="text"
+                                    value={formatToBRL(formData.paid_amount)}
+                                    onChange={(e) => handleCurrencyChange('paid_amount', e.target.value)}
+                                    className="pl-10 text-right"
                                 />
                             </div>
                         </div>
+                    </div>
+
+                    {/* Novos campos CVAC: Valor Esperado e Parcela Única */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-slate-100">
+                        <div>
+                            <Label className="text-blue-700 font-semibold">Valor Esperado do Ateste</Label>
+                            <div className="relative mt-1">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500 font-medium">R$</span>
+                                <Input
+                                    type="text"
+                                    value={formatToBRL(formData.expected_amount)}
+                                    onChange={(e) => handleCurrencyChange('expected_amount', e.target.value)}
+                                    className="pl-10 text-right border-blue-200 focus:border-blue-400 bg-blue-50/30"
+                                />
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-1">Valor previsto para projeções financeiras.</p>
+                        </div>
+
+                        <div className="flex items-center space-x-2 pt-6">
+                            <input
+                                type="checkbox"
+                                id="has_single_installment"
+                                checked={formData.has_single_installment}
+                                onChange={(e) => updateField('has_single_installment', e.target.checked)}
+                                className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                            <Label htmlFor="has_single_installment" className="text-slate-700 font-medium cursor-pointer">
+                                Parcela Única?
+                            </Label>
+                        </div>
+
+                        {formData.has_single_installment && (
+                            <div className="animate-in fade-in slide-in-from-left-2 duration-300">
+                                <Label className="text-amber-700 font-semibold">Valor da Parcela Única</Label>
+                                <div className="relative mt-1">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500 font-medium">R$</span>
+                                    <Input
+                                        type="text"
+                                        value={formatToBRL(formData.single_installment_amount)}
+                                        onChange={(e) => handleCurrencyChange('single_installment_amount', e.target.value)}
+                                        className="pl-10 text-right border-amber-200 focus:border-amber-400 bg-amber-50/30"
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
                     {pendency > 0 && (
                         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium">

@@ -30,8 +30,8 @@ export default function PendencyTable({ attestations, onViewDetails }) {
                         <TableHead className="font-semibold text-slate-700">PD</TableHead>
                         <TableHead className="font-semibold text-slate-700">ESP</TableHead>
                         <TableHead className="font-semibold text-slate-700">Mês</TableHead>
+                        <TableHead className="font-semibold text-slate-700 text-right">Apontado</TableHead>
                         <TableHead className="font-semibold text-slate-700 text-right">Faturado</TableHead>
-                        <TableHead className="font-semibold text-slate-700 text-right">Pago</TableHead>
                         <TableHead className="font-semibold text-slate-700 text-right">Pendência</TableHead>
                         <TableHead className="font-semibold text-slate-700 text-center">Status</TableHead>
                     </TableRow>
@@ -47,8 +47,8 @@ export default function PendencyTable({ attestations, onViewDetails }) {
                         attestations.map((att, index) => {
                             const measurementValue = parseFloat(att.measurement_value) || 0;
                             const billedAmount = parseFloat(att.billed_amount) || 0;
-                            const gap = measurementValue - billedAmount;
-                            const hasGap = gap > 0;
+                            const pendency = measurementValue - billedAmount;
+                            const hasPendency = pendency > 0;
 
                             return (
                                 <motion.tr
@@ -56,7 +56,7 @@ export default function PendencyTable({ attestations, onViewDetails }) {
                                     initial={{ opacity: 0, x: -20 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: index * 0.05 }}
-                                    className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${hasGap ? 'bg-red-50/30' : ''
+                                    className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${hasPendency ? 'bg-amber-50/10' : ''
                                         }`}
                                 >
                                     <TableCell className="font-medium text-slate-800">
@@ -72,17 +72,17 @@ export default function PendencyTable({ attestations, onViewDetails }) {
                                     <TableCell className="text-right text-slate-700">
                                         {formatCurrency(billedAmount)}
                                     </TableCell>
-                                    <TableCell className={`text-right font-semibold ${hasGap ? 'text-red-600' : 'text-green-600'
+                                    <TableCell className={`text-right font-semibold ${hasPendency ? 'text-amber-600' : 'text-green-600'
                                         }`}>
-                                        {hasGap ? formatCurrency(gap) : '-'}
+                                        {hasPendency ? formatCurrency(pendency) : '-'}
                                     </TableCell>
                                     <TableCell className="text-center">
                                         <div className="flex items-center justify-center gap-2">
-                                            {hasGap ? (
+                                            {hasPendency ? (
                                                 <>
-                                                    <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200">
+                                                    <Badge variant="destructive" className="bg-amber-100 text-amber-700 border-amber-200">
                                                         <AlertTriangle className="w-3 h-3 mr-1" />
-                                                        GAP Identificado
+                                                        Pendência
                                                     </Badge>
                                                     <Button
                                                         size="sm"
@@ -97,7 +97,7 @@ export default function PendencyTable({ attestations, onViewDetails }) {
                                                 <>
                                                     <Badge className="bg-green-100 text-green-700 border-green-200">
                                                         <CheckCircle2 className="w-3 h-3 mr-1" />
-                                                        Sem GAP
+                                                        Liquidado
                                                     </Badge>
                                                     <Button
                                                         size="sm"

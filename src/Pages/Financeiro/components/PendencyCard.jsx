@@ -36,29 +36,51 @@ export default function PendencyCard({ title, value, subtitle, type = 'default',
     const styles = getStyles();
     const IconComponent = Icon || (type === 'danger' ? AlertTriangle : type === 'success' ? CheckCircle : TrendingUp);
 
+    // Função para formatar números de forma compacta (ex: 1.5 M, 2.3 Bi)
+    const formatCompact = (val) => {
+        if (typeof val !== 'number') return val;
+        
+        return new Intl.NumberFormat('pt-BR', {
+            notation: 'compact',
+            maximumFractionDigits: 1
+        }).format(val);
+    };
+
+    // Formatação completa para o tooltip
+    const formatFull = (val) => {
+        if (typeof val !== 'number') return val;
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(val);
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
         >
-            <Card className={`${styles.bg} border-0 shadow-xl overflow-hidden`}>
+            <Card 
+                className={`${styles.bg} border-0 shadow-xl overflow-hidden cursor-help`}
+                title={formatFull(value)}
+            >
                 <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className={`text-sm font-medium ${styles.text} opacity-80`}>
+                    <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                            <p className={`text-sm font-medium ${styles.text} opacity-80 truncate`}>
                                 {title}
                             </p>
-                            <p className={`text-3xl font-bold ${styles.text} mt-2`}>
-                                {value}
+                            <p className={`text-2xl font-bold ${styles.text} mt-2 whitespace-nowrap`}>
+                                {formatCompact(value)}
                             </p>
                             {subtitle && (
-                                <p className={`text-xs ${styles.text} opacity-70 mt-1`}>
+                                <p className={`text-xs ${styles.text} opacity-70 mt-1 line-clamp-1`}>
                                     {subtitle}
                                 </p>
                             )}
                         </div>
-                        <div className={`p-3 rounded-xl ${styles.iconBg}`}>
+                        <div className={`p-3 rounded-xl ${styles.iconBg} shrink-0`}>
                             <IconComponent className={`w-6 h-6 ${styles.text}`} />
                         </div>
                     </div>
