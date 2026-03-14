@@ -28,6 +28,7 @@ const DataManagementLegacy = lazy(() => import("./pages/Prazos/Legacy/pages/Data
 const SearchLegacy = lazy(() => import("./pages/Prazos/Legacy/pages/Search"));
 const ActivityLog = lazy(() => import("./pages/ActivityLog"));
 const GerencialDashboard = lazy(() => import("./Pages/Gerencial/GerencialDashboard"));
+const CdpcAdminDashboard = lazy(() => import("./Pages/Admin/CdpcDashboard"));
 const SystemMonitor = lazy(() => import('./pages/SystemMonitor'));
 
 // Components
@@ -104,6 +105,7 @@ function AppRoutes() {
                     <Route path="dashboard" element={<Dashboard />} />
                     <Route path="gerencial" element={<GerencialDashboard />} />
                     <Route path="admin/monitor" element={<SystemMonitor />} />
+                    <Route path="admin/cdpc-dashboard" element={<CdpcAdminDashboard />} />
                     <Route path="demands" element={<Demands />} />
                     <Route path="demand-detail" element={<DemandDetail />} />
                     <Route path="settings" element={<Settings />} />

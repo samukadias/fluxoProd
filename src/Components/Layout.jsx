@@ -80,6 +80,9 @@ const SidebarContent = ({ isCollapsed, setIsCollapsed, user, setOpen, onLogout }
             {(user?.department === 'GOR' || user?.allowed_modules?.includes('flow') || user?.department === 'CDPC' || user?.permissions?.includes('view_all')) && (
                 <>
                     <SidebarItem icon={LayoutDashboard} label="Dashboard CDPC" to="/dashboard" onClick={() => setOpen(false)} end isCollapsed={isCollapsed} />
+                    {(user?.role === 'admin' || user?.department === 'GOR') && (
+                        <SidebarItem icon={BarChart3} label="Acompanhamento CDPC" to="/admin/cdpc-dashboard" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
+                    )}
                     <div className={cn("space-y-1 mt-1 border-l border-slate-800/40 relative", isCollapsed ? "pl-0 ml-0 border-none" : "pl-1 ml-6")}>
                         <SidebarItem icon={List} label="Demandas CDPC" to="/demands" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
                     </div>

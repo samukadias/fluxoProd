@@ -166,7 +166,7 @@ export default function DemandsPage() {
             }
 
             if (filters.status === 'active') {
-                if (['ENTREGUE', 'CANCELADA'].includes(d.status)) return false;
+                if (['ENTREGUE', 'CANCELADA', 'CONGELADA'].includes(d.status)) return false;
             } else if (filters.status !== 'all' && d.status !== filters.status) {
                 return false;
             }
@@ -174,7 +174,7 @@ export default function DemandsPage() {
             if (filters.analyst_id !== 'all' && d.analyst_id !== filters.analyst_id) return false;
             if (filters.client_id !== 'all' && d.client_id !== filters.client_id) return false;
             if (filters.cycle_id !== 'all' && d.cycle_id !== filters.cycle_id) return false;
-            if (filters.weight !== 'all' && String(d.weight || 4) !== filters.weight) return false;
+            if (filters.weight !== 'all' && String(d.weight ?? 4) !== filters.weight) return false;
 
             return true;
         });
