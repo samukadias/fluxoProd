@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, CheckCircle2, Eye } from "lucide-react";
-import { motion } from "framer-motion";
+import { useState } from 'react';
 
 export default function PendencyTable({ attestations, onViewDetails }) {
     const formatCurrency = (value) => {
@@ -20,8 +20,13 @@ export default function PendencyTable({ attestations, onViewDetails }) {
         return date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
     };
 
+    const [limit, setLimit] = useState(20);
+
+    const visibleAttestations = attestations.slice(0, limit);
+
     return (
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
+        <div className="space-y-4">
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
             <Table>
                 <TableHeader>
                     <TableRow className="bg-slate-50 border-b border-slate-100">
@@ -44,20 +49,16 @@ export default function PendencyTable({ attestations, onViewDetails }) {
                             </TableCell>
                         </TableRow>
                     ) : (
-                        attestations.map((att, index) => {
+                        visibleAttestations.map((att, index) => {
                             const measurementValue = parseFloat(att.measurement_value) || 0;
                             const billedAmount = parseFloat(att.billed_amount) || 0;
                             const pendency = measurementValue - billedAmount;
                             const hasPendency = pendency > 0;
 
                             return (
-                                <motion.tr
+                                <TableRow
                                     key={att.id}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: index * 0.05 }}
-                                    className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${hasPendency ? 'bg-amber-50/10' : ''
-                                        }`}
+                                    className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${hasPendency ? 'bg-amber-50/10' : ''}`}
                                 >
                                     <TableCell className="font-medium text-slate-800">
                                         {att.client_name}
@@ -111,12 +112,24 @@ export default function PendencyTable({ attestations, onViewDetails }) {
                                             )}
                                         </div>
                                     </TableCell>
-                                </motion.tr>
+                                </TableRow>
                             );
                         })
                     )}
                 </TableBody>
             </Table>
+        </div>
+        {attestations.length > limit && (
+            <div className="flex justify-center">
+                <Button 
+                    variant="outline" 
+                    onClick={() => setLimit(prev => prev + 50)}
+                    className="bg-white hover:bg-slate-50 text-slate-600"
+                >
+                    Exibir Mais Pendências ({attestations.length - limit} restantes)
+                </Button>
+            </div>
+        )}
         </div>
     );
 }

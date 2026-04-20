@@ -3,6 +3,7 @@ import { fluxoApi } from '@/api/fluxoClient';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, DollarSign, AlertTriangle, CheckCircle2, Users } from "lucide-react";
+import { useAuth } from '@/context/AuthContext';
 import PendencyCard from "./components/PendencyCard";
 import PendencyTable from "./components/PendencyTable";
 import PendencyCharts from "./components/PendencyCharts";
@@ -10,10 +11,8 @@ import DashboardFilters from "./components/DashboardFilters";
 import AttestationDetailsDialog from "./components/AttestationDetailsDialog";
 
 export default function Dashboard() {
+    const { user } = useAuth();
     const navigate = useNavigate();
-    // No fluxo, o user já vem autenticado pelo App/Layout.
-    // Mas podemos pegar info extra aqui.
-    // Vamos assumir que quem acessa /financeiro/dashboard tem permissão.
 
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear().toString();
@@ -30,9 +29,6 @@ export default function Dashboard() {
 
     const [selectedAttestation, setSelectedAttestation] = useState(null);
     const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
-
-    // Obter usuário do localStorage
-    const user = JSON.parse(localStorage.getItem('fluxo_user') || localStorage.getItem('user') || '{}');
 
     const userRole = (user?.role || '').toLowerCase();
     const userProfile = (user?.profile_type || user?.perfil || '').toLowerCase();
@@ -67,58 +63,66 @@ export default function Dashboard() {
     });
 
     // Extrair opções de filtros (com proteção contra null/undefined)
-    const clients = [...new Set((attestations || []).map(a => a?.client_name).filter(Boolean))];
-    const pds = [...new Set((attestations || []).map(a => a?.pd_number).filter(Boolean))];
-    const esps = [...new Set((attestations || []).map(a => a?.esp_number).filter(Boolean))];
-    const analysts = [...new Set((attestations || []).map(a => a?.responsible_analyst).filter(Boolean))];
-    const months = [...new Set((attestations || []).map(a => a?.reference_month).filter(Boolean))]
-        .sort()
-        .reverse()
-        .map(m => {
-            const [year, month] = m.split('-');
-            return {
-                value: m,
-                label: new Date(year, month - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-            };
-        });
+    const { clients, pds, esps, analysts, months } = React.useMemo(() => {
+        const safeData = attestations || [];
+        return {
+            clients: [...new Set(safeData.map(a => a?.client_name).filter(Boolean))],
+            pds: [...new Set(safeData.map(a => a?.pd_number).filter(Boolean))],
+            esps: [...new Set(safeData.map(a => a?.esp_number).filter(Boolean))],
+            analysts: [...new Set(safeData.map(a => a?.responsible_analyst).filter(Boolean))],
+            months: [...new Set(safeData.map(a => a?.reference_month).filter(Boolean))]
+                .sort()
+                .reverse()
+                .map(m => {
+                    const [year, month] = m.split('-');
+                    return {
+                        value: m,
+                        label: new Date(year, month - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+                    };
+                })
+        };
+    }, [attestations]);
 
     // Aplicar filtros
-    const filteredAttestations = attestations.filter(att => {
-        if (filters.client !== 'all' && att.client_name !== filters.client) return false;
-        if (filters.pd !== 'all' && att.pd_number !== filters.pd) return false;
-        if (filters.esp !== 'all' && att.esp_number !== filters.esp) return false;
-        if (filters.analyst !== 'all' && att.responsible_analyst !== filters.analyst) return false;
+    const filteredAttestations = React.useMemo(() => {
+        return attestations.filter(att => {
+            if (filters.client !== 'all' && att.client_name !== filters.client) return false;
+            if (filters.pd !== 'all' && att.pd_number !== filters.pd) return false;
+            if (filters.esp !== 'all' && att.esp_number !== filters.esp) return false;
+            if (filters.analyst !== 'all' && att.responsible_analyst !== filters.analyst) return false;
 
-        if (att.reference_month) {
-            const [attYear, attMonth] = att.reference_month.split('-');
-            if (filters.year !== 'all' && attYear !== filters.year) return false;
-            if (filters.month !== 'all' && attMonth !== filters.month) return false;
-        } else {
-            // Se não tem mês de referência e estamos filtrando por algo específico de data, esconde
-            if (filters.year !== 'all' || filters.month !== 'all') return false;
-        }
+            if (att.reference_month) {
+                const [attYear, attMonth] = att.reference_month.split('-');
+                if (filters.year !== 'all' && attYear !== filters.year) return false;
+                if (filters.month !== 'all' && attMonth !== filters.month) return false;
+            } else {
+                // Se não tem mês de referência e estamos filtrando por algo específico de data, esconde
+                if (filters.year !== 'all' || filters.month !== 'all') return false;
+            }
 
-        return true;
-    });
+            return true;
+        });
+    }, [attestations, filters]);
 
-    // Calcular métricas financeiras reais
-    const totalBilled = filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.billed_amount) || 0), 0);
-    const totalPaid = filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.paid_amount) || 0), 0);
-    const totalMeasurement = filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.measurement_value) || 0), 0);
-    const totalExpected = filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.expected_amount) || 0), 0);
-    
-    // Nova regra de pendência: Apontado - Faturado
+    // Calcular métricas financeiras reais via useMemo para poupar cálculos repetitivos
+    const metrics = React.useMemo(() => {
+        return {
+            totalBilled: filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.billed_amount) || 0), 0),
+            totalPaid: filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.paid_amount) || 0), 0),
+            totalMeasurement: filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.measurement_value) || 0), 0),
+            totalExpected: filteredAttestations.reduce((sum, att) => sum + (parseFloat(att.expected_amount) || 0), 0),
+            invoiceCount: filteredAttestations.filter(att => att.invoice_number && att.invoice_number.trim() !== '').length,
+            pendencyCount: filteredAttestations.filter(att =>
+                (parseFloat(att.measurement_value) || 0) > (parseFloat(att.billed_amount) || 0)
+            ).length,
+            attestationsWithPendency: filteredAttestations.filter(att =>
+                (parseFloat(att.measurement_value) || 0) > (parseFloat(att.billed_amount) || 0)
+            )
+        };
+    }, [filteredAttestations]);
+
+    const { totalBilled, totalPaid, totalMeasurement, totalExpected, invoiceCount, pendencyCount, attestationsWithPendency } = metrics;
     const pendencyValue = totalMeasurement - totalBilled;
-
-    // Contagem de registros com Pendência (Apontado > Faturado)
-    const pendencyCount = filteredAttestations.filter(att =>
-        (parseFloat(att.measurement_value) || 0) > (parseFloat(att.billed_amount) || 0)
-    ).length;
-
-    // Filtrar para a tabela apenas quem tem pendência (Apontado > Faturado)
-    const attestationsWithPendency = filteredAttestations.filter(att => 
-        (parseFloat(att.measurement_value) || 0) > (parseFloat(att.billed_amount) || 0)
-    );
 
     const formatCurrency = (value) => {
         return new Intl.NumberFormat('pt-BR', {
@@ -136,7 +140,7 @@ export default function Dashboard() {
                     <p className="text-slate-600 mt-1">Acompanhe medição apontada, faturada e análise de GAP</p>
                 </div>
 
-                {/* Cards */}
+                {/* Cards - Ordem do fluxo financeiro: Esperado → Apontado → Faturado → Recebido → Pendência */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <PendencyCard
                         title="Total Esperado"
@@ -146,9 +150,16 @@ export default function Dashboard() {
                         icon={DollarSign}
                     />
                     <PendencyCard
+                        title="Total Apontado"
+                        value={totalMeasurement}
+                        subtitle={`${filteredAttestations.length} registros no período`}
+                        type="warning"
+                        icon={Users}
+                    />
+                    <PendencyCard
                         title="Total Faturado"
                         value={totalBilled}
-                        subtitle={`${filteredAttestations.length} notas emitidas`}
+                        subtitle={`${invoiceCount} NF${invoiceCount !== 1 ? 's' : ''} emitida${invoiceCount !== 1 ? 's' : ''}`}
                         type="default"
                         icon={DollarSign}
                     />
@@ -160,18 +171,11 @@ export default function Dashboard() {
                         icon={CheckCircle2}
                     />
                     <PendencyCard
-                        title="Pendência"
+                        title="Pendência" 
                         value={pendencyValue}
-                        subtitle={pendencyValue > 0 ? 'A faturar (Apontado - Faturado)' : 'Zero pendências'}
+                        subtitle={pendencyValue > 0 ? `${pendencyCount} registro${pendencyCount !== 1 ? 's' : ''} em aberto` : 'Sem pendências'}
                         type={pendencyValue > 0 ? 'danger' : 'success'}
                         icon={AlertTriangle}
-                    />
-                    <PendencyCard
-                        title="Total Apontado"
-                        value={totalMeasurement}
-                        subtitle={`Registros filtrados: ${filteredAttestations.length}`}
-                        type="warning"
-                        icon={Users}
                     />
                 </div>
 

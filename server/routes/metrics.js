@@ -1,7 +1,10 @@
 const express = require('express');
 const db = require('../db');
+const NodeCache = require('node-cache');
 
 const router = express.Router();
+// Create a cache with a 5-minute standard TTL (Time To Live)
+const metricsCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
 /**
  * GET /metrics/cdpc
@@ -9,6 +12,15 @@ const router = express.Router();
  * Supports Query Params: month, year, cycle_ids, artifact
  */
 router.get('/cdpc', async (req, res) => {
+    // Generate a unique cache key based on the query parameters so different filters don't mix
+    const cacheKey = `cdpc_${JSON.stringify(req.query)}`;
+    const cachedData = metricsCache.get(cacheKey);
+
+    if (cachedData) {
+        console.log(`[CACHE HIT] Delivering CDPC metrics for key: ${cacheKey}`);
+        return res.json(cachedData);
+    }
+
     const client = await db.connect();
     try {
         const { month, year, cycle_ids, artifact } = req.query;
@@ -63,8 +75,8 @@ router.get('/cdpc', async (req, res) => {
 
         const queries = {
             // Existing ones + Em Tratativa
-            backlogCount: `SELECT COUNT(*) FROM demands WHERE status NOT IN ('ENTREGUE', 'CANCELADA') AND ${baseWhere}`,
-            emTratativa: `SELECT COUNT(*) FROM demands WHERE status NOT IN ('ENTREGUE', 'CANCELADA', 'PENDENTE TRIAGEM') AND ${baseWhere}`,
+            backlogCount: `SELECT COUNT(*) FROM demands WHERE status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA') AND ${baseWhere}`,
+            emTratativa: `SELECT COUNT(*) FROM demands WHERE status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA', 'PENDENTE TRIAGEM') AND ${baseWhere}`,
 
             // Monthly/Period Input
             entriesThisMonth: `SELECT COUNT(*) FROM demands WHERE ${expectedDateFilter} AND ${baseWhere}`,
@@ -91,7 +103,7 @@ router.get('/cdpc', async (req, res) => {
                 SELECT 
                     COUNT(*) as count
                 FROM demands d
-                WHERE status NOT IN ('ENTREGUE', 'CANCELADA') 
+                WHERE status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA') 
                 AND weight IN (0, 1)
                 AND ${expectedDateFilter.replace(/qualification_date/g, 'd.qualification_date').replace(/created_date/g, 'd.created_date')}
                 AND ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
@@ -102,7 +114,7 @@ router.get('/cdpc', async (req, res) => {
                 SELECT c.name, COUNT(d.id) as count
                 FROM demands d
                 JOIN clients c ON d.client_id = c.id
-                WHERE d.status NOT IN ('ENTREGUE', 'CANCELADA') 
+                WHERE d.status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA') 
                 AND d.weight IN (0, 1)
                 AND ${expectedDateFilter.replace(/qualification_date/g, 'd.qualification_date').replace(/created_date/g, 'd.created_date')}
                 AND ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
@@ -134,7 +146,7 @@ router.get('/cdpc', async (req, res) => {
                 SELECT c.name, COUNT(d.id) as count
                 FROM demands d
                 JOIN clients c ON d.client_id = c.id
-                WHERE d.status NOT IN ('ENTREGUE', 'CANCELADA')
+                WHERE d.status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA')
                 AND ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
                 GROUP BY c.id, c.name
                 ORDER BY count DESC
@@ -147,13 +159,36 @@ router.get('/cdpc', async (req, res) => {
                 LEFT JOIN clients c ON d.client_id = c.id
                 WHERE d.status = 'REABERTA'
                 AND ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
+            `,
+            cancelledByExecutive: `
+                SELECT u.id, COALESCE(u.name, 'Não Informado') as name, COUNT(d.id) as count
+                FROM demands d
+                LEFT JOIN users u ON d.requester_id = u.id
+                WHERE d.status = 'CANCELADA'
+                AND ${cancelledDateFilter.replace(/delivery_date/g, 'd.delivery_date').replace(/created_date/g, 'd.created_date')}
+                AND ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
+                GROUP BY u.id, u.name
+                ORDER BY count DESC
+                LIMIT 10
+            `,
+            reopeningsByReason: `
+                SELECT dr.reason_label as name, COUNT(dr.id) as count
+                FROM demand_reopenings dr
+                JOIN demands d ON dr.demand_id = d.id
+                WHERE (${currentMonth 
+                    ? `EXTRACT(YEAR FROM dr.reopened_at) = ${currentYear} AND EXTRACT(MONTH FROM dr.reopened_at) = ${currentMonth}`
+                    : `EXTRACT(YEAR FROM dr.reopened_at) = ${currentYear}`})
+                AND ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
+                GROUP BY dr.reason_label
+                ORDER BY count DESC
             `
         };
 
         const [
             backlogRes, emTratativaRes, entriesMonthRes, entriesYearRes,
             deliveredMonthRes, prioritizedMonthRes, topPrioritizedClientsRes,
-            cancelledMonthRes, cancelledYearRes, deliveredYearRes, topClientsRes, reopenedRes
+            cancelledMonthRes, cancelledYearRes, deliveredYearRes, topClientsRes, 
+            reopenedRes, cancelledByExecutiveRes, reopeningsByReasonRes
         ] = await Promise.all([
             client.query(queries.backlogCount, values),
             client.query(queries.emTratativa, values),
@@ -166,10 +201,12 @@ router.get('/cdpc', async (req, res) => {
             client.query(queries.cancelledThisYear, values),
             client.query(queries.deliveredThisYear, values),
             client.query(queries.topClients, values),
-            client.query(queries.currentlyReopened, values)
+            client.query(queries.currentlyReopened, values),
+            client.query(queries.cancelledByExecutive, values),
+            client.query(queries.reopeningsByReason, values)
         ]);
 
-        res.json({
+        const responsePayload = {
             // Core
             backlog: parseInt(backlogRes.rows[0].count),
             emTratativa: parseInt(emTratativaRes.rows[0].count),
@@ -199,8 +236,15 @@ router.get('/cdpc', async (req, res) => {
 
             // Base UI blocks
             topClients: topClientsRes.rows.map(r => ({ name: r.name, count: parseInt(r.count) })),
-            currentlyReopened: reopenedRes.rows
-        });
+            currentlyReopened: reopenedRes.rows,
+            cancelledByExecutive: cancelledByExecutiveRes.rows.map(r => ({ id: r.id, name: r.name, count: parseInt(r.count) })),
+            reopeningsByReason: reopeningsByReasonRes.rows.map(r => ({ name: r.name, count: parseInt(r.count) }))
+        };
+
+        // Salvar no cache
+        metricsCache.set(cacheKey, responsePayload);
+
+        res.json(responsePayload);
     } catch (err) {
         console.error("Error fetching CDPC metrics:", err);
         res.status(500).json({ error: 'Internal server error' });
@@ -214,6 +258,14 @@ router.get('/cdpc', async (req, res) => {
  * High-performance aggregation for COCR Dashboard
  */
 router.get('/cocr', async (req, res) => {
+    const cacheKey = `cocr_${JSON.stringify(req.query)}`;
+    const cachedData = metricsCache.get(cacheKey);
+
+    if (cachedData) {
+        console.log(`[CACHE HIT] Delivering COCR metrics for key: ${cacheKey}`);
+        return res.json(cachedData);
+    }
+
     // Note: the time filters on COCR only filter the volumes (aditamentos e contratos renovados no mês).
     // The total pipeline/caixa values are global totals independent of the month filter unless specified by exact requirement.
     const client = await db.connect();
@@ -253,9 +305,7 @@ router.get('/cocr', async (req, res) => {
                 SELECT COUNT(*) as count, SUM(valor_contrato) as total_value 
                 FROM contracts 
                 WHERE status ILIKE 'Ativo' 
-                AND tipo_tratativa ILIKE '%prorroga%' 
-                AND (etapa ILIKE '9.%' OR etapa ILIKE '9 %')
-                ${dateFilterAssinatura}
+                AND (etapa ILIKE '9.%' OR etapa ILIKE '9 %' OR etapa ILIKE '%assinatura%')
             `,
             expiring: `
                 SELECT contrato, cliente, termo, data_fim_efetividade, 
@@ -299,7 +349,7 @@ router.get('/cocr', async (req, res) => {
             };
         });
 
-        res.json({
+        const responsePayload = {
             totalContracts: parseInt(totalsRes.rows[0].total_count || 0),
             globalValue: parseFloat(totalsRes.rows[0].global_value || 0),
             aditamentosMonthCount: parseInt(aditamentosRes.rows[0].count || 0),
@@ -307,7 +357,12 @@ router.get('/cocr', async (req, res) => {
             aguardandoAssinaturaCount: parseInt(assinaturasRes.rows[0].count || 0),
             aguardandoAssinaturaValue: parseFloat(assinaturasRes.rows[0].total_value || 0),
             expiringContracts
-        });
+        };
+
+        // Salvar no cache
+        metricsCache.set(cacheKey, responsePayload);
+
+        res.json(responsePayload);
     } catch (err) {
         console.error("Error fetching COCR metrics:", err);
         res.status(500).json({ error: 'Internal server error' });

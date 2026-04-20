@@ -2,7 +2,7 @@ const db = require('../db');
 
 // Whitelist of allowed sort fields per table (SQL Injection Protection)
 const ALLOWED_SORT_FIELDS = {
-    demands: ['id', 'demand_number', 'product', 'status', 'artifact', 'complexity', 'created_date', 'qualification_date', 'expected_delivery_date', 'delivery_date', 'stage'],
+    demands: ['id', 'demand_number', 'product', 'status', 'artifact', 'complexity', 'created_date', 'qualification_date', 'expected_delivery_date', 'delivery_date', 'stage', 'weight'],
     clients: ['id', 'name', 'sigla', 'created_at'],
     analysts: ['id', 'name', 'email', 'created_at'],
     users: ['id', 'name', 'email', 'role', 'department'],
@@ -23,7 +23,7 @@ const ALLOWED_SORT_FIELDS = {
 
 // Whitelist of allowed filter columns per table (SQL Injection Protection)
 const ALLOWED_FILTER_COLUMNS = {
-    demands: ['id', 'demand_number', 'product', 'status', 'artifact', 'complexity', 'client_id', 'analyst_id', 'cycle_id', 'requester_id', 'stage', 'support_analyst_id'],
+    demands: ['id', 'demand_number', 'product', 'status', 'artifact', 'complexity', 'client_id', 'analyst_id', 'cycle_id', 'requester_id', 'stage', 'support_analyst_id', 'architect_support_analyst_id', 'weight'],
     clients: ['id', 'name', 'sigla', 'active'],
     analysts: ['id', 'name', 'email'],
     users: ['id', 'name', 'email', 'role', 'department', 'profile_type'],
@@ -52,6 +52,8 @@ const ALLOWED_WRITE_COLUMNS = {
         'report_generation_date', 'report_send_date', 'attestation_return_date', 'invoice_send_to_client_date', 'invoice_send_date',
         // Campos financeiros CVAC
         'measurement_value', 'esp_value',
+        // Valor esperado do ateste e parcela única
+        'expected_amount', 'has_single_installment', 'single_installment_amount',
         // NF-e
         'invoice_number', 'nfe_issue_date', 'nfe_sharepoint_date',
         // SEI e ESP
@@ -140,15 +142,43 @@ const createCrudRoutes = (app, resource, tableName) => {
                 delete filters.sort;
             }
 
-            let query = `SELECT * FROM ${tableName}`;
+            let query = tableName === 'demands' 
+                ? `SELECT d.*,
+                    COALESCE(
+                        (SELECT text FROM demand_annotations da WHERE da.demand_id = d.id ORDER BY created_at DESC LIMIT 1),
+                        d.observation
+                    ) as observation,
+                    CASE WHEN EXISTS (SELECT 1 FROM demand_annotations da WHERE da.demand_id = d.id) THEN false ELSE true END as is_legacy_observation,
+                    (SELECT user_name FROM demand_annotations da WHERE da.demand_id = d.id ORDER BY created_at DESC LIMIT 1) as last_annotation_author,
+                    (SELECT created_at FROM demand_annotations da WHERE da.demand_id = d.id ORDER BY created_at DESC LIMIT 1) as last_annotation_date
+                   FROM demands d`
+                : `SELECT * FROM ${tableName}`;
             let countQuery = `SELECT COUNT(*) FROM ${tableName}`;
             const values = [];
             const whereConditions = [];
 
             // Special logic for Demands
             if (tableName === 'demands') {
+                // Role-based filtering (isolation)
+                if (req.user) {
+                    if (req.user.role === 'analyst') {
+                        const userId = parseInt(req.user.id);
+                        const paramIdx = values.length + 1;
+                        const paramIdx2 = values.length + 2;
+                        // Match via analysts table (by email) OR directly by user.id as analyst_id
+                        whereConditions.push(`(analyst_id IN (SELECT id FROM analysts WHERE email = $${paramIdx}) OR analyst_id = $${paramIdx2})`);
+                        values.push(req.user.email);
+                        values.push(userId);
+                        console.log(`[ANALYST FILTER] email=${req.user.email}, userId=${userId}, page=${page}, limit=${limit}`);
+                    } else if (req.user.role === 'requester') {
+                        const paramIdx = values.length + 1;
+                        whereConditions.push(`requester_id IN (SELECT id FROM requesters WHERE email = $${paramIdx})`);
+                        values.push(req.user.email);
+                    }
+                }
+
                 if (filters.status === 'active') {
-                    whereConditions.push(`status NOT IN ('ENTREGUE', 'CANCELADA')`);
+                    whereConditions.push(`status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA')`);
                     delete filters.status;
                 } else if (filters.status === 'all') {
                     delete filters.status;
@@ -160,6 +190,26 @@ const createCrudRoutes = (app, resource, tableName) => {
                     values.push(`%${filters.search}%`);
                 }
                 delete filters.search;
+
+                if (filters.cycle_ids) {
+                    const ids = Array.isArray(filters.cycle_ids) ? filters.cycle_ids : filters.cycle_ids.split(',');
+                    if (ids.length > 0) {
+                        const paramsList = ids.map((_, i) => `$${values.length + i + 1}`).join(', ');
+                        whereConditions.push(`cycle_id IN (${paramsList})`);
+                        values.push(...ids);
+                    }
+                    delete filters.cycle_ids;
+                }
+
+                if (filters.weights) {
+                    const ws = Array.isArray(filters.weights) ? filters.weights : filters.weights.split(',');
+                    if (ws.length > 0) {
+                        const paramsList = ws.map((_, i) => `$${values.length + i + 1}`).join(', ');
+                        whereConditions.push(`weight IN (${paramsList})`);
+                        values.push(...ws);
+                    }
+                    delete filters.weights;
+                }
             } else {
                 if (filters.status === 'all') delete filters.status;
             }
@@ -220,6 +270,11 @@ const createCrudRoutes = (app, resource, tableName) => {
             }
 
             const result = await db.query(query, values);
+            if (tableName === 'demands' && req.user?.role === 'analyst') {
+                console.log(`[ANALYST DEBUG] Final query: ${query}`);
+                console.log(`[ANALYST DEBUG] Values: ${JSON.stringify(values)}`);
+                console.log(`[ANALYST DEBUG] Result count: ${result.rows.length}`);
+            }
             res.json(result.rows);
         } catch (err) {
             handleError(err, res, `List ${resource}`);
@@ -267,6 +322,75 @@ const createCrudRoutes = (app, resource, tableName) => {
             res.status(201).json(result.rows[0]);
         } catch (err) {
             handleError(err, res, `Create ${resource}`);
+        }
+    });
+
+    // Bulk Create/Update (Upsert)
+    app.post(`/${resource}/bulk`, async (req, res) => {
+        const client = await db.connect();
+        try {
+            const items = Array.isArray(req.body) ? req.body : [req.body];
+            const allowedWriteCols = ALLOWED_WRITE_COLUMNS[tableName] || ALLOWED_WRITE_COLUMNS[resource];
+
+            if (items.length === 0) return res.json({ message: 'No items to process', processed: 0 });
+
+            await client.query('BEGIN');
+            const processedItems = [];
+
+            for (const item of items) {
+                let body = { ...item };
+                const id = body.id;
+                delete body.id; // Don't include ID in the SET clause if updating
+
+                // Mass Assignment Protection
+                if (allowedWriteCols) {
+                    Object.keys(body).forEach(key => {
+                        if (!allowedWriteCols.includes(key)) {
+                            delete body[key];
+                        }
+                    });
+                }
+
+                Object.keys(body).forEach(key => {
+                    if (body[key] === '') body[key] = null;
+                });
+
+                const keys = Object.keys(body);
+                if (keys.length === 0) continue;
+
+                const values = Object.values(body);
+                let query;
+                let queryValues;
+
+                if (id) {
+                    // Update if ID exists
+                    const setClause = keys.map((key, i) => `${key} = $${i + 2}`).join(', ');
+                    query = `UPDATE ${tableName} SET ${setClause} WHERE id = $1 RETURNING *`;
+                    queryValues = [id, ...values];
+                } else {
+                    // Insert
+                    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+                    query = `INSERT INTO ${tableName} (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`;
+                    queryValues = values;
+                }
+
+                const result = await client.query(query, queryValues);
+                if (result.rows.length > 0) {
+                    processedItems.push(result.rows[0]);
+                }
+            }
+
+            await client.query('COMMIT');
+            res.status(201).json({
+                message: `Processed ${processedItems.length} items`,
+                processed: processedItems.length,
+                data: processedItems
+            });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            handleError(err, res, `Bulk ${resource}`);
+        } finally {
+            client.release();
         }
     });
 

@@ -108,7 +108,9 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
                 .map(c => c.contrato)
                 .filter(Boolean);
 
-            const uniquePDs = [...new Set(clientPDs)];
+            const uniquePDs = [...new Set(clientPDs)].sort((a, b) => 
+                String(a).localeCompare(String(b), 'pt-BR', { numeric: true, sensitivity: 'base' })
+            );
             setAvailablePDs(uniquePDs);
 
             // Fetch the specific contract object to auto-fill ESPs from COCR
@@ -191,7 +193,8 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
 
     // Obter lista única de clientes dos contratos
     const availableClients = React.useMemo(() => {
-        return [...new Set(prazosContracts.map(c => c.cliente).filter(Boolean))].sort();
+        return [...new Set(prazosContracts.map(c => c.cliente).filter(Boolean))]
+            .sort((a, b) => String(a).localeCompare(String(b), 'pt-BR', { numeric: true, sensitivity: 'base' }));
     }, [prazosContracts]);
 
     return (
@@ -303,7 +306,9 @@ export default function ContractForm({ contract, onSubmit, isLoading }) {
                                             {user.name || user.full_name}
                                         </SelectItem>
                                     )}
-                                    {analysts.map((analyst) => (
+                                    {[...analysts]
+                                        .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }))
+                                        .map((analyst) => (
                                         <SelectItem key={analyst.id} value={analyst.name}>
                                             {analyst.name}
                                         </SelectItem>

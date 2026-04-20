@@ -5,6 +5,34 @@ const { handleError } = require('../helpers/crud');
 const router = express.Router();
 
 /**
+ * GET /demands/metadata/active-roles
+ * Returns distinct user IDs assigned to each role across all demands
+ */
+router.get('/metadata/active-roles', async (req, res) => {
+    let client;
+    try {
+        client = await db.connect();
+        const [analystRes, supportRes, archRes, reqRes] = await Promise.all([
+            client.query('SELECT DISTINCT analyst_id FROM demands WHERE analyst_id IS NOT NULL'),
+            client.query('SELECT DISTINCT support_analyst_id FROM demands WHERE support_analyst_id IS NOT NULL'),
+            client.query('SELECT DISTINCT architect_support_analyst_id FROM demands WHERE architect_support_analyst_id IS NOT NULL'),
+            client.query('SELECT DISTINCT requester_id FROM demands WHERE requester_id IS NOT NULL')
+        ]);
+        
+        res.json({
+            analyst_id: analystRes.rows.map(r => String(r.analyst_id)),
+            support_analyst_id: supportRes.rows.map(r => String(r.support_analyst_id)),
+            architect_support_analyst_id: archRes.rows.map(r => String(r.architect_support_analyst_id)),
+            executive_id: reqRes.rows.map(r => String(r.requester_id))
+        });
+    } catch (err) {
+        handleError(err, res, 'Fetch active roles metadata');
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
  * PUT /demands/:id
  * Custom update route that tracks stage and status history changes.
  */
@@ -13,7 +41,7 @@ const UPDATABLE_FIELDS = [
     'demand_number', 'product', 'artifact', 'value', 'weight',
     'margem_bruta', 'margem_liquida',
     'qualification_date', 'expected_delivery_date', 'delivery_date',
-    'status', 'observation', 'client_id', 'cycle_id', 'stage',
+    'status', 'client_id', 'cycle_id', 'stage',
     'analyst_id', 'requester_id', 'support_analyst_id',
     'architect_support_analyst_id'
 ];
@@ -167,6 +195,84 @@ router.delete('/:id', async (req, res) => {
         handleError(err, res, 'Delete demand');
     } finally {
         client.release();
+    }
+});
+
+
+/**
+ * GET /demands/:id/annotations
+ * List all annotations for a demand
+ */
+router.get('/:id/annotations', async (req, res) => {
+    try {
+        const result = await db.query(
+            'SELECT * FROM demand_annotations WHERE demand_id = $1 ORDER BY created_at DESC',
+            [req.params.id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        handleError(err, res, 'Fetch annotations');
+    }
+});
+
+/**
+ * POST /demands/:id/annotations
+ * Add a new annotation
+ */
+router.post('/:id/annotations', async (req, res) => {
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+        return res.status(400).json({ error: 'Text is required' });
+    }
+
+    try {
+        const userId = req.user?.id;
+        let userName = req.user?.name || req.user?.full_name;
+
+        // Se o nome não estiver no token, busca no banco para garantir a identificação correta
+        if (!userName && userId) {
+            const userRes = await db.query('SELECT name FROM users WHERE id = $1', [userId]);
+            if (userRes.rows.length > 0) {
+                userName = userRes.rows[0].name;
+            }
+        }
+        
+        if (!userName) userName = req.user?.email || 'Usuário';
+
+        const result = await db.query(
+            `INSERT INTO demand_annotations (demand_id, user_id, user_name, text)
+             VALUES ($1, $2, $3, $4) RETURNING *`,
+            [req.params.id, userId, userName, text]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        handleError(err, res, 'Add annotation');
+    }
+});
+
+/**
+ * DELETE /demands/annotations/:id
+ * Delete an annotation (Admin only)
+ */
+router.delete('/annotations/:id', async (req, res) => {
+    // Permission check: only admin
+    if (req.user?.role !== 'admin' && req.user?.profile_type !== 'admin') {
+        return res.status(403).json({ error: 'Only administrators can delete annotations' });
+    }
+
+    try {
+        const result = await db.query(
+            'DELETE FROM demand_annotations WHERE id = $1 RETURNING *',
+            [req.params.id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Annotation not found' });
+        }
+
+        res.json({ message: 'Annotation deleted successfully' });
+    } catch (err) {
+        handleError(err, res, 'Delete annotation');
     }
 });
 

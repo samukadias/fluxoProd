@@ -10,7 +10,7 @@ const USER_KEY = 'fluxo_user';
 
 const ROLE_PERMISSIONS = {
     admin: ['view_all', 'manage_users', 'view_executive_dashboard', 'edit_contracts', 'manage_settings'],
-    viewer: ['view_all', 'view_executive_dashboard'],
+    viewer: ['view_cdpc'],
     executive: ['view_all', 'view_executive_dashboard'],
     manager: ['view_department_dashboard', 'view_executive_dashboard', 'edit_demands'],
     analyst: ['view_assigned_demands', 'edit_demands'],
@@ -109,6 +109,15 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem(USER_KEY);
     };
 
+    const updateUser = (updates) => {
+        setUser(prev => {
+            if (!prev) return null;
+            const updated = { ...prev, ...updates };
+            localStorage.setItem(USER_KEY, JSON.stringify(updated));
+            return updated;
+        });
+    };
+
     // Auto-logout on inactivity (20 minutes)
     const lastActivityRef = useRef(Date.now());
 
@@ -154,7 +163,7 @@ export const AuthProvider = ({ children }) => {
     }, [user]);
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, loading, isAuthenticated: !!user }}>
+        <AuthContext.Provider value={{ user, login, logout, updateUser, loading, isAuthenticated: !!user }}>
             {children}
         </AuthContext.Provider>
     );

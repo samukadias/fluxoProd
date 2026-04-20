@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from "@/utils";
 import { cn } from "@/lib/utils";
-import { Calendar, User, Building2, Clock, AlertTriangle, Trash2, Copy } from "lucide-react";
+import { Calendar, User, Building2, Clock, AlertTriangle, Trash2, Copy, MessageSquare } from "lucide-react";
 import StatusBadge from './StatusBadge';
 import PriorityBadge from './PriorityBadge';
-import { format, isAfter, parseISO } from 'date-fns';
+import { format, formatDistanceToNow, isAfter, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const ACTIVE_STATUSES = [
@@ -22,12 +22,21 @@ const ACTIVE_STATUSES = [
     "PENDÊNCIA FORNECEDOR"
 ];
 
-export default function DemandCard({ demand, analyst, client, onDelete, onDuplicate, viewMode = 'grid' }) {
+const DemandCard = ({ demand, analyst, client, onDelete, onDuplicate, viewMode = 'grid' }) => {
     const isOverdue = demand.expected_delivery_date &&
         ACTIVE_STATUSES.includes(demand.status) &&
         isAfter(new Date(), parseISO(demand.expected_delivery_date));
 
     const isDelivered = demand.status === 'ENTREGUE';
+
+    const displayObservation = React.useMemo(() => {
+        if (!demand.observation) return null;
+        if (demand.is_legacy_observation) {
+            const lines = demand.observation.split('\n').filter(l => l.trim().length > 0);
+            return lines.length > 0 ? lines[lines.length - 1].trim() : demand.observation;
+        }
+        return demand.observation;
+    }, [demand.observation, demand.is_legacy_observation]);
 
     // ── MODO LISTA ──────────────────────────────────────────────────────────
     if (viewMode === 'list') {
@@ -72,7 +81,7 @@ export default function DemandCard({ demand, analyst, client, onDelete, onDuplic
                         </div>
 
                         {/* Coluna 2: cliente, analista, data */}
-                        <div className="flex flex-col gap-1.5 text-xs text-slate-500 justify-center self-center">
+                        <div className="flex flex-col gap-1.5 text-xs text-slate-500 justify-center self-center min-w-0">
                             {client && (
                                 <span className="inline-flex items-center gap-1.5 truncate">
                                     <Building2 className="w-3.5 h-3.5 shrink-0 text-slate-400" />
@@ -97,14 +106,26 @@ export default function DemandCard({ demand, analyst, client, onDelete, onDuplic
                         </div>
 
                         {/* Coluna 3: observações + ações */}
-                        <div className="flex items-start justify-between gap-2">
-                            {demand.observation ? (
-                                <p className="text-xs text-slate-500 leading-relaxed line-clamp-3 flex-1">
-                                    {demand.observation}
-                                </p>
-                            ) : (
-                                <p className="text-xs text-slate-300 italic flex-1">Sem observações</p>
-                            )}
+                        <div className="flex items-start justify-between gap-2 min-w-0">
+                            <div className="flex-1 min-w-0">
+                                {displayObservation ? (
+                                    <p className="text-xs text-slate-500 leading-relaxed line-clamp-2" title={demand.observation}>
+                                        {displayObservation}
+                                    </p>
+                                ) : (
+                                    <p className="text-xs text-slate-300 italic">Sem observações</p>
+                                )}
+                                {demand.last_annotation_date && (
+                                    <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                                        <MessageSquare className="w-3 h-3" />
+                                        <span className="font-medium">{demand.last_annotation_author || 'Sistema'}</span>
+                                        <span>·</span>
+                                        <span>
+                                            {formatDistanceToNow(new Date(demand.last_annotation_date), { addSuffix: true, locale: ptBR })}
+                                        </span>
+                                    </p>
+                                )}
+                            </div>
                             <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                 {onDuplicate && (
                                     <button
@@ -228,4 +249,6 @@ export default function DemandCard({ demand, analyst, client, onDelete, onDuplic
             </div>
         </Link>
     );
-}
+};
+
+export default memo(DemandCard);

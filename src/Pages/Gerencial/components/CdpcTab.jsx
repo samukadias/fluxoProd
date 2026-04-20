@@ -7,6 +7,7 @@ import {
     TrendingDown,
     CheckCircle2,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 /**
  * CdpcTab — conteúdo completo da aba CDPC na Visão Executiva.
@@ -206,9 +207,9 @@ export default function CdpcTab({
                                                     {daysOpen}d aberta
                                                 </span>
                                             )}
-                                            <a href={`/?page=DemandDetail&id=${d.id}`} className="text-xs text-indigo-600 hover:underline font-medium">
+                                            <Link to={`/demand-detail?id=${d.id}`} className="text-xs text-indigo-600 hover:underline font-medium">
                                                 Ver →
-                                            </a>
+                                            </Link>
                                         </div>
                                     </div>
                                 );

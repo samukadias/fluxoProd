@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { Contract } from "@/entities/Contract";
+import { Contract } from "@/Entities/Contract";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, AlertTriangle } from "lucide-react";
 import { differenceInDays } from "date-fns";

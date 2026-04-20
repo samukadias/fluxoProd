@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { fluxoApi } from '@/api/fluxoClient';
 import { useNavigate, Link, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -7,10 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
     Plus, ArrowLeft, Calendar, Edit,
-    Loader2, FileText, AlertTriangle, CheckCircle2
+    Loader2, FileText, AlertTriangle, CheckCircle2,
+    FileSpreadsheet, Home
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AttestationForm from './components/AttestationForm';
+import AttestationImportExportDialog from './components/AttestationImportExportDialog';
 import {
     Dialog,
     DialogContent,
@@ -35,6 +37,7 @@ export default function AttestationHistory() {
     const { contractId } = useParams();
     const queryClient = useQueryClient();
     const [showForm, setShowForm] = useState(false);
+    const [showImportExport, setShowImportExport] = useState(false);
     const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
     const [editingAttestation, setEditingAttestation] = useState(null);
     const [deletingAttestation, setDeletingAttestation] = useState(null);
@@ -53,30 +56,23 @@ export default function AttestationHistory() {
     const { data: contractData, isLoading: loadingContract } = useQuery({
         queryKey: ['contract', cid],
         queryFn: async () => {
-            // fluxoApi não tem .filter direto como base44, tem que usar .list ou .get se tiver ID
-            // Supondo que .list retorne todos e filtremos, ou .get(id) se implementado.
-            // O createCrud implementado no fluxoClient usa axios.get(resource) ou axios.post(resource, data).
-            // CRUD generico geralmente tem get by id: axios.get(`${resource}/${id}`)
             try {
-                // Tenta buscar por ID direto se a API suportar /api/contracts/:id
-                // fluxoClient.createCrud não expõe getById explicitamente no código que vi (só create, list, update, delete).
-                // Mas list aceita params. Vamos assumir que list retorna lista.
-                // Se a API backend feita com `createCrudRoutes` suportar filtros via query string...
-                // O `createCrudRoutes` no server/index.js implementa:
-                // router.get('/', async (req, res) => { ... const items = await db.query(`SELECT * FROM ${tableName} ORDER BY id DESC`) ... })
-                // Ele NÃO implementa filtro por ID na listagem nem getById individual no código que vi antes.
-                // ESPERA! createCrudRoutes tem `router.put('/:id', ...)` e `router.delete('/:id', ...)`.
-                // FALTOU `router.get('/:id', ...)` no createCrudRoutes do server/index.js!
-                // Vou ter que fazer um patch/workaround: listar todos e filtrar no front (ineficiente mas funciona agora) ou adicionar getById no backend.
-                // Vou adicionar getById no backend depois. Por enquanto, vou listar todos e encontrar no array.
-                const allContracts = await fluxoApi.entities.FinanceContract.list();
-                return allContracts.find(c => c.id === parseInt(cid));
+                // Tenta buscar diretamente por ID via endpoint genérico
+                const res = await fluxoApi.entities.FinanceContract.get(parseInt(cid));
+                return res || null;
             } catch (e) {
-                console.error(e);
-                return null;
+                // Fallback: listar e filtrar (caso .get não exista)
+                try {
+                    const allContracts = await fluxoApi.entities.FinanceContract.list();
+                    return allContracts.find(c => c.id === parseInt(cid)) || null;
+                } catch (e2) {
+                    console.error(e2);
+                    return null;
+                }
             }
         },
-        enabled: !!cid
+        enabled: !!cid,
+        staleTime: 5 * 60 * 1000, // 5 minutos — dados de contrato mudam pouco
     });
 
     useEffect(() => {
@@ -88,11 +84,12 @@ export default function AttestationHistory() {
     const { data: attestations = [], isLoading: loadingAttestations } = useQuery({
         queryKey: ['attestations', cid],
         queryFn: async () => {
-            const all = await fluxoApi.entities.MonthlyAttestation.list(); // Traz todos
-            // Filtrar manualmente
-            return all.filter(a => a.contract_id === parseInt(cid)).sort((a, b) => b.reference_month.localeCompare(a.reference_month));
+            // Filtra diretamente no servidor via query param, evitando baixar tudo
+            const all = await fluxoApi.entities.MonthlyAttestation.list({ contract_id: cid });
+            return [...all].sort((a, b) => b.reference_month.localeCompare(a.reference_month));
         },
-        enabled: !!cid
+        enabled: !!cid,
+        staleTime: 60 * 1000, // 1 minuto
     });
 
     const createMutation = useMutation({
@@ -178,8 +175,8 @@ export default function AttestationHistory() {
         return new Date(dateStr).toLocaleDateString('pt-BR');
     };
 
-    // Helper parse ESPs
-    const getEsps = () => {
+    // Helper parse ESPs — memoizado para evitar re-parsear JSON a cada render
+    const contractEsps = useMemo(() => {
         if (contract && contract.esps) {
             if (Array.isArray(contract.esps)) return contract.esps;
             if (typeof contract.esps === 'string') {
@@ -187,7 +184,7 @@ export default function AttestationHistory() {
             }
         }
         return [];
-    };
+    }, [contract]);
 
     if (loadingContract || !contract) {
         return (
@@ -202,12 +199,24 @@ export default function AttestationHistory() {
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="mb-8">
-                    <Link to="/financeiro/contratos">
-                        <Button variant="ghost" className="mb-4 text-slate-600 hover:text-slate-900">
-                            <ArrowLeft className="w-4 h-4 mr-2" />
-                            Voltar para Contratos
-                        </Button>
-                    </Link>
+                    <div className="flex items-center gap-2 mb-4">
+                        <Link to="/financeiro/contratos">
+                            <Button variant="ghost" className="text-slate-600 hover:text-slate-900">
+                                <Home className="w-4 h-4 mr-2" />
+                                Home
+                            </Button>
+                        </Link>
+                        {contract && (
+                            <Button 
+                                variant="outline" 
+                                className="text-blue-600 hover:bg-blue-50 border-blue-200"
+                                onClick={() => navigate('/financeiro/contratos', { state: { selectedClient: contract.client_name || contract.company_name } })}
+                            >
+                                <ArrowLeft className="w-4 h-4 mr-2" />
+                                Voltar para {contract.client_name || contract.company_name}
+                            </Button>
+                        )}
+                    </div>
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
                             <h1 className="text-3xl font-bold text-slate-900">
@@ -223,6 +232,14 @@ export default function AttestationHistory() {
                             </div>
                         </div>
                         <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowImportExport(true)}
+                                className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                            >
+                                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                                Importar/Exportar
+                            </Button>
                             <Button
                                 variant="outline"
                                 onClick={() => setShowGenerateConfirm(true)}
@@ -256,8 +273,8 @@ export default function AttestationHistory() {
                     </CardHeader>
                     <CardContent className="pt-4">
                         <div className="flex flex-wrap gap-2">
-                            {getEsps().length > 0 ? (
-                                getEsps().map((esp, i) => (
+                            {contractEsps.length > 0 ? (
+                                contractEsps.map((esp, i) => (
                                     <Badge key={i} variant="outline" className="py-2 px-3">
                                         <span className="font-semibold">{esp.esp_number}</span>
                                         {esp.esp_value && (
@@ -472,6 +489,15 @@ export default function AttestationHistory() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+            {/* Import/Export Dialog */}
+            <AttestationImportExportDialog
+                open={showImportExport}
+                onOpenChange={setShowImportExport}
+                attestations={attestations}
+                contractId={cid}
+                pd_number={contract?.pd_number}
+                onImportComplete={() => queryClient.invalidateQueries({ queryKey: ['attestations', cid] })}
+            />
         </div>
     );
 }

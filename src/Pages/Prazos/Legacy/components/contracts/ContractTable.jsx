@@ -41,8 +41,7 @@ const vencimentoColors = {
 };
 
 export default function ContractTable({ contracts, isLoading, onContractUpdate, clientView = 'grupo' }) {
-  // Obter usuário do localStorage para consistência com o resto do app
-  const user = JSON.parse(localStorage.getItem('fluxo_user') || localStorage.getItem('user') || '{}');
+  const { user } = useAuth();
   console.log('User status para exclusão (Prazos):', {
     role: user?.role,
     perfil: user?.perfil,

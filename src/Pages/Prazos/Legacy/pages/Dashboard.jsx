@@ -191,29 +191,31 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* DETAILED VIEWS - ONLY FOR MANAGERS */}
-      {isManager && (
+      {/* DETAILED VIEWS - MANAGERS & ANALYSTS */}
+      {(isManager || user?.role === 'analyst') && (
         <>
           {/* Gráfico de Vencimentos */}
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <h2 className="text-xl font-semibold text-gray-900">Previsão de Vencimentos</h2>
 
-              <div className="w-full sm:w-64">
-                <Select value={analystFilter} onValueChange={setAnalystFilter}>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Filtrar por analista" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os Analistas</SelectItem>
-                    {activeAnalysts.map((analyst) => (
-                      <SelectItem key={analyst} value={analyst}>
-                        {analyst}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {isManager && (
+                <div className="w-full sm:w-64">
+                  <Select value={analystFilter} onValueChange={setAnalystFilter}>
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Filtrar por analista" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os Analistas</SelectItem>
+                      {activeAnalysts.map((analyst) => (
+                        <SelectItem key={analyst} value={analyst}>
+                          {analyst}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
             <ContractsExpiringChart
               contracts={filteredContracts}

@@ -2,3 +2,95 @@
 [2026-03-05T01:57:17.273Z] [INFO] Server running on port 3000
 [2026-03-05T02:08:32.876Z] [INFO] Database initialized successfully
 [2026-03-05T02:08:32.929Z] [INFO] Server running on port 3000
+[2026-03-14T23:14:10.617Z] [INFO] Database initialized successfully
+[2026-03-14T23:14:10.843Z] [INFO] Server running on port 3000
+[2026-03-15T14:38:18.419Z] [INFO] Database initialized successfully
+[2026-03-15T14:38:18.643Z] [INFO] Server running on port 3000
+[2026-03-15T14:44:15.996Z] [INFO] Database initialized successfully
+[2026-03-15T14:44:16.123Z] [INFO] Server running on port 3000
+[2026-03-15T14:46:53.696Z] [INFO] Database initialized successfully
+[2026-03-15T14:46:53.820Z] [INFO] Server running on port 3000
+[2026-03-15T14:47:34.931Z] [INFO] Database initialized successfully
+[2026-03-15T14:47:35.054Z] [INFO] Server running on port 3000
+[2026-03-15T14:54:11.226Z] [INFO] Database initialized successfully
+[2026-03-15T14:54:11.448Z] [INFO] Server running on port 3000
+[2026-03-17T15:06:10.916Z] [INFO] Database initialized successfully
+[2026-03-17T15:06:11.058Z] [INFO] Server running on port 3000
+[2026-03-17T15:11:39.748Z] [INFO] Database initialized successfully
+[2026-03-17T15:11:39.797Z] [INFO] Server running on port 3000
+[2026-03-17T16:00:02.838Z] [ERROR] uncaughtException: Error: ENOENT: no such file or directory, stat 'C:\Users\153758\.gemini\antigravity\scratch\fluxoProd-main\server\backups\backup_2026-03-02T02-00-00.sql'
+    at Object.statSync (node:fs:1739:25)
+    at C:\Users\153758\.gemini\antigravity\scratch\fluxoProd-main\server\services\backupService.js:72:34
+    at Array.map (<anonymous>)
+    at C:\Users\153758\.gemini\antigravity\scratch\fluxoProd-main\server\services\backupService.js:70:14
+    at FSReqCallback.oncomplete (node:fs:184:23)
+[2026-03-17T16:00:07.574Z] [INFO] Database initialized successfully
+[2026-03-17T16:00:07.621Z] [INFO] Server running on port 3000
+[2026-03-17T21:00:07.543Z] [ERROR] uncaughtException: Error: ENOENT: no such file or directory, stat 'C:\Users\153758\.gemini\antigravity\scratch\fluxoProd-main\server\backups\backup_2026-03-02T16-00-00.sql'
+    at Object.statSync (node:fs:1739:25)
+    at C:\Users\153758\.gemini\antigravity\scratch\fluxoProd-main\server\services\backupService.js:72:34
+    at Array.map (<anonymous>)
+    at C:\Users\153758\.gemini\antigravity\scratch\fluxoProd-main\server\services\backupService.js:70:14
+    at FSReqCallback.oncomplete (node:fs:184:23)
+[2026-03-17T21:00:12.518Z] [INFO] Database initialized successfully
+[2026-03-17T21:00:12.569Z] [INFO] Server running on port 3000
+[2026-03-17T22:20:05.705Z] [INFO] Database initialized successfully
+[2026-03-17T22:20:05.756Z] [INFO] Server running on port 3000
+[2026-03-17T22:24:53.405Z] [INFO] Database initialized successfully
+[2026-03-17T22:24:53.454Z] [INFO] Server running on port 3000
+[2026-03-17T22:32:06.441Z] [INFO] Database initialized successfully
+[2026-03-17T22:32:06.498Z] [INFO] Server running on port 3000
+[2026-03-18T13:21:46.248Z] [INFO] Database initialized successfully
+[2026-03-18T13:21:46.657Z] [INFO] Server running on port 3000
+[2026-03-18T18:18:02.232Z] [INFO] Database initialized successfully
+[2026-03-18T18:18:02.349Z] [INFO] Server running on port 3000
+[2026-03-26T19:16:21.527Z] [INFO] Database initialized successfully
+[2026-03-26T19:16:21.651Z] [INFO] Server running on port 3000
+[2026-03-27T18:21:47.786Z] [INFO] Database initialized successfully
+[2026-03-27T18:21:47.893Z] [INFO] Server running on port 3000
+[2026-04-02T20:31:58.280Z] [INFO] Database initialized successfully
+[2026-04-02T20:31:58.347Z] [INFO] Server running on port 3000
+[2026-04-02T20:38:57.276Z] [INFO] Database initialized successfully
+[2026-04-02T20:38:57.326Z] [INFO] Server running on port 3000
+[2026-04-02T20:49:10.375Z] [INFO] Database initialized successfully
+[2026-04-02T20:49:10.426Z] [INFO] Server running on port 3000
+[2026-04-02T21:03:35.556Z] [INFO] Database initialized successfully
+[2026-04-02T21:03:35.617Z] [INFO] Server running on port 3000
+[2026-04-02T22:18:22.662Z] [INFO] Database initialized successfully
+[2026-04-02T22:18:22.725Z] [INFO] Server running on port 3000
+[2026-04-02T22:25:41.739Z] [INFO] Database initialized successfully
+[2026-04-02T22:25:41.791Z] [INFO] Server running on port 3000
+[2026-04-03T13:19:37.014Z] [INFO] Database initialized successfully
+[2026-04-03T13:19:37.072Z] [INFO] Server running on port 3000
+[2026-04-03T13:55:57.253Z] [INFO] Database initialized successfully
+[2026-04-03T13:55:57.313Z] [INFO] Server running on port 3000
+[2026-04-03T15:03:01.436Z] [INFO] Database initialized successfully
+[2026-04-03T15:03:01.509Z] [INFO] Server running on port 3000
+[2026-04-03T15:46:57.008Z] [INFO] Database initialized successfully
+[2026-04-03T15:46:57.074Z] [INFO] Server running on port 3000
+[2026-04-06T11:47:10.044Z] [INFO] Database initialized successfully
+[2026-04-06T11:47:10.150Z] [INFO] Server running on port 3000
+[2026-04-08T21:38:42.302Z] [INFO] Database initialized successfully
+[2026-04-08T21:38:42.575Z] [INFO] Server running on port 3000
+[2026-04-08T22:04:53.456Z] [INFO] Database initialized successfully
+[2026-04-08T22:04:53.596Z] [INFO] Server running on port 3000
+[2026-04-08T22:34:06.465Z] [INFO] Database initialized successfully
+[2026-04-08T22:34:06.518Z] [INFO] Server running on port 3000
+[2026-04-13T22:23:19.108Z] [INFO] Database initialized successfully
+[2026-04-13T22:23:19.162Z] [INFO] Server running on port 3000
+[2026-04-13T22:32:49.129Z] [INFO] Database initialized successfully
+[2026-04-13T22:32:49.183Z] [INFO] Server running on port 3000
+[2026-04-13T23:48:56.811Z] [INFO] Database initialized successfully
+[2026-04-13T23:48:56.862Z] [INFO] Server running on port 3000
+[2026-04-14T01:30:24.294Z] [INFO] Database initialized successfully
+[2026-04-14T01:30:24.372Z] [INFO] Server running on port 3000
+[2026-04-14T02:03:22.864Z] [INFO] Database initialized successfully
+[2026-04-14T02:03:22.913Z] [INFO] Server running on port 3000
+[2026-04-15T12:16:07.889Z] [INFO] Database initialized successfully
+[2026-04-15T12:16:08.010Z] [INFO] Server running on port 3000
+[2026-04-20T12:37:06.641Z] [INFO] Database initialized successfully
+[2026-04-20T12:37:06.686Z] [INFO] Server running on port 3000
+[2026-04-20T13:00:16.452Z] [INFO] Database initialized successfully
+[2026-04-20T13:00:16.498Z] [INFO] Server running on port 3000
+[2026-04-20T13:15:21.559Z] [INFO] Database initialized successfully
+[2026-04-20T13:15:21.605Z] [INFO] Server running on port 3000

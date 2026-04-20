@@ -511,6 +511,37 @@ const initDb = async () => {
         `);
 
         // ========================================
+        // ANOTAÇÕES DE DEMANDAS
+        // ========================================
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS demand_annotations (
+                id SERIAL PRIMARY KEY,
+                demand_id INTEGER REFERENCES demands(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id),
+                user_name VARCHAR(255),
+                text TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Migração de observações antigas para a nova tabela de anotações
+        try {
+            const annotationCount = await db.query('SELECT COUNT(*) FROM demand_annotations');
+            if (parseInt(annotationCount.rows[0].count) === 0) {
+                console.log('📦 Iniciando migração de observações para anotações...');
+                await db.query(`
+                    INSERT INTO demand_annotations (demand_id, text, user_name, created_at)
+                    SELECT id, observation, 'Sistema (Migração)', created_date
+                    FROM demands
+                    WHERE observation IS NOT NULL AND observation != ''
+                `);
+                console.log('✅ Migração de observações concluída.');
+            }
+        } catch (migrationErr) {
+            console.error('⚠️ Erro na migração de observações:', migrationErr.message);
+        }
+
+        // ========================================
         // PERFORMANCE INDEXES
         // ========================================
         // demands - columns most used in WHERE and ORDER BY clauses
@@ -523,6 +554,10 @@ const initDb = async () => {
         await db.query(`CREATE INDEX IF NOT EXISTS idx_demands_created_date ON demands(created_date)`);
         await db.query(`CREATE INDEX IF NOT EXISTS idx_demands_qualification_date ON demands(qualification_date)`);
         await db.query(`CREATE INDEX IF NOT EXISTS idx_demands_weight ON demands(weight)`);
+
+        // monthly_attestations - filtragem por contrato (usada na tela de hist\u00f3rico)
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_attestations_contract_id ON monthly_attestations(contract_id)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_attestations_reference_month ON monthly_attestations(reference_month)`);
 
         // contracts - columns most used in WHERE clauses (metrics + listings)
         await db.query(`CREATE INDEX IF NOT EXISTS idx_contracts_status ON contracts(status)`);

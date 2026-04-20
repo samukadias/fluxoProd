@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Contract } from '@/entities/Contract';
+import { Contract } from '@/Entities/Contract';
 import { toast } from 'sonner';
 
 // Keys

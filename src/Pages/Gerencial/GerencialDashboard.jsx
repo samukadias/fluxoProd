@@ -13,8 +13,10 @@ import GlobalFilterBar from './components/GlobalFilterBar';
  * Responsabilidade: estado de filtros e roteamento de abas.
  * Dados são buscados pelos hooks do React Query (cache + refetch automáticos).
  */
+import { useAuth } from '@/context/AuthContext';
+
 export default function GerencialDashboard() {
-    const user = JSON.parse(localStorage.getItem('fluxo_user') || '{}');
+    const { user } = useAuth();
 
     // Determina a aba inicial com base no departamento do usuário
     const getInitialTab = () => {

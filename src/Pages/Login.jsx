@@ -103,9 +103,9 @@ export default function LoginPage() {
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="password">Senha</Label>
-                                <a href="#" className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
-                                    Esqueceu a senha?
-                                </a>
+                                <span className="text-xs font-medium text-slate-400">
+                                    Esqueceu a senha? Procure o administrador.
+                                </span>
                             </div>
                             <div className="relative group">
                                 <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />

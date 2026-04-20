@@ -15,26 +15,16 @@ import { Label } from '@/components/ui/label';
 import { Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
-const API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
+import { fluxClient } from '@/api/fluxoClient';
 
 const fetchActiveReasons = async () => {
-    const token = localStorage.getItem('fluxo_token');
-    const res = await fetch(`${API_BASE}/reopening-reasons`, {
-        headers: { Authorization: `Bearer ${token}` }
-    });
-    if (!res.ok) throw new Error('Erro ao carregar motivos');
-    return res.json();
+    const res = await fluxClient.get('/reopening-reasons');
+    return res.data;
 };
 
 const postReopen = async ({ demandId, reason_id, detail }) => {
-    const token = localStorage.getItem('fluxo_token');
-    const res = await fetch(`${API_BASE}/demands/${demandId}/reopen`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ reason_id, detail })
-    });
-    if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Erro ao reabrir demanda'); }
-    return res.json();
+    const res = await fluxClient.post(`/demands/${demandId}/reopen`, { reason_id, detail });
+    return res.data;
 };
 
 /**

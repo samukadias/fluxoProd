@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { FileDown, FileUp, Database, Loader2, AlertCircle, CheckCircle, Table as TableIcon, Download } from "lucide-react";
 import { toast } from "sonner";
 import { format } from 'date-fns';
-import * as XLSX from 'xlsx';
 
 // Helper: Excel Serial Date to JS Date
 const excelDateToJS = (serial) => {
@@ -55,6 +54,7 @@ const ExportCard = ({ title, description, fetchFn, filename, sheetName, columnMa
     const [recordCount, setRecordCount] = useState(null);
 
     const handleExport = async () => {
+        const XLSX = await import('xlsx');
         setExporting(true);
         setIsProcessing(true);
         try {
@@ -141,7 +141,11 @@ const ExportCard = ({ title, description, fetchFn, filename, sheetName, columnMa
     );
 };
 
+import { useAuth } from '@/context/AuthContext';
+
 export default function ImportExportTab() {
+    const { user } = useAuth();
+    const isViewer = user?.role === 'viewer';
     const [importType, setImportType] = useState('demands');
     const [fileData, setFileData] = useState([]);
     const [previewData, setPreviewData] = useState([]);
@@ -150,8 +154,6 @@ export default function ImportExportTab() {
     const [fileName, setFileName] = useState(null);
     const [logs, setLogs] = useState([]);
     const [autoCreateDeps, setAutoCreateDeps] = useState(true);
-
-    const user = JSON.parse(localStorage.getItem('fluxo_user') || '{}');
 
     const importOptions = [
         {
@@ -176,7 +178,8 @@ export default function ImportExportTab() {
         }
     ];
 
-    const handleDownloadTemplate = () => {
+    const handleDownloadTemplate = async () => {
+        const XLSX = await import('xlsx');
         const option = importOptions.find(o => o.id === importType);
         if (!option) return;
 
@@ -193,7 +196,8 @@ export default function ImportExportTab() {
 
         setFileName(file.name);
         const reader = new FileReader();
-        reader.onload = (evt) => {
+        reader.onload = async (evt) => {
+            const XLSX = await import('xlsx');
             const bstr = evt.target.result;
             const wb = XLSX.read(bstr, { type: 'binary' });
             const wsname = wb.SheetNames[0];
@@ -484,147 +488,149 @@ export default function ImportExportTab() {
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Coluna de Controle */}
-                <Card className="md:col-span-1 border-0 shadow-sm rounded-xl h-fit">
-                    <CardHeader>
-                        <CardTitle className="text-lg">Nova Importação</CardTitle>
-                        <CardDescription>Upload de dados em massa</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Tipo de Dado</Label>
-                            <Select value={importType} onValueChange={setImportType}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {importOptions.map(opt => (
-                                        <SelectItem key={opt.id} value={opt.id}>{opt.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+            {!isViewer && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Coluna de Controle */}
+                    <Card className="md:col-span-1 border-0 shadow-sm rounded-xl h-fit">
+                        <CardHeader>
+                            <CardTitle className="text-lg">Nova Importação</CardTitle>
+                            <CardDescription>Upload de dados em massa</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>Tipo de Dado</Label>
+                                <Select value={importType} onValueChange={setImportType}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {importOptions.map(opt => (
+                                            <SelectItem key={opt.id} value={opt.id}>{opt.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
 
-                        <div className="flex items-center space-x-2 py-2">
-                            <Checkbox
-                                id="autoCreate"
-                                checked={autoCreateDeps}
-                                onCheckedChange={setAutoCreateDeps}
-                            />
-                            <Label htmlFor="autoCreate" className="text-xs text-slate-600">
-                                Criar Usuários/Clientes automaticamente se não existirem
-                            </Label>
-                        </div>
+                            <div className="flex items-center space-x-2 py-2">
+                                <Checkbox
+                                    id="autoCreate"
+                                    checked={autoCreateDeps}
+                                    onCheckedChange={setAutoCreateDeps}
+                                />
+                                <Label htmlFor="autoCreate" className="text-xs text-slate-600">
+                                    Criar Usuários/Clientes automaticamente se não existirem
+                                </Label>
+                            </div>
 
-                        <div className="pt-2 border-t border-slate-100 space-y-3">
-                            <Button variant="outline" size="sm" className="w-full justify-start" onClick={handleDownloadTemplate}>
-                                <Download className="w-4 h-4 mr-2 text-indigo-600" />
-                                Baixar Modelo (.xlsx)
-                            </Button>
-
-                            <div className="relative">
-                                <Button variant="secondary" className="w-full cursor-pointer relative">
-                                    <FileUp className="w-4 h-4 mr-2" />
-                                    {fileName ? 'Arquivo Pronto' : 'Selecionar Arquivo'}
-                                    <input
-                                        type="file"
-                                        accept=".xlsx, .xls, .csv"
-                                        onChange={handleFileUpload}
-                                        className="absolute inset-0 opacity-0 cursor-pointer"
-                                    />
+                            <div className="pt-2 border-t border-slate-100 space-y-3">
+                                <Button variant="outline" size="sm" className="w-full justify-start" onClick={handleDownloadTemplate}>
+                                    <Download className="w-4 h-4 mr-2 text-indigo-600" />
+                                    Baixar Modelo (.xlsx)
                                 </Button>
-                            </div>
-                            {fileName && (
-                                <p className="text-xs text-emerald-600 flex items-center justify-center font-medium">
-                                    <CheckCircle className="w-3 h-3 mr-1" />
-                                    {fileName}
-                                </p>
-                            )}
-                        </div>
 
-                        {fileData.length > 0 && (
-                            <Button
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white mt-4"
-                                onClick={processImport}
-                                disabled={isProcessing}
-                            >
-                                {isProcessing ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                        {progress}%
-                                    </>
-                                ) : (
-                                    <>
-                                        <Database className="w-4 h-4 mr-2" />
-                                        Iniciar Importação
-                                    </>
+                                <div className="relative">
+                                    <Button variant="secondary" className="w-full cursor-pointer relative">
+                                        <FileUp className="w-4 h-4 mr-2" />
+                                        {fileName ? 'Arquivo Pronto' : 'Selecionar Arquivo'}
+                                        <input
+                                            type="file"
+                                            accept=".xlsx, .xls, .csv"
+                                            onChange={handleFileUpload}
+                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                        />
+                                    </Button>
+                                </div>
+                                {fileName && (
+                                    <p className="text-xs text-emerald-600 flex items-center justify-center font-medium">
+                                        <CheckCircle className="w-3 h-3 mr-1" />
+                                        {fileName}
+                                    </p>
                                 )}
-                            </Button>
-                        )}
-                    </CardContent>
-                </Card>
+                            </div>
 
-                {/* Coluna de Log e Preview */}
-                <Card className="md:col-span-2 border-0 shadow-sm rounded-xl flex flex-col h-[500px]">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="flex items-center gap-2 text-base">
-                            <TableIcon className="w-5 h-5 text-slate-500" />
-                            Status da Operação
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-1 overflow-auto">
-                        {isProcessing && (
-                            <div className="mb-4">
-                                <Progress value={progress} className="h-2" />
-                            </div>
-                        )}
+                            {fileData.length > 0 && (
+                                <Button
+                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white mt-4"
+                                    onClick={processImport}
+                                    disabled={isProcessing}
+                                >
+                                    {isProcessing ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                            {progress}%
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Database className="w-4 h-4 mr-2" />
+                                            Iniciar Importação
+                                        </>
+                                    )}
+                                </Button>
+                            )}
+                        </CardContent>
+                    </Card>
 
-                        {logs.length > 0 ? (
-                            <div className="bg-slate-900 text-slate-200 p-4 rounded-lg font-mono text-xs h-full overflow-y-auto">
-                                {logs.map((log, i) => (
-                                    <div key={i} className="mb-1 border-b border-slate-800 pb-1 last:border-0">
-                                        {log}
-                                    </div>
-                                ))}
-                            </div>
-                        ) : !fileData.length ? (
-                            <div className="flex flex-col items-center justify-center h-full text-slate-400 border-2 border-dashed border-slate-100 rounded-lg bg-slate-50/50">
-                                <FileDown className="w-12 h-12 mb-3 opacity-20" />
-                                <p>Aguardando arquivo...</p>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto rounded-lg border border-slate-200">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="bg-slate-50">
-                                            {previewData.length > 0 && Object.keys(previewData[0]).map((header) => (
-                                                <TableHead key={header} className="text-xs font-bold uppercase whitespace-nowrap">
-                                                    {header}
-                                                </TableHead>
-                                            ))}
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {previewData.map((row, i) => (
-                                            <TableRow key={i}>
-                                                {Object.values(row).map((val, j) => (
-                                                    <TableCell key={j} className="text-xs whitespace-nowrap">
-                                                        {String(val)}
-                                                    </TableCell>
+                    {/* Coluna de Log e Preview */}
+                    <Card className="md:col-span-2 border-0 shadow-sm rounded-xl flex flex-col h-[500px]">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <TableIcon className="w-5 h-5 text-slate-500" />
+                                Status da Operação
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="flex-1 overflow-auto">
+                            {isProcessing && (
+                                <div className="mb-4">
+                                    <Progress value={progress} className="h-2" />
+                                </div>
+                            )}
+
+                            {logs.length > 0 ? (
+                                <div className="bg-slate-900 text-slate-200 p-4 rounded-lg font-mono text-xs h-full overflow-y-auto">
+                                    {logs.map((log, i) => (
+                                        <div key={i} className="mb-1 border-b border-slate-800 pb-1 last:border-0">
+                                            {log}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : !fileData.length ? (
+                                <div className="flex flex-col items-center justify-center h-full text-slate-400 border-2 border-dashed border-slate-100 rounded-lg bg-slate-50/50">
+                                    <FileDown className="w-12 h-12 mb-3 opacity-20" />
+                                    <p>Aguardando arquivo...</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto rounded-lg border border-slate-200">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="bg-slate-50">
+                                                {previewData.length > 0 && Object.keys(previewData[0]).map((header) => (
+                                                    <TableHead key={header} className="text-xs font-bold uppercase whitespace-nowrap">
+                                                        {header}
+                                                    </TableHead>
                                                 ))}
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                                <div className="p-2 bg-indigo-50 text-indigo-700 text-xs text-center border-t border-indigo-100 font-medium">
-                                    Detectamos {fileData.length} linhas. Clique em Iniciar para processar.
+                                        </TableHeader>
+                                        <TableBody>
+                                            {previewData.map((row, i) => (
+                                                <TableRow key={i}>
+                                                    {Object.values(row).map((val, j) => (
+                                                        <TableCell key={j} className="text-xs whitespace-nowrap">
+                                                            {String(val)}
+                                                        </TableCell>
+                                                    ))}
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                    <div className="p-2 bg-indigo-50 text-indigo-700 text-xs text-center border-t border-indigo-100 font-medium">
+                                        Detectamos {fileData.length} linhas. Clique em Iniciar para processar.
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             {/* ===================== EXPORTAÇÃO ===================== */}
             <div className="pt-6 border-t border-slate-200">
@@ -638,7 +644,28 @@ export default function ImportExportTab() {
                     <ExportCard
                         title="Demandas (CDPC)"
                         description="Todas as demandas com status, responsáveis e datas"
-                        fetchFn={() => fluxoApi.entities.Demand.list()}
+                        fetchFn={async () => {
+                            const [demands, users, clients, cycles] = await Promise.all([
+                                fluxoApi.entities.Demand.list(),
+                                fluxoApi.entities.User.list(),
+                                fluxoApi.entities.Client.list(),
+                                fluxoApi.entities.Cycle.list()
+                            ]);
+
+                            const userMap = new Map(users.map(u => [u.id, u.name]));
+                            const clientMap = new Map(clients.map(c => [c.id, c.name]));
+                            const cycleMap = new Map(cycles.map(c => [c.id, c.name]));
+
+                            return demands.map(d => ({
+                                ...d,
+                                analyst_name: userMap.get(d.analyst_id) || '',
+                                requester_name: userMap.get(d.requester_id) || '',
+                                support_analyst_name: userMap.get(d.support_analyst_id) || '',
+                                architect_support_analyst_name: userMap.get(d.architect_support_analyst_id) || '',
+                                client_name: clientMap.get(d.client_id) || '',
+                                cycle_name: cycleMap.get(d.cycle_id) || ''
+                            }));
+                        }}
                         filename="demandas_cdpc"
                         sheetName="Demandas"
                         columnMap={{
@@ -648,10 +675,20 @@ export default function ImportExportTab() {
                             stage: 'Etapa',
                             complexity: 'Complexidade',
                             artifact: 'Artefato',
+                            value: 'Valor (R$)',
+                            client_name: 'Cliente',
+                            analyst_name: 'Analista Responsável',
+                            requester_name: 'Executivo/Solicitante',
+                            cycle_name: 'Ciclo',
+                            support_analyst_name: 'Suporte Pré-Vendas',
+                            architect_support_analyst_name: 'Suporte Arquiteto',
+                            margem_bruta: 'MB (%)',
+                            margem_liquida: 'ML (%)',
                             created_date: 'Data Criação',
-                            qualification_date: 'Data Qualificação',
+                            qualification_date: 'Data Início',
                             expected_delivery_date: 'Previsão Entrega',
-                            delivery_date: 'Data Entrega',
+                            delivery_date: 'Data Fim',
+                            frozen_time_minutes: 'Tempo Congelado (min)',
                             observation: 'Observação',
                         }}
                         isProcessing={isProcessing}
@@ -748,26 +785,28 @@ export default function ImportExportTab() {
             </div>
 
             {/* Danger Zone */}
-            <div className="pt-8 border-t border-slate-200">
-                <h3 className="text-sm font-semibold text-red-600 mb-4 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" />
-                    Zona de Perigo
-                </h3>
-                <div className="p-4 bg-red-50 border border-red-100 rounded-lg flex items-center justify-between">
-                    <div>
-                        <p className="text-sm font-medium text-red-900">Limpar Base de Demandas</p>
-                        <p className="text-xs text-red-600 mt-1">Exclui todas as demandas e históricos. Usuários e clientes são mantidos.</p>
+            {!isViewer && (
+                <div className="pt-8 border-t border-slate-200">
+                    <h3 className="text-sm font-semibold text-red-600 mb-4 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4" />
+                        Zona de Perigo
+                    </h3>
+                    <div className="p-4 bg-red-50 border border-red-100 rounded-lg flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-red-900">Limpar Base de Demandas</p>
+                            <p className="text-xs text-red-600 mt-1">Exclui todas as demandas e históricos. Usuários e clientes são mantidos.</p>
+                        </div>
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleClearAllDemands}
+                            disabled={isProcessing}
+                        >
+                            {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Excluir Tudo"}
+                        </Button>
                     </div>
-                    <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={handleClearAllDemands}
-                        disabled={isProcessing}
-                    >
-                        {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Excluir Tudo"}
-                    </Button>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

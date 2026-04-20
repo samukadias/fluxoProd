@@ -77,10 +77,10 @@ const SidebarContent = ({ isCollapsed, setIsCollapsed, user, setOpen, onLogout }
 
         <div className="flex-1 py-6 space-y-2 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent pb-10 group">
             {/* Módulo CDPC (Antigo Fluxo/Demandas) */}
-            {(user?.department === 'GOR' || user?.allowed_modules?.includes('flow') || user?.department === 'CDPC' || user?.permissions?.includes('view_all')) && (
+            {(user?.department === 'GOR' || user?.allowed_modules?.includes('flow') || user?.department === 'CDPC' || user?.permissions?.includes('view_all') || user?.role === 'viewer') && (
                 <>
                     <SidebarItem icon={LayoutDashboard} label="Dashboard CDPC" to="/dashboard" onClick={() => setOpen(false)} end isCollapsed={isCollapsed} />
-                    {(user?.role === 'admin' || user?.department === 'GOR') && (
+                    {(user?.role === 'admin' || user?.department === 'GOR' || user?.role === 'viewer' || user?.role === 'gestor' || user?.role === 'manager') && (
                         <SidebarItem icon={BarChart3} label="Acompanhamento CDPC" to="/admin/cdpc-dashboard" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
                     )}
                     <div className={cn("space-y-1 mt-1 border-l border-slate-800/40 relative", isCollapsed ? "pl-0 ml-0 border-none" : "pl-1 ml-6")}>
@@ -90,7 +90,7 @@ const SidebarContent = ({ isCollapsed, setIsCollapsed, user, setOpen, onLogout }
             )}
 
             {/* Módulo CVAC (Antigo Financeiro) */}
-            {(user?.department === 'GOR' || user?.allowed_modules?.includes('finance') || user?.department === 'CVAC' || user?.permissions?.includes('view_all')) && (
+            {(user?.department === 'GOR' || user?.allowed_modules?.includes('finance') || user?.department === 'CVAC' || user?.permissions?.includes('view_all')) && user?.role !== 'viewer' && (
                 <>
                     {((user?.department === 'CVAC' && (user?.role === 'manager' || user?.role === 'analyst' || user?.profile_type === 'analista')) || user?.department === 'GOR' || user?.perfil === 'GESTOR' || user?.permissions?.includes('view_all')) && (
                         <SidebarItem icon={DollarSign} label="Dashboard CVAC" to="/financeiro" onClick={() => setOpen(false)} end isCollapsed={isCollapsed} />
@@ -103,7 +103,7 @@ const SidebarContent = ({ isCollapsed, setIsCollapsed, user, setOpen, onLogout }
             )}
 
             {/* Módulo COCR (Antigo Prazos) */}
-            {(user?.department === 'GOR' || user?.allowed_modules?.includes('contracts') || user?.department === 'COCR' || user?.permissions?.includes('view_all')) && (
+            {(user?.department === 'GOR' || user?.allowed_modules?.includes('contracts') || user?.department === 'COCR' || user?.permissions?.includes('view_all')) && user?.role !== 'viewer' && (
                 <>
                     <SidebarItem icon={CalendarClock} label="Dashboard COCR" to="/prazos" onClick={() => setOpen(false)} end isCollapsed={isCollapsed} />
 
@@ -126,12 +126,12 @@ const SidebarContent = ({ isCollapsed, setIsCollapsed, user, setOpen, onLogout }
             )}
 
             {/* Administration */}
-            {(user?.permissions?.includes('view_executive_dashboard') || user?.permissions?.includes('manage_settings')) && (
+            {(user?.permissions?.includes('view_executive_dashboard') || user?.permissions?.includes('manage_settings') || user?.role === 'viewer') && (
                 <>
                     {user?.permissions?.includes('view_executive_dashboard') && (
                         <SidebarItem icon={BarChart3} label="Visão Executiva (Gerencial)" to="/gerencial" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
                     )}
-                    {user?.permissions?.includes('manage_settings') && (
+                    {(user?.permissions?.includes('manage_settings') || user?.role === 'viewer') && (
                         <SidebarItem icon={Settings} label="Administração" to="/settings" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
                     )}
                     {(user?.role === 'admin') && (

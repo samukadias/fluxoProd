@@ -103,6 +103,7 @@ const createCrud = (resource) => ({
     create: (data) => fluxClient.post(`/${resource}`, data).then(res => res.data),
     update: (id, data) => fluxClient.put(`/${resource}/${id}`, data).then(res => res.data),
     delete: (id) => fluxClient.delete(`/${resource}/${id}`).then(res => res.data),
+    bulk: (data) => fluxClient.post(`/${resource}/bulk`, data).then(res => res.data),
 });
 
 export const fluxoApi = {
@@ -116,7 +117,8 @@ export const fluxoApi = {
         Contract: createCrud('contracts'),
         FinanceContract: {
             ...createCrud('finance_contracts'),
-            generateSchedule: (id) => fluxClient.post(`/contracts/${id}/generate-attestations`).then(res => res.data)
+            generateSchedule: (id) => fluxClient.post(`/contracts/${id}/generate-attestations`).then(res => res.data),
+            importBaseCvac: (rows) => fluxClient.post('/finance_contracts/import-base-cvac', rows).then(res => res.data),
         },
         DeadlineContract: createCrud('deadline_contracts'),
         Invoice: createCrud('invoices'),
@@ -127,9 +129,13 @@ export const fluxoApi = {
         StageHistory: createCrud('stage_history'),
     },
     demands: {
+        getActiveRoles: () => fluxClient.get('/demands/metadata/active-roles').then(res => res.data),
         reopenings: (demandId) => fluxClient.get(`/demands/${demandId}/reopenings`).then(res => res.data),
         redeliver: (demandId) => fluxClient.post(`/demands/${demandId}/redeliver`).then(res => res.data),
         clearHistory: (demandId) => fluxClient.delete(`/demands/${demandId}/history`).then(res => res.data),
+        getAnnotations: (demandId) => fluxClient.get(`/demands/${demandId}/annotations`).then(res => res.data),
+        addAnnotation: (demandId, text) => fluxClient.post(`/demands/${demandId}/annotations`, { text }).then(res => res.data),
+        deleteAnnotation: (id) => fluxClient.delete(`/demands/annotations/${id}`).then(res => res.data),
     },
     auth: {
         login: (email, password) => fluxClient.post('/auth/login', { email, password }).then(res => res.data),

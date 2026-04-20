@@ -112,8 +112,32 @@ export default function StatusTimeline({ history = [], currentStatus, demandCrea
             <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200" />
 
             <div className="space-y-4">
-                {sortedHistory.map((item, index) => {
-                    const daysInStatus = daysMap.get(index);
+                {currentStatus && (
+                    <div className="relative pl-10 mb-6">
+                        <div className={cn(
+                            "absolute left-2.5 w-3 h-3 rounded-full border-2 border-white shadow-sm ring-4 ring-indigo-100",
+                            statusColors[currentStatus] || "bg-slate-400"
+                        )} />
+                        <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-100">
+                            <div className="text-xs text-indigo-600 mb-1">Status Atual</div>
+                            <div className="font-semibold text-indigo-800">{currentStatus}</div>
+                            {currentStatusDays > 0 && (
+                                <div className="mt-1.5">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                        <Timer className="w-3 h-3" />
+                                        {currentStatusDays} {currentStatusDays === 1 ? 'dia' : 'dias'}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {[...sortedHistory].reverse().map((item, index) => {
+                    // find original index to get daysMap value
+                    const originalIndex = sortedHistory.length - 1 - index;
+                    const daysInStatus = daysMap.get(originalIndex);
+                    
                     return (
                         <div key={item.id || index} className="relative pl-10">
                             <div className={cn(
@@ -153,27 +177,6 @@ export default function StatusTimeline({ history = [], currentStatus, demandCrea
                         </div>
                     );
                 })}
-
-                {currentStatus && (
-                    <div className="relative pl-10">
-                        <div className={cn(
-                            "absolute left-2.5 w-3 h-3 rounded-full border-2 border-white shadow-sm ring-4 ring-indigo-100",
-                            statusColors[currentStatus] || "bg-slate-400"
-                        )} />
-                        <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-100">
-                            <div className="text-xs text-indigo-600 mb-1">Status Atual</div>
-                            <div className="font-semibold text-indigo-800">{currentStatus}</div>
-                            {currentStatusDays > 0 && (
-                                <div className="mt-1.5">
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
-                                        <Timer className="w-3 h-3" />
-                                        {currentStatusDays} {currentStatusDays === 1 ? 'dia' : 'dias'}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );

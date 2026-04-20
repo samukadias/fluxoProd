@@ -4,13 +4,19 @@ import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Clock, AlertTriangle, CheckCircle2, TrendingUp, Layers, Briefcase, Timer, List } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { FileText, Clock, AlertTriangle, CheckCircle2, TrendingUp, Layers, Briefcase, Timer, List, RotateCcw, X, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatsCard from '@/components/dashboard/StatsCard';
 import BottleneckChart from '@/components/dashboard/BottleneckChart';
 import BottleneckBarChart from '@/components/dashboard/BottleneckBarChart';
 import ComplexityChart from '@/components/dashboard/ComplexityChart';
 import QualifiedDemandsChart from '@/components/dashboard/QualifiedDemandsChart';
+import CancelledRankingChart from '@/components/dashboard/CancelledRankingChart';
+import ReopeningReasonsChart from '@/components/dashboard/ReopeningReasonsChart';
 import { calculateWorkDays } from '@/Components/demands/EffortCalculator';
 import { isAfter, parseISO, format, getYear, subMonths, isSameMonth } from 'date-fns';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
@@ -51,6 +57,8 @@ export default function ManagerDashboard() {
     const [selectedAnalyst, setSelectedAnalyst] = useState('all');
     const [selectedFilter, setSelectedFilter] = useState(null);
     const [selectedHeatmapStatus, setSelectedHeatmapStatus] = useState(null);
+    const [selectedExec, setSelectedExec] = useState(null);
+    const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
     const { data: demands = [] } = useQuery({
         queryKey: ['demands'],
@@ -89,13 +97,24 @@ export default function ManagerDashboard() {
         queryFn: () => fluxoApi.entities.Holiday.list()
     });
 
+    const { data: clients = [] } = useQuery({
+        queryKey: ['clients'],
+        queryFn: () => fluxoApi.entities.Client.list()
+    });
+
+    const { data: cdpcMetrics = {} } = useQuery({
+        queryKey: ['cdpc-metrics', selectedYear],
+        queryFn: () => fluxoApi.metrics.cdpc({ year: selectedYear })
+    });
+
     const currentAnalyst = useMemo(() => {
         if (!user || (user.role !== 'analyst' && user.perfil !== 'ANALISTA')) return null;
+        // Try to find by email first (most reliable), then by name
         return analysts.find(a =>
             a.email?.toLowerCase() === user.email?.toLowerCase() ||
             a.name?.toLowerCase() === user.name?.toLowerCase() ||
             a.name?.toLowerCase() === user.full_name?.toLowerCase()
-        );
+        ) || null;
     }, [user, analysts]);
 
     const currentRequester = useMemo(() => {
@@ -134,13 +153,18 @@ export default function ManagerDashboard() {
 
             // PERMISSÕES:
             // Analista: Apenas suas demandas
-            // Se for analista, OBRIGATORIAMENTE filtra
             if (user?.role === 'analyst') {
                 if (currentAnalyst) {
+                    // Match via analysts table (email/name linked)
                     return d.analyst_id === currentAnalyst.id;
                 }
-                // Se é analista mas não achamos o cadastro dele na tabela 'analysts', 
-                // por segurança não mostra nada
+                // Fallback: match directly by user ID in case the analyst
+                // has no corresponding entry in the 'analysts' table.
+                // This prevents the dashboard from showing empty for valid analysts.
+                if (user.id) {
+                    return d.analyst_id === user.id;
+                }
+                // If we truly can't identify the analyst, show nothing for safety
                 return false;
             }
 
@@ -155,6 +179,25 @@ export default function ManagerDashboard() {
         });
     }, [demands, selectedYear, selectedAnalyst, currentAnalyst, currentRequester, user]);
 
+    const executiveCanceledDetails = useMemo(() => {
+        if (!selectedExec) return [];
+        return demands.filter(d => {
+            const refDate = d.qualification_date || d.created_date;
+            const demandYear = refDate ? String(getYear(parseISO(refDate))) : null;
+
+            const matchesExec = selectedExec.id === null
+                ? (d.requester_id === null || d.requester_id === "" || d.requester_id === 0)
+                : String(d.requester_id) === String(selectedExec.id);
+
+            return matchesExec && d.status === 'CANCELADA' && demandYear === selectedYear;
+        });
+    }, [selectedExec, demands, selectedYear]);
+
+    const handleExecClick = (item) => {
+        setSelectedExec(item);
+        setIsDetailsOpen(true);
+    };
+
     // Map for quick lookup
     const usersMap = useMemo(() => {
         return users.reduce((acc, u) => {
@@ -163,8 +206,14 @@ export default function ManagerDashboard() {
         }, {});
     }, [users]);
 
+    const clientsMap = useMemo(() => {
+        return clients.reduce((acc, c) => {
+            acc[c.id] = c.name;
+            return acc;
+        }, {});
+    }, [clients]);
+
     const detailedDemands = useMemo(() => {
-        if (!selectedFilter) return [];
 
         return filteredDemands.filter(d => {
             switch (selectedFilter) {
@@ -781,6 +830,58 @@ export default function ManagerDashboard() {
                     </div>
                 )}
 
+                {/* Cancelamentos e Reaberturas - New Sections */}
+                {!isRequester && isManager && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center justify-between gap-2 w-full">
+                                    <div className="flex items-center gap-2">
+                                        <AlertTriangle className="w-5 h-5 text-red-500" />
+                                        Ranking de Cancelamentos por Executivo
+                                    </div>
+                                    {cdpcMetrics.cancelledThisYear !== undefined && (
+                                        <div className="w-8 h-8 rounded-full bg-red-100 text-red-700 flex items-center justify-center text-xs font-bold border border-red-200 shadow-sm" title="Total Global de Cancelamentos">
+                                            {cdpcMetrics.cancelledThisYear}
+                                        </div>
+                                    )}
+                                </CardTitle>
+                                <p className="text-sm text-slate-500">
+                                    Quantidade de demandas canceladas no período (Clique para ver detalhes)
+                                </p>
+                            </CardHeader>
+                            <CardContent>
+                                <CancelledRankingChart 
+                                    data={cdpcMetrics.cancelledByExecutive} 
+                                    onItemClick={handleExecClick}
+                                />
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center justify-between gap-2 w-full">
+                                    <div className="flex items-center gap-2">
+                                        <RotateCcw className="w-5 h-5 text-amber-500" />
+                                        Reaberturas por Motivo
+                                    </div>
+                                    {cdpcMetrics.reopeningsByReason?.length > 0 && (
+                                        <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold border border-amber-200 shadow-sm">
+                                            {cdpcMetrics.reopeningsByReason.reduce((acc, curr) => acc + curr.count, 0)}
+                                        </div>
+                                    )}
+                                </CardTitle>
+                                <p className="text-sm text-slate-500">
+                                    Principais razões para reabertura de demandas entregues
+                                </p>
+                            </CardHeader>
+                            <CardContent>
+                                <ReopeningReasonsChart data={cdpcMetrics.reopeningsByReason} />
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+
                 {isRequester && (
                     <Card className="col-span-1 lg:col-span-2 mt-6">
                         <CardHeader>
@@ -929,6 +1030,82 @@ export default function ManagerDashboard() {
                     )
                 }
             </div >
+
+            {/* Drill-down Modal */}
+            <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+                <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0">
+                    <DialogHeader className="p-6 pb-2">
+                        <DialogTitle className="text-xl flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <AlertTriangle className="w-5 h-5 text-red-500" />
+                                Demandas Canceladas: {selectedExec?.name}
+                            </div>
+                            <Badge variant="secondary" className="bg-red-50 text-red-700 hover:bg-red-50">
+                                {executiveCanceledDetails.length} demandas
+                            </Badge>
+                        </DialogTitle>
+                        <p className="text-sm text-slate-500 mt-1">
+                            Detalhamento das propostas canceladas por este executivo em {selectedYear}
+                        </p>
+                    </DialogHeader>
+
+                    <ScrollArea className="flex-1 p-6 pt-2">
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader className="bg-slate-50">
+                                    <TableRow>
+                                        <TableHead className="w-[120px]">Nº Demanda</TableHead>
+                                        <TableHead>Produto</TableHead>
+                                        <TableHead>Nome do Cliente</TableHead>
+                                        <TableHead>Referência</TableHead>
+                                        <TableHead className="text-right">Ação</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {executiveCanceledDetails.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="h-24 text-center text-slate-400">
+                                                Nenhuma demanda encontrada.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        executiveCanceledDetails.map((d) => (
+                                            <TableRow key={d.id} className="hover:bg-slate-50/50">
+                                                <TableCell className="font-bold text-slate-900">
+                                                    {d.demand_number || `#${d.id}`}
+                                                </TableCell>
+                                                <TableCell className="text-sm font-medium">{d.product}</TableCell>
+                                                <TableCell className="text-xs text-slate-500">
+                                                    {clientsMap[d.client_id] || d.client_id || '-'}
+                                                </TableCell>
+                                                <TableCell className="text-xs text-slate-400">
+                                                    {format(parseISO(d.qualification_date || d.created_date), 'dd/MM/yyyy')}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <a
+                                                        href={`/demand-detail?id=${d.id}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+                                                    >
+                                                        Ver <ExternalLink className="w-3 h-3" />
+                                                    </a>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </ScrollArea>
+
+                    <div className="p-4 border-t bg-slate-50 flex justify-end">
+                        <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>
+                            Fechar
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div >
     );
 }

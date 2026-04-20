@@ -8,3 +8,9 @@ dist-ssr
 yarn.lock
 package-lock.json
 server/backups/
+.env
+**/*.env
+**/*.cjs
+**/*.txt
+**/*.log
+frontend_start.log

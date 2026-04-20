@@ -139,46 +139,63 @@ const generateExpiringContractNotifications = async () => {
             }
         }
 
-        // Also check for overdue demands
-        const overdueDemands = await db.query(`
-            SELECT d.id, d.product, d.analyst_id, d.expected_delivery_date
+        // Also check for overdue demands: notify the responsible analyst AND CDPC managers
+        // Single JOIN query — avoids N+1
+        const overdueResult = await db.query(`
+            SELECT 
+                d.id as demand_id,
+                d.product,
+                d.expected_delivery_date,
+                u.id as user_id
             FROM demands d
+            JOIN analysts a ON d.analyst_id = a.id
+            JOIN users u ON LOWER(u.email) = LOWER(a.email)
             WHERE d.expected_delivery_date < NOW()
-            AND d.status NOT IN ('ENTREGUE', 'CANCELADA')
+            AND d.status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA')
         `);
 
-        for (const demand of overdueDemands.rows) {
-            if (demand.analyst_id) {
-                // Find the user linked to this analyst
-                const analyst = await db.query('SELECT name, email FROM analysts WHERE id = $1', [demand.analyst_id]);
-                if (analyst.rows.length > 0) {
-                    const user = await db.query('SELECT id FROM users WHERE email = $1', [analyst.rows[0].email]);
-                    if (user.rows.length > 0) {
-                        const existing = await db.query(
-                            "SELECT id FROM notifications WHERE user_id = $1 AND entity_type = 'demand' AND entity_id = $2 AND type = 'demand_overdue'",
-                            [user.rows[0].id, demand.id]
-                        );
-                        if (existing.rows.length === 0) {
-                            await db.query(
-                                `INSERT INTO notifications (user_id, type, title, message, entity_type, entity_id)
-                                 VALUES ($1, $2, $3, $4, $5, $6)`,
-                                [
-                                    user.rows[0].id,
-                                    'demand_overdue',
-                                    'Demanda atrasada',
-                                    `A demanda "${demand.product}" (ID #${demand.id}) está atrasada desde ${new Date(demand.expected_delivery_date).toLocaleDateString('pt-BR')}.`,
-                                    'demand',
-                                    demand.id
-                                ]
-                            );
-                        }
-                    }
+        // Get CDPC managers to also receive overdue alerts
+        const cdpcManagers = await db.query(
+            "SELECT id FROM users WHERE role IN ('manager', 'admin') AND department = 'CDPC'"
+        );
+
+        for (const row of overdueResult.rows) {
+            const recipientIds = new Set([row.user_id]);
+            cdpcManagers.rows.forEach(m => recipientIds.add(m.id));
+
+            const dueDate = new Date(row.expected_delivery_date).toLocaleDateString('pt-BR');
+
+            for (const recipientId of recipientIds) {
+                // Avoid duplicate: only one notification per demand per user per day
+                const existing = await db.query(
+                    `SELECT id FROM notifications 
+                     WHERE user_id = $1 AND entity_type = 'demand' AND entity_id = $2 
+                     AND type = 'demand_overdue'
+                     AND created_at > NOW() - INTERVAL '24 hours'`,
+                    [recipientId, row.demand_id]
+                );
+                if (existing.rows.length === 0) {
+                    await db.query(
+                        `INSERT INTO notifications (user_id, type, title, message, entity_type, entity_id)
+                         VALUES ($1, $2, $3, $4, $5, $6)`,
+                        [
+                            recipientId,
+                            'demand_overdue',
+                            '⚠️ Demanda com prazo vencido',
+                            `A demanda "${row.product}" está atrasada desde ${dueDate}. Atualize o status ou justifique o atraso.`,
+                            'demand',
+                            row.demand_id
+                        ]
+                    );
                 }
             }
         }
+
+        console.log(`[CRON] Notificações processadas: ${overdueResult.rows.length} demandas atrasadas verificadas.`);
     } catch (err) {
         console.error('[NOTIFICATION CRON ERROR]:', err.message);
     }
 };
 
 module.exports = { router, generateExpiringContractNotifications };
+

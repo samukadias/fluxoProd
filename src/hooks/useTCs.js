@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { TermoConfirmacao } from '@/entities/TermoConfirmacao';
+import { TermoConfirmacao } from '@/Entities/TermoConfirmacao';
 import { toast } from 'sonner';
 
 // Keys

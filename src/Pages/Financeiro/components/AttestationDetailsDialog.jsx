@@ -33,8 +33,11 @@ export default function AttestationDetailsDialog({ attestation, open, onOpenChan
         });
     };
 
-    const pendency = (attestation.billed_amount || 0) - (attestation.paid_amount || 0);
-    const hasPendency = pendency > 0;
+    const apontado = parseFloat(attestation.measurement_value) || 0;
+    const faturado = parseFloat(attestation.billed_amount) || 0;
+    const recebido = parseFloat(attestation.paid_amount) || 0;
+    const pendencia = apontado - faturado;
+    const hasPendency = pendencia > 0;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -125,18 +128,22 @@ export default function AttestationDetailsDialog({ attestation, open, onOpenChan
                         </h3>
                         <div className="space-y-3">
                             <div className="flex justify-between items-center">
-                                <span className="text-sm text-slate-600">Valor Faturado</span>
-                                <span className="font-semibold text-slate-900">{formatCurrency(attestation.billed_amount)}</span>
+                                <span className="text-sm text-slate-600">Valor Apontado</span>
+                                <span className="font-semibold text-slate-900">{formatCurrency(apontado)}</span>
                             </div>
                             <div className="flex justify-between items-center">
-                                <span className="text-sm text-slate-600">Valor Pago</span>
-                                <span className="font-semibold text-green-600">{formatCurrency(attestation.paid_amount)}</span>
+                                <span className="text-sm text-slate-600">Valor Faturado</span>
+                                <span className="font-semibold text-slate-900">{formatCurrency(faturado)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-slate-600">Valor Pago / Recebido</span>
+                                <span className="font-semibold text-green-600">{formatCurrency(recebido)}</span>
                             </div>
                             <Separator />
                             <div className="flex justify-between items-center">
-                                <span className="text-sm font-semibold text-slate-700">Pendência</span>
-                                <span className={`font-bold text-lg ${hasPendency ? 'text-red-600' : 'text-green-600'}`}>
-                                    {formatCurrency(pendency)}
+                                <span className="text-sm font-semibold text-slate-700">Pendência (Apontado - Faturado)</span>
+                                <span className={`font-bold text-lg ${hasPendency ? 'text-red-600' : 'text-slate-900'}`}>
+                                    {formatCurrency(pendencia)}
                                 </span>
                             </div>
                             {attestation.invoice_number && (

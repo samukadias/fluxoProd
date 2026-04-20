@@ -138,7 +138,15 @@ Home > COCR > Contratos > Editar #123
 
 **Solução:** Remover referências a `DeadlineContract` do código.
 
-### 7. Renomear Aplicação (fluxoProd → GestaoGOR)
+### 7. Unificação da Tabela de Clientes (Arquitetura)
+
+**Problema:** Atualmente a entidade Cliente está duplicada. O módulo CDPC usa a tabela verdadeira `clients` e um `client_id`, mas os módulos COCR (Prazos) e CVAC (Financeiro) guardam strings de texto livres (`cliente`, `client_name`). Isso gera duplicidade e dificulta dashboards centralizados.
+**Solução (Futuro):** 
+1. Migrar os nomes textuais e popular a tabela central `clients`. 
+2. Criar `client_id` em COCR e CVAC e atualizar todos os registros via script. 
+3. Atualizar o Backend/Frontend para usar a tabela unificada (com Selects nos formulários no lugar de input texto).
+
+### 8. Renomear Aplicação (fluxoProd → GestaoGOR)
 
 **Detalhes:**
 - A aplicação amadureceu e o novo nome reflete melhor o seu escopo atual.

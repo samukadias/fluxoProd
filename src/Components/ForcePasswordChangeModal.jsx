@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { ShieldAlert, Loader2, LogOut } from "lucide-react";
 
 export default function ForcePasswordChangeModal() {
-    const { user, login, logout } = useAuth();
+    const { user, login, logout, updateUser } = useAuth();
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -44,16 +44,9 @@ export default function ForcePasswordChangeModal() {
             toast.success("Senha alterada com sucesso! Bem-vindo(a).");
 
             // To properly clear the flag from context and local storage,
-            // we simulate a clean re-login or manually mutate local storage & state.
-            // The cleanest logic without complex state manipulation is to log out and ask to login again,
-            // OR we can update the user object in localStorage and trigger a page reload.
-            const storedUser = localStorage.getItem('fluxo_user');
-            if (storedUser) {
-                const parsed = JSON.parse(storedUser);
-                parsed.must_change_password = false;
-                localStorage.setItem('fluxo_user', JSON.stringify(parsed));
-                window.location.reload(); // Force full app reload to clear AuthContext state and remount ProtectedRoutes
-            }
+            // we update the user object via AuthContext.
+            updateUser({ must_change_password: false });
+            // No need for window.location.reload() anymore as state is updated reactively
 
         } catch (error) {
             console.error("Erro ao alterar senha:", error);

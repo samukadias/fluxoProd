@@ -92,27 +92,30 @@ export default function CocrTab({ metrics, loading, formatCurrency }) {
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 flex justify-between bg-slate-50">
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden relative">
+                        <div className="absolute inset-0 bg-slate-50/50 backdrop-blur-[1px] z-10 flex flex-col items-center justify-center pointer-events-none">
+                            <span className="bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg uppercase tracking-widest mt-6">Em Desenvolvimento</span>
+                        </div>
+                        <div className="p-4 border-b border-slate-100 flex justify-between bg-slate-50 opacity-60">
                             <h3 className="font-semibold text-slate-700 text-sm">Qualidade do Preço / Impacto Financeiro</h3>
                         </div>
-                        <div className="grid grid-cols-2">
+                        <div className="grid grid-cols-2 opacity-40">
                             <div className="p-6 border-r border-slate-100 text-center flex flex-col items-center justify-center">
-                                <div className="w-10 h-10 mx-auto bg-amber-50 rounded-full flex items-center justify-center mb-3">
+                                <div className="w-10 h-10 mx-auto bg-amber-50 rounded-full flex items-center justify-center mb-3 grayscale">
                                     <TrendingDown className="w-5 h-5 text-amber-500" />
                                 </div>
                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Tabela Defasada</p>
-                                <p className="text-2xl font-bold text-slate-300 mb-1">0 contratos</p>
-                                <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider">- (Em Análise de Implementação)</p>
+                                <p className="text-2xl font-bold text-slate-300 mb-1">-</p>
+                                <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider">Métrica Futura</p>
                             </div>
                             <div className="p-6 text-center flex flex-col items-center justify-center">
                                 <div className="w-10 h-10 mx-auto bg-slate-100 rounded-full flex items-center justify-center mb-3">
-                                    <TrendingDown className="w-5 h-5 text-slate-500" />
+                                    <TrendingDown className="w-5 h-5 text-slate-400" />
                                 </div>
                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Descontos Concedidos</p>
-                                <p className="text-2xl font-bold text-slate-300 mb-2">0 contratos</p>
+                                <p className="text-2xl font-bold text-slate-300 mb-2">-</p>
                                 <div className="flex flex-col items-center justify-center gap-1">
-                                    <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider">- (Em Análise de Implementação)</p>
+                                    <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider">Métrica Futura</p>
                                 </div>
                             </div>
                         </div>

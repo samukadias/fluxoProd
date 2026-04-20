@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Contract } from "@/entities/Contract";
-import { TermoConfirmacao } from "@/entities/TermoConfirmacao";
+import { Contract } from "@/Entities/Contract";
+import { TermoConfirmacao } from "@/Entities/TermoConfirmacao";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -28,12 +28,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { useAuth } from "@/context/AuthContext";
+
 export default function DataManagement() {
+  const { user } = useAuth();
   const [contracts, setContracts] = useState([]);
   const [tcs, setTcs] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isMigrating, setIsMigrating] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [userRole, setUserRole] = useState(null);
+  const [isMigrating, setIsMigrating] = useState(false);
 
   // Transfer States
   const [analysts, setAnalysts] = useState([]);
@@ -59,14 +62,8 @@ export default function DataManagement() {
 
   const loadData = async () => {
     setIsLoading(true);
-    const storedUser = localStorage.getItem('fluxo_user') || localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const userObj = JSON.parse(storedUser);
-        setUserRole(userObj.role);
-      } catch (e) {
-        console.error(e);
-      }
+    if (user) {
+      setUserRole(user.role);
     }
 
     try {

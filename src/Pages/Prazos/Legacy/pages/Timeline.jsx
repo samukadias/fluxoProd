@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Contract } from "@/entities/Contract";
+import { Contract } from "@/Entities/Contract";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, TrendingUp, AlertTriangle } from "lucide-react";

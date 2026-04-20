@@ -8,8 +8,9 @@ export function calculatePriority(weight, complexity) {
 }
 
 export default function PriorityBadge({ weight }) {
-    // If weight format is missing, default to 4 (lowest priority)
-    const priority = weight !== undefined && weight !== null ? weight : 4;
+    // Ensure weight is cast to Number since it might come from DB as a string.
+    const w = weight !== undefined && weight !== null && weight !== '' ? Number(weight) : 4;
+    const priority = !isNaN(w) ? w : 4;
 
     let style = "bg-slate-100 text-slate-600";
     let label = "Baixo";

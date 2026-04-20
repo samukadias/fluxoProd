@@ -47,8 +47,8 @@ const queryClient = new QueryClient({
     },
 });
 
-// Protected Route Wrapper - Now consumes useAuth
-const ProtectedRoute = ({ children }) => {
+// Protected Route Wrapper - Now consumes useAuth and handles role-based access
+const ProtectedRoute = ({ children, allowedRoles, forbiddenModules }) => {
     const { user, loading } = useAuth();
     const location = useLocation();
 
@@ -57,6 +57,20 @@ const ProtectedRoute = ({ children }) => {
     if (!user) {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
+
+    // Role-based restrictions
+    if (allowedRoles && !allowedRoles.includes(user.role)) {
+        return <Navigate to="/dashboard" replace />;
+    }
+
+    // Module-based restrictions (specifically for viewer/requester)
+    if (forbiddenModules) {
+        const path = location.pathname;
+        if (forbiddenModules.some(mod => path.startsWith(`/${mod}`))) {
+            return <Navigate to="/dashboard" replace />;
+        }
+    }
+
     return children;
 };
 
@@ -68,7 +82,7 @@ function AppRoutes() {
 
     const getHomeRoute = (user) => {
         if (!user) return "/login";
-        if (user.role === 'requester') return "/dashboard";
+        if (user.role === 'requester' || user.role === 'viewer') return "/dashboard";
 
         const modules = user.allowed_modules || ['flow'];
 
@@ -97,7 +111,7 @@ function AppRoutes() {
                 } />
 
                 <Route path="/" element={
-                    <ProtectedRoute>
+                    <ProtectedRoute forbiddenModules={user?.role === 'viewer' ? ['financeiro', 'prazos'] : []}>
                         <Layout onLogout={logout} user={user} />
                     </ProtectedRoute>
                 }>
@@ -116,7 +130,6 @@ function AppRoutes() {
                         <Route path="dashboard" element={<FinanceiroHome />} />
                         <Route path="contratos" element={<Contracts />} />
                         <Route path="contratos/:contractId/atestacoes" element={<AttestationHistory />} />
-
                     </Route>
                     <Route path="prazos">
                         <Route index element={<PrazosDashboard />} />
@@ -132,7 +145,6 @@ function AppRoutes() {
                         <Route path="novo" element={<NewContractLegacy />} />
                         <Route path="editar/:id" element={<EditContractLegacy />} />
                     </Route>
-
                 </Route>
 
                 <Route path="/access-denied" element={<UserNotRegisteredError />} />

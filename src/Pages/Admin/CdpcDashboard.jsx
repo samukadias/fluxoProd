@@ -8,22 +8,68 @@ import {
     RefreshCw,
     ChevronLeft,
     Clock,
-    Loader2
+    Loader2,
+    Calendar,
+    User,
+    Activity,
+    List,
+    Building2
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from "@/lib/utils";
 import { useQuery } from '@tanstack/react-query';
 import { fluxoApi } from '@/api/fluxoClient';
 import OptyKpis from './components/OptyKpis';
 import OptyCharts from './components/OptyCharts';
 import OptyCard from './components/OptyCard';
+import DemandDetailModal from '@/Components/demands/DemandDetailModal';
+import * as XLSX from 'xlsx';
 
 export default function CdpcDashboard() {
     const [viewMode, setViewMode] = useState('geral');
     const [searchTerm, setSearchTerm] = useState('');
     const [filters, setFilters] = useState({
         responsible: 'Todos',
-        status: 'active'
+        status: 'active',
+        client: 'Todos'
     });
+
+    const [selectedDemandId, setSelectedDemandId] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const handleDetailClick = (id) => {
+        setSelectedDemandId(id);
+        setIsModalOpen(true);
+    };
+
+    const exportToExcel = () => {
+        const rows = filteredOptys.map(o => ({
+            'Nº Demanda': o.demand_number || '',
+            'Título': o.title,
+            'Status': o.status,
+            'Prioridade': o.priority,
+            'Responsável': o.responsible,
+            'Cliente': o.client,
+            'Artefato': o.artifact,
+            'Previsão Entrega': o.forecast,
+            'Atraso (dias)': o.delay || 0,
+            'Última Observação': o.observation || '',
+            'Autor da Obs.': o.last_annotation_author || '',
+            'Data da Obs.': o.last_annotation_date 
+                ? new Date(o.last_annotation_date).toLocaleString('pt-BR')
+                : '',
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        // Auto-width
+        const colWidths = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length, 20) }));
+        ws['!cols'] = colWidths;
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Demandas CDPC');
+        const dateStr = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(wb, `CDPC_Demandas_${dateStr}.xlsx`);
+    };
 
     // --- Data Fetching ---
     const { data: rawDemands = [], isLoading: loadingDemands, refetch } = useQuery({
@@ -75,12 +121,16 @@ export default function CdpcDashboard() {
                 priority: weightToPriority(d.weight ?? 4),
                 responsible: analyst ? analyst.name : 'Não Designado',
                 client: client ? client.name : 'Cliente Externo',
+                client_id: d.client_id,
                 forecast: d.expected_delivery_date ? new Date(d.expected_delivery_date).toLocaleDateString('pt-BR') : '-',
                 artifact: d.artifact || '-',
                 delay: delay,
                 isDelayed: delay > 0,
                 pendency: d.current_pendency || null,
                 observation: d.observation || null,
+                is_legacy_observation: d.is_legacy_observation,
+                last_annotation_author: d.last_annotation_author || null,
+                last_annotation_date: d.last_annotation_date || null,
                 weight: d.weight ?? 4
             };
         });
@@ -92,9 +142,11 @@ export default function CdpcDashboard() {
             const matchesSearch = !search || 
                                 opty.title.toLowerCase().includes(search) || 
                                 opty.id.includes(search) || 
+                                opty.client.toLowerCase().includes(search) ||
                                 (opty.demand_number && opty.demand_number.toLowerCase().includes(search));
             
             const matchesResponsible = filters.responsible === 'Todos' || opty.responsible === filters.responsible;
+            const matchesClient = filters.client === 'Todos' || opty.client === filters.client;
             
             let matchesStatus = true;
             if (filters.status === 'active') {
@@ -103,7 +155,7 @@ export default function CdpcDashboard() {
                 matchesStatus = opty.status === filters.status;
             }
             
-            return matchesSearch && matchesResponsible && matchesStatus;
+            return matchesSearch && matchesResponsible && matchesClient && matchesStatus;
         });
     }, [allDemandsAsOptys, searchTerm, filters]);
 
@@ -139,6 +191,11 @@ export default function CdpcDashboard() {
         return ['Todos', ...new Set(names)].sort();
     }, [users]);
 
+    const clientsList = useMemo(() => {
+        const names = [...new Set(allDemandsAsOptys.map(o => o.client))].sort();
+        return ['Todos', ...names];
+    }, [allDemandsAsOptys]);
+
     const statuses = [
         'active', 
         'Todos',
@@ -156,90 +213,147 @@ export default function CdpcDashboard() {
     ];
 
     return (
-        <div className="min-h-screen bg-slate-50 pb-20">
-            {/* Top Navigation / Header */}
-            <div className="bg-[#0F172A] text-white px-6 py-4 flex justify-between items-center shadow-lg border-b border-slate-800">
-                <div className="flex items-center gap-4">
-                    <div className="bg-indigo-600 p-2 rounded-lg">
-                        <BarChart3 className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <h1 className="text-xl font-black tracking-tight uppercase">Acompanhamento de Propostas</h1>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                            Dashboard Administrativo • Atualizado em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="bg-slate-800/50 p-1 rounded-lg flex border border-slate-700">
-                        <button 
-                            onClick={() => setViewMode('geral')}
-                            className={cn(
-                                "px-4 py-1.5 text-[10px] font-black uppercase rounded transition-all",
-                                viewMode === 'geral' ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
-                            )}
+        <div className="min-h-screen bg-[#F8FAFC] pb-20 overflow-x-hidden">
+            {/* Top Navigation / Header - Premium Glassmorphism */}
+            <header className="sticky top-0 z-50 w-full bg-slate-900/90 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-700/50 shadow-2xl transition-all duration-300">
+                <div className="max-w-[1600px] mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div className="flex items-center gap-5">
+                        <motion.div 
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="bg-indigo-600/20 p-2.5 rounded-2xl border border-indigo-500/30 shadow-[0_0_20px_rgba(79,70,229,0.3)]"
                         >
-                            Visão Geral
-                        </button>
-                        <button 
-                            onClick={() => setViewMode('lista')}
-                            className={cn(
-                                "px-4 py-1.5 text-[10px] font-black uppercase rounded transition-all",
-                                viewMode === 'lista' ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
-                            )}
-                        >
-                            Lista
-                        </button>
+                            <BarChart3 className="w-7 h-7 text-indigo-400" />
+                        </motion.div>
+                        <div>
+                            <h1 className="text-xl font-black text-white tracking-tight uppercase leading-none mb-1.5 flex items-center gap-2">
+                                Acompanhamento de Propostas
+                                <span className="text-[10px] bg-indigo-600 px-2 py-0.5 rounded-full font-bold">ALPHA v1</span>
+                            </h1>
+                            <div className="flex items-center gap-3 text-slate-400">
+                                <span className="text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
+                                    <Activity className="w-2.5 h-2.5" /> Dashboard Administrativo
+                                </span>
+                                <span className="w-1 h-1 rounded-full bg-slate-700" />
+                                <span className="text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
+                                    <Clock className="w-2.5 h-2.5" /> {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
 
-            <div className="max-w-[1600px] mx-auto px-6 mt-6 space-y-6">
-                {/* Global Filters */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex flex-wrap items-end gap-4">
-                    <div className="flex-1 min-w-[240px]">
-                        <p className="text-[10px] font-black text-slate-400 uppercase mb-1.5 ml-1">Buscar Proposta</p>
+                    <div className="flex items-center gap-3">
+                        <div className="bg-slate-800/40 p-1.5 rounded-xl flex border border-slate-700/50 backdrop-blur-sm self-stretch">
+                            <button 
+                                onClick={() => setViewMode('geral')}
+                                className={cn(
+                                    "px-6 py-2 text-[10px] font-black uppercase rounded-lg transition-all duration-300 flex items-center gap-2",
+                                    viewMode === 'geral' 
+                                        ? "bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)]" 
+                                        : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                                )}
+                            >
+                                <LayoutGrid className="w-3 h-3" /> Visão Geral
+                            </button>
+                            <button 
+                                onClick={() => setViewMode('lista')}
+                                className={cn(
+                                    "px-6 py-2 text-[10px] font-black uppercase rounded-lg transition-all duration-300 flex items-center gap-2",
+                                    viewMode === 'lista' 
+                                        ? "bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)]" 
+                                        : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                                )}
+                            >
+                                <List className="w-3 h-3" /> Lista Detalhada
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="max-w-[1600px] mx-auto px-6 mt-8 space-y-8"
+            >
+                {/* Global Filters - Premium Look */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-200/60 p-5 flex flex-wrap items-end gap-6">
+                    <div className="flex-1 min-w-[300px] group">
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest flex items-center gap-1.5">
+                            <Search className="w-3 h-3" /> Buscar Proposta
+                        </p>
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors">
+                                <Search className="w-full h-full" />
+                            </div>
                             <input 
                                 type="text"
                                 placeholder="Buscar por ID, Número ou Título..."
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium"
+                                className="w-full bg-slate-100/50 border-2 border-transparent rounded-2xl pl-12 pr-4 py-3 text-sm focus:bg-white focus:border-indigo-500/20 focus:ring-4 focus:ring-indigo-500/5 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-400"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                     </div>
 
-                    <div className="w-48">
-                        <p className="text-[10px] font-black text-slate-400 uppercase mb-1.5 ml-1">Responsável</p>
-                        <select 
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm appearance-none outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-                            value={filters.responsible}
-                            onChange={(e) => setFilters(prev => ({ ...prev, responsible: e.target.value }))}
-                        >
-                            {responsiblesList.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
+                    <div className="w-56">
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest flex items-center gap-1.5">
+                            <User className="w-3 h-3" /> Responsável
+                        </p>
+                        <div className="relative">
+                            <select 
+                                className="w-full bg-slate-100/50 border-2 border-transparent rounded-2xl px-4 py-3 text-sm appearance-none outline-none focus:bg-white focus:border-indigo-500/20 focus:ring-4 focus:ring-indigo-500/5 font-bold text-slate-700 transition-all cursor-pointer"
+                                value={filters.responsible}
+                                onChange={(e) => setFilters(prev => ({ ...prev, responsible: e.target.value }))}
+                            >
+                                {responsiblesList.map(r => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                            <ChevronLeft className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-270 pointer-events-none" />
+                        </div>
                     </div>
 
-                    <div className="w-48">
-                        <p className="text-[10px] font-black text-slate-400 uppercase mb-1.5 ml-1">Status</p>
-                        <select 
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm appearance-none outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-                            value={filters.status}
-                            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                        >
-                            {statuses.map(s => <option key={s} value={s}>{s === 'active' ? 'Ativas' : s}</option>)}
-                        </select>
+                    <div className="w-56">
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest flex items-center gap-1.5">
+                            <Filter className="w-3 h-3" /> Status
+                        </p>
+                        <div className="relative">
+                            <select 
+                                className="w-full bg-slate-100/50 border-2 border-transparent rounded-2xl px-4 py-3 text-sm appearance-none outline-none focus:bg-white focus:border-indigo-500/20 focus:ring-4 focus:ring-indigo-500/5 font-bold text-slate-700 transition-all cursor-pointer"
+                                value={filters.status}
+                                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                            >
+                                {statuses.map(s => <option key={s} value={s}>{s === 'active' ? '🔥 Pendentes' : s}</option>)}
+                            </select>
+                            <ChevronLeft className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-270 pointer-events-none" />
+                        </div>
                     </div>
 
-                    <button 
+                    <div className="w-64">
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest flex items-center gap-1.5">
+                            <Building2 className="w-3 h-3" /> Cliente
+                        </p>
+                        <div className="relative">
+                            <select 
+                                className="w-full bg-slate-100/50 border-2 border-transparent rounded-2xl px-4 py-3 text-sm appearance-none outline-none focus:bg-white focus:border-indigo-500/20 focus:ring-4 focus:ring-indigo-500/5 font-bold text-slate-700 transition-all cursor-pointer"
+                                value={filters.client}
+                                onChange={(e) => setFilters(prev => ({ ...prev, client: e.target.value }))}
+                            >
+                                {clientsList.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            <ChevronLeft className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-270 pointer-events-none" />
+                        </div>
+                    </div>
+
+                    <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => refetch()}
                         disabled={loadingDemands}
-                        className="bg-slate-800 text-white p-2.5 rounded-lg hover:bg-slate-700 transition-colors shadow-sm disabled:opacity-50"
+                        className="bg-slate-900 text-white p-3.5 rounded-2xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 disabled:opacity-50"
                     >
-                        {loadingDemands ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                    </button>
+                        {loadingDemands ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+                    </motion.button>
                 </div>
 
                 {/* Dashboard Modes */}
@@ -249,56 +363,93 @@ export default function CdpcDashboard() {
                         <p className="text-slate-500 font-medium animate-pulse uppercase text-xs tracking-widest">Carregando dados reais...</p>
                     </div>
                 ) : viewMode === 'geral' ? (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <div className="space-y-8">
                         <OptyKpis metrics={metrics} loading={false} />
                         <OptyCharts data={filteredOptys} loading={false} />
                     </div>
                 ) : (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <div className="space-y-6">
                         <div className="flex justify-between items-center px-1">
-                            <h3 className="text-sm font-black text-slate-700 uppercase tracking-tight">
+                            <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-3">
+                                <span className="w-8 h-1 bg-indigo-500 rounded-full" />
                                 {filteredOptys.length} OPORTUNIDADES ENCONTRADAS
                             </h3>
-                            <button className="flex items-center gap-2 text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-colors uppercase">
-                                <Download className="w-3 h-3" /> Exportar CSV
+                            <button 
+                                onClick={exportToExcel}
+                                disabled={filteredOptys.length === 0}
+                                className="flex items-center gap-2 text-[10px] font-black text-indigo-600 hover:bg-indigo-50 px-4 py-2 rounded-xl transition-all uppercase border border-indigo-100 bg-white shadow-sm hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                <Download className="w-3.5 h-3.5" /> Exportar Relatório ({filteredOptys.length})
                             </button>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {filteredOptys.map(opty => (
-                                <OptyCard key={opty.id} opty={opty} />
-                            ))}
-                        </div>
+                        <AnimatePresence mode="popLayout">
+                            <motion.div 
+                                layout
+                                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                            >
+                                {filteredOptys.map((opty, idx) => (
+                                    <motion.div
+                                        key={opty.id}
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ delay: idx * 0.03 }}
+                                    >
+                                        <OptyCard opty={opty} onDetailClick={handleDetailClick} />
+                                    </motion.div>
+                                ))}
+                            </motion.div>
+                        </AnimatePresence>
                         {filteredOptys.length === 0 && (
-                            <div className="bg-white rounded-xl border border-dashed border-slate-200 p-20 text-center">
-                                <Search className="w-10 h-10 text-slate-200 mx-auto mb-4" />
-                                <p className="text-slate-400 font-medium italic">Nenhuma Opty corresponde aos filtros aplicados.</p>
+                            <div className="bg-white/50 backdrop-blur-sm rounded-3xl border-2 border-dashed border-slate-200 p-20 text-center">
+                                <Search className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                                <p className="text-slate-400 font-bold uppercase tracking-wider text-xs">Nenhuma Opty corresponde aos filtros aplicados.</p>
                             </div>
                         )}
                     </div>
                 )}
-            </div>
+            </motion.div>
 
-            {/* Float Summary (Only in List Mode) */}
-            {viewMode === 'lista' && (
-                <div className="fixed bottom-6 right-6 bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-6 z-50 animate-in slide-in-from-right-10 duration-500">
-                    <div className="flex flex-col">
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Total</span>
-                        <span className="text-xl font-black">{metrics.total}</span>
-                    </div>
-                    <div className="h-8 w-px bg-slate-700" />
-                    <div className="flex flex-col">
-                        <span className="text-[8px] font-black text-rose-400 uppercase tracking-[0.2em]">Atrasadas</span>
-                        <span className="text-xl font-black text-rose-500">{metrics.delayed}</span>
-                    </div>
-                    <div className="h-8 w-px bg-slate-700" />
-                    <button 
-                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+            {/* Float Summary (Only in List Mode) - Premium Floating Dock */}
+            <AnimatePresence>
+                {viewMode === 'lista' && (
+                    <motion.div 
+                        initial={{ y: 100, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: 100, opacity: 0 }}
+                        className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur-xl text-white px-8 py-4 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-slate-700/50 flex items-center gap-10 z-50"
                     >
-                        <ChevronLeft className="w-5 h-5 rotate-90" />
-                    </button>
-                </div>
-            )}
+                        <div className="flex flex-col items-center">
+                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] mb-1">Volumetría</span>
+                            <span className="text-2xl font-black tabular-nums">{metrics.total}</span>
+                        </div>
+                        <div className="h-10 w-px bg-slate-700/50" />
+                        <div className="flex flex-col items-center">
+                            <span className="text-[9px] font-black text-rose-500/80 uppercase tracking-[0.3em] mb-1">Atrasadas</span>
+                            <span className="text-2xl font-black text-rose-500 tabular-nums">{metrics.delayed}</span>
+                        </div>
+                        <div className="h-10 w-px bg-slate-700/50" />
+                        <div className="flex flex-col items-center">
+                            <span className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-1">Em Curso</span>
+                            <span className="text-2xl font-black text-indigo-400 tabular-nums">{metrics.inProgress}</span>
+                        </div>
+                        <div className="ml-4 h-12 w-12 rounded-full bg-indigo-600/20 flex items-center justify-center border border-indigo-500/30">
+                            <button 
+                                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                                className="p-3 hover:bg-indigo-600 rounded-full transition-all text-indigo-400 hover:text-white"
+                            >
+                                <ChevronLeft className="w-5 h-5 rotate-90" />
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Demand Detail Modal */}
+            <DemandDetailModal 
+                demandId={selectedDemandId}
+                isOpen={isModalOpen}
+                onOpenChange={setIsModalOpen}
+            />
         </div>
     );
 }

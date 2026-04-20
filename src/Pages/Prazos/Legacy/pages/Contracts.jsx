@@ -16,8 +16,7 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function Contracts() {
   const { data: contracts = [], isLoading } = useContracts();
-  // Obter usuário do localStorage para consistência com o resto do app
-  const user = JSON.parse(localStorage.getItem('fluxo_user') || localStorage.getItem('user') || '{}');
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
 

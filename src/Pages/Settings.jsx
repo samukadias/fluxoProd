@@ -12,20 +12,16 @@ import CyclesTab from './Settings/tabs/CyclesTab';
 import HolidaysTab from './Settings/tabs/HolidaysTab';
 import ImportExportTab from './Settings/tabs/ImportExportTab';
 
+import { useAuth } from '@/context/AuthContext';
+
 export default function SettingsPage() {
-    const [user, setUser] = useState(null);
-    const [activeTab, setActiveTab] = useState('users');
-
-    useEffect(() => {
-        const stored = localStorage.getItem('fluxo_user');
-        if (stored) {
-            setUser(JSON.parse(stored));
-        }
-    }, []);
-
+    const { user } = useAuth();
     const isAdmin = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'general_manager' || user?.department === 'GOR';
+    const isViewer = user?.role === 'viewer';
 
-    if (!isAdmin) {
+    const [activeTab, setActiveTab] = useState(isViewer ? 'import_export' : 'users');
+
+    if (!isAdmin && !isViewer) {
         return (
             <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
                 <Card className="max-w-md w-full border-0 shadow-lg bg-white/50 backdrop-blur-sm">
@@ -56,10 +52,12 @@ export default function SettingsPage() {
                                 <div className="p-2 bg-indigo-50 rounded-xl">
                                     <UserCog className="w-6 h-6 text-indigo-600" />
                                 </div>
-                                Administração do Sistema
+                                {isViewer ? "Sistema e Relatórios" : "Administração do Sistema"}
                             </h1>
                             <p className="text-slate-500 mt-2 text-sm sm:text-base ml-14">
-                                Central de controle para usuários, cadastros e configurações globais.
+                                {isViewer 
+                                    ? "Acesse ferramentas de exportação de dados e relatórios do sistema."
+                                    : "Central de controle para usuários, cadastros e configurações globais."}
                             </p>
                         </div>
                     </div>
@@ -71,22 +69,26 @@ export default function SettingsPage() {
                     {/* Navigation Bar */}
                     <div className="sticky top-[88px] z-10 -mx-4 px-4 pb-4 md:static md:mx-0 md:px-0 md:pb-0 overflow-x-auto bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/50 md:bg-transparent">
                         <TabsList className="bg-slate-200/50 p-1.5 rounded-full inline-flex md:flex w-max md:w-full md:justify-start h-auto">
-                            <TabsTrigger value="users" className={tabTriggerClass}>
-                                <Users className="w-4 h-4" />
-                                Usuários
-                            </TabsTrigger>
-                            <TabsTrigger value="clients" className={tabTriggerClass}>
-                                <Building2 className="w-4 h-4" />
-                                Clientes
-                            </TabsTrigger>
-                            <TabsTrigger value="cycles" className={tabTriggerClass}>
-                                <Layers className="w-4 h-4" />
-                                Ciclos
-                            </TabsTrigger>
-                            <TabsTrigger value="holidays" className={tabTriggerClass}>
-                                <Calendar className="w-4 h-4" />
-                                Feriados
-                            </TabsTrigger>
+                            {!isViewer && (
+                                <>
+                                    <TabsTrigger value="users" className={tabTriggerClass}>
+                                        <Users className="w-4 h-4" />
+                                        Usuários
+                                    </TabsTrigger>
+                                    <TabsTrigger value="clients" className={tabTriggerClass}>
+                                        <Building2 className="w-4 h-4" />
+                                        Clientes
+                                    </TabsTrigger>
+                                    <TabsTrigger value="cycles" className={tabTriggerClass}>
+                                        <Layers className="w-4 h-4" />
+                                        Ciclos
+                                    </TabsTrigger>
+                                    <TabsTrigger value="holidays" className={tabTriggerClass}>
+                                        <Calendar className="w-4 h-4" />
+                                        Feriados
+                                    </TabsTrigger>
+                                </>
+                            )}
                             <TabsTrigger value="import_export" className={tabTriggerClass}>
                                 <Database className="w-4 h-4" />
                                 Sistema

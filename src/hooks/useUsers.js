@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { User } from '@/entities/User';
+import { User } from '@/Entities/User';
 import { toast } from 'sonner';
 
 // Keys

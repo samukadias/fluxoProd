@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Contract } from "@/entities/Contract";
-import { User } from "@/entities/User";
+import { Contract } from "@/Entities/Contract";
+import { User } from "@/Entities/User";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils/legacy";
 import { ArrowLeft, Save } from "lucide-react";

@@ -1,42 +1,24 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fluxoApi } from '@/api/fluxoClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-
-const API_BASE = `${window.location.protocol}//${window.location.hostname}:3000`;
+import { fluxClient } from '@/api/fluxoClient';
 
 const fetchAllReasons = async () => {
-    const token = localStorage.getItem('fluxo_token');
-    const res = await fetch(`${API_BASE}/reopening-reasons/all`, {
-        headers: { Authorization: `Bearer ${token}` }
-    });
-    if (!res.ok) throw new Error('Erro ao carregar motivos');
-    return res.json();
+    const res = await fluxClient.get('/reopening-reasons/all');
+    return res.data;
 };
 
 const createReason = async (label) => {
-    const token = localStorage.getItem('fluxo_token');
-    const res = await fetch(`${API_BASE}/reopening-reasons`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ label })
-    });
-    if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Erro ao criar motivo'); }
-    return res.json();
+    const res = await fluxClient.post('/reopening-reasons', { label });
+    return res.data;
 };
 
 const toggleReason = async ({ id, active }) => {
-    const token = localStorage.getItem('fluxo_token');
-    const res = await fetch(`${API_BASE}/reopening-reasons/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ active: !active })
-    });
-    if (!res.ok) throw new Error('Erro ao atualizar motivo');
-    return res.json();
+    const res = await fluxClient.put(`/reopening-reasons/${id}`, { active: !active });
+    return res.data;
 };
 
 export default function ReopeningReasonsManager() {

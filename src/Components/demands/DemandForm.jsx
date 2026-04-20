@@ -67,7 +67,6 @@ export default function DemandForm({
         delivery_date: demand?.delivery_date || '',
         delivery_date_change_reason: '',
         status: demand?.status || 'PENDENTE TRIAGEM',
-        observation: demand?.observation || '',
         client_id: demand?.client_id || '',
         cycle_id: demand?.cycle_id || '',
         stage: demand?.stage || 'Triagem',
@@ -513,16 +512,6 @@ export default function DemandForm({
                 </div>
             </div>
 
-            <div className="space-y-2">
-                <Label className="text-sm text-slate-600">Observações</Label>
-                <Textarea
-                    value={formData.observation}
-                    onChange={(e) => setFormData({ ...formData, observation: e.target.value })}
-                    placeholder="Detalhes adicionais sobre a demanda..."
-                    rows={4}
-                    className="resize-none"
-                />
-            </div>
 
             <div className="flex items-center justify-end gap-3 pt-4 border-t">
                 <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>

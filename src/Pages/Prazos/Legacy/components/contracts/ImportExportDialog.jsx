@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { toast } from "sonner";
-import { Contract } from "@/entities/Contract";
+import { Contract } from "@/Entities/Contract";
 import { UploadFile } from "@/integrations/Core";
 import {
   Dialog,
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Upload, Download, FileText, AlertTriangle, Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import * as XLSX from "xlsx";
 
 export default function ImportExportDialog({ open, onOpenChange, contracts, onImportComplete }) {
   const [isExporting, setIsExporting] = useState(false);
@@ -20,6 +19,7 @@ export default function ImportExportDialog({ open, onOpenChange, contracts, onIm
   const [importStatus, setImportStatus] = useState(null);
 
   const exportToCSV = async () => {
+    const XLSX = await import('xlsx');
     setIsExporting(true);
     try {
       const schema = Contract.schema();
@@ -50,7 +50,8 @@ export default function ImportExportDialog({ open, onOpenChange, contracts, onIm
     setIsExporting(false);
   };
 
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
+    const XLSX = await import('xlsx');
     try {
       const schema = Contract.schema();
       const headers = Object.keys(schema.properties);
@@ -102,6 +103,7 @@ export default function ImportExportDialog({ open, onOpenChange, contracts, onIm
     const reader = new FileReader();
 
     reader.onload = async (e) => {
+      const XLSX = await import('xlsx');
       try {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });

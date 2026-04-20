@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Contract } from "@/entities/Contract";
-import { User } from "@/entities/User";
-import { TermoConfirmacao } from "@/entities/TermoConfirmacao";
+import { Contract } from "@/Entities/Contract";
+import { User } from "@/Entities/User";
+import { TermoConfirmacao } from "@/Entities/TermoConfirmacao";
 import { useNavigate, useParams } from "react-router-dom";
 import { createPageUrl } from "@/utils/legacy";
 import { ArrowLeft, Save, Trash2, RefreshCw } from "lucide-react";

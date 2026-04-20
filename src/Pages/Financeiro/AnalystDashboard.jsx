@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { fluxoApi } from '@/api/fluxoClient';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, DollarSign, AlertTriangle, CheckCircle2, Users } from "lucide-react";
+import { useAuth } from '@/context/AuthContext';
 import PendencyCard from "./components/PendencyCard";
 import PendencyTable from "./components/PendencyTable";
 import DashboardFilters from "./components/DashboardFilters";
 import AttestationDetailsDialog from "./components/AttestationDetailsDialog";
 
 export default function AnalystDashboard() {
-    const user = JSON.parse(localStorage.getItem('fluxo_user') || localStorage.getItem('user') || '{}');
+    const { user } = useAuth();
     const analystName = user?.name;
 
     const currentDate = new Date();

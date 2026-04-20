@@ -69,15 +69,56 @@ const adminRoutes = require('./routes/admin');
 // Services
 const backupService = require('./services/backupService');
 
+const compression = require('compression');
+const backendPort = process.env.PORT || 5002;
+const Sentry = require('@sentry/node');
+const { nodeProfilingIntegration } = require('@sentry/profiling-node');
+
 const app = express();
+
+// ========================================
+// SENTRY INITIALIZATION
+// ========================================
+if (process.env.SENTRY_DSN) {
+    Sentry.init({
+        dsn: process.env.SENTRY_DSN,
+        integrations: [
+            nodeProfilingIntegration(),
+        ],
+        // Performance Monitoring
+        tracesSampleRate: 1.0, // Capture 100% of the transactions
+        // Set sampling rate for profiling - this is relative to tracesSampleRate
+        profilesSampleRate: 1.0,
+    });
+    console.log('[Sentry] Initialized automatically.');
+}
 
 // ========================================
 // MIDDLEWARE
 // ========================================
 
-// CORS - Allow all origins for this internal network application
+// Sentry request handler must be the first middleware on the app
+if (process.env.SENTRY_DSN) {
+    Sentry.setupExpressErrorHandler(app);
+}
+
+// Add compression immediately to compress all subsequent responses
+app.use(compression());
+
+// CORS - Restrict to configured origin or LAN subnets (internal network application)
+const allowedOriginEnv = process.env.ALLOWED_ORIGIN; // Ex: "http://10.2.9.91" in .env
 app.use(cors({
-    origin: '*', // Allow all origins to connect
+    origin: (origin, callback) => {
+        // Allow server-to-server and same-host requests (no origin header)
+        if (!origin) return callback(null, true);
+        // Allow if explicitly configured
+        if (allowedOriginEnv && origin.startsWith(allowedOriginEnv)) return callback(null, true);
+        // Allow any LAN subnet (192.168.x.x, 10.x.x.x, 172.16-31.x.x, localhost)
+        const isLan = /^https?:\/\/(localhost|127\.0\.0\.1|10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)/.test(origin);
+        if (isLan) return callback(null, true);
+        writeLog('WARN', `CORS blocked origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+    },
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['X-Total-Count'],
@@ -98,7 +139,7 @@ app.use((err, req, res, next) => {
 // Rate Limiting: prevent brute-force attacks on the login endpoint
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 20, // Max 20 requests per IP per window
+    max: 5, // Max 5 failed attempts per IP per window (reduced from 20)
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' },
@@ -218,6 +259,8 @@ app.post('/contracts/:id/generate-attestations', async (req, res) => {
     }
 });
 
+
+
 // ========================================
 // PROTECTED ROUTES (JWT required)
 // ========================================
@@ -227,6 +270,219 @@ app.use(authorizeAction);
 // Custom routes (must come BEFORE generic CRUD routes)
 app.use('/demands', demandRoutes);
 app.use('/admin', adminRoutes);
+
+// ========================================
+// CVAC BASE SPREADSHEET IMPORT (authenticated)
+// ========================================
+app.post('/finance_contracts/import-base-cvac', async (req, res) => {
+    const client = await db.connect();
+    try {
+        const rows = Array.isArray(req.body) ? req.body : [];
+        if (rows.length === 0) {
+            return res.status(400).json({ error: 'Nenhuma linha recebida para importar.' });
+        }
+
+        await client.query('BEGIN');
+
+        let created_contracts = 0;
+        let reused_contracts = 0;
+        let created_attestations = 0;
+        let merged_attestations = 0;
+        const errors = [];
+
+        // Cache de contratos já resolvidos nesta importação (pd_number → contract_id)
+        const contractCache = {};
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const lineNum = i + 1;
+
+            try {
+                const pd_number = row.pd_number?.toString().trim();
+                const client_name = row.client_name?.toString().trim() || '';
+                const responsible_analyst = row.responsible_analyst?.toString().trim() || '';
+                const reference_month = row.reference_month?.toString().trim();
+                const esp_number = row.esp_number?.toString().trim() || '';
+
+                if (!pd_number) {
+                    errors.push(`Linha ${lineNum}: Número do contrato (coluna C) está vazio — ignorada.`);
+                    continue;
+                }
+
+                if (!reference_month) {
+                    errors.push(`Linha ${lineNum}: Mês de referência (coluna AA) está vazio — ignorada.`);
+                    continue;
+                }
+
+                // ── 1. Buscar contrato no cache ou no banco ──────────────────
+                let contract_id = contractCache[pd_number];
+
+                if (!contract_id) {
+                    const contractRes = await client.query(
+                        'SELECT id FROM finance_contracts WHERE pd_number = $1 LIMIT 1',
+                        [pd_number]
+                    );
+
+                    if (contractRes.rows.length > 0) {
+                        contract_id = contractRes.rows[0].id;
+                        reused_contracts++;
+                    } else {
+                        // Criar novo contrato
+                        const insertContract = await client.query(
+                            `INSERT INTO finance_contracts (client_name, pd_number, responsible_analyst)
+                             VALUES ($1, $2, $3) RETURNING id`,
+                            [client_name, pd_number, responsible_analyst]
+                        );
+                        contract_id = insertContract.rows[0].id;
+                        created_contracts++;
+                    }
+
+                    contractCache[pd_number] = contract_id;
+                }
+
+                // ── 2. Preparar valores processados ──────────────────────────
+                const parseNum = (v) => {
+                    if (v === null || v === undefined || v === '') return null;
+                    if (typeof v === 'number') return isNaN(v) ? null : v;
+                    const cleaned = String(v).replace(/[^\d.,-]/g, '').replace(',', '.');
+                    const parsed = parseFloat(cleaned);
+                    return isNaN(parsed) ? null : parsed;
+                };
+
+                const parseDate = (v) => {
+                    if (!v) return null;
+                    if (typeof v === 'number') {
+                        const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+                        return d.toISOString().split('T')[0];
+                    }
+                    const s = String(v).trim();
+                    if (!s) return null;
+                    const dmyMatch = s.match(/^(\d{2})[\/\-\.](\d{2})[\/\-\.](\d{4})$/);
+                    if (dmyMatch) return `${dmyMatch[3]}-${dmyMatch[2]}-${dmyMatch[1]}`;
+                    const d = new Date(s);
+                    return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+                };
+
+                const val_sei_send_area = row.sei_send_area ? String(row.sei_send_area).trim() : null;
+                const val_sei_process_number = row.sei_process_number ? String(row.sei_process_number).trim() : null;
+                const val_measurement_value = parseNum(row.measurement_value);
+                const val_report_send_date = parseDate(row.report_send_date);
+                const val_attestation_return_date = parseDate(row.attestation_return_date);
+                const val_invoice_send_to_client_date = parseDate(row.invoice_send_to_client_date);
+                const val_nfe_sharepoint_date = parseDate(row.nfe_sharepoint_date);
+                const val_invoice_number = row.invoice_number ? String(row.invoice_number).trim() : null;
+                const val_nfe_issue_date = parseDate(row.nfe_issue_date);
+                const val_billed_amount = parseNum(row.billed_amount);
+                const val_invoice_send_date = parseDate(row.invoice_send_date);
+                const val_observations = row.observations ? String(row.observations).trim() : null;
+
+                // ── 3. Verificar duplicata e Mesclar ou Inserir ──────────────
+                const dupCheck = await client.query(
+                    `SELECT id FROM monthly_attestations
+                     WHERE contract_id = $1 AND esp_number = $2 AND reference_month = $3
+                     LIMIT 1`,
+                    [contract_id, esp_number, reference_month]
+                );
+
+                if (dupCheck.rows.length > 0) {
+                    // Update existente (Mesclar), respeitando o que já tem no banco (COALESCE com o novo valor priorizado)
+                    // Mas se o valor da planilha for null, tentamos preservar o banco.
+                    // Para isso, faremos COALESCE($X, campo) onde $X é o valor da planilha. Se $X for null, mantemos.
+                    const existing_id = dupCheck.rows[0].id;
+                    await client.query(
+                        `UPDATE monthly_attestations SET
+                            sei_send_area = COALESCE($1, sei_send_area),
+                            sei_process_number = COALESCE($2, sei_process_number),
+                            measurement_value = COALESCE($3, measurement_value),
+                            report_send_date = COALESCE($4, report_send_date),
+                            attestation_return_date = COALESCE($5, attestation_return_date),
+                            invoice_send_to_client_date = COALESCE($6, invoice_send_to_client_date),
+                            nfe_sharepoint_date = COALESCE($7, nfe_sharepoint_date),
+                            invoice_number = COALESCE($8, invoice_number),
+                            nfe_issue_date = COALESCE($9, nfe_issue_date),
+                            billed_amount = COALESCE($10, billed_amount),
+                            paid_amount = COALESCE($11, paid_amount),
+                            invoice_send_date = COALESCE($12, invoice_send_date),
+                            observations = COALESCE($13, observations),
+                            client_name = COALESCE($14, client_name),
+                            responsible_analyst = COALESCE($15, responsible_analyst),
+                            updated_at = CURRENT_TIMESTAMP
+                         WHERE id = $16`,
+                        [
+                            val_sei_send_area, val_sei_process_number, val_measurement_value,
+                            val_report_send_date, val_attestation_return_date, val_invoice_send_to_client_date,
+                            val_nfe_sharepoint_date, val_invoice_number, val_nfe_issue_date,
+                            val_billed_amount, val_billed_amount, val_invoice_send_date,
+                            val_observations, 
+                            client_name || null, responsible_analyst || null,
+                            existing_id
+                        ]
+                    );
+                    merged_attestations++;
+                } else {
+                    // Inserir nova atestação
+                    await client.query(
+                        `INSERT INTO monthly_attestations (
+                            contract_id, client_name, pd_number, responsible_analyst,
+                            esp_number, reference_month,
+                            sei_send_area, sei_process_number,
+                            measurement_value,
+                            report_send_date, attestation_return_date, invoice_send_to_client_date,
+                            nfe_sharepoint_date, invoice_number, nfe_issue_date,
+                            billed_amount, paid_amount,
+                            invoice_send_date, observations
+                        ) VALUES (
+                            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
+                        )`,
+                        [
+                            contract_id,
+                            client_name         || null,
+                            pd_number           || null,
+                            responsible_analyst || null,
+                            esp_number          || null,
+                            reference_month,
+                            val_sei_send_area,
+                            val_sei_process_number,
+                            val_measurement_value,
+                            val_report_send_date,
+                            val_attestation_return_date,
+                            val_invoice_send_to_client_date,
+                            val_nfe_sharepoint_date,
+                            val_invoice_number,
+                            val_nfe_issue_date,
+                            val_billed_amount,
+                            val_billed_amount,
+                            val_invoice_send_date,
+                            val_observations,
+                        ]
+                    );
+                    created_attestations++;
+                }
+
+            } catch (rowErr) {
+                errors.push(`Linha ${lineNum}: ${rowErr.message}`);
+            }
+        }
+
+        await client.query('COMMIT');
+
+        res.status(200).json({
+            message: 'Importação concluída',
+            created_contracts,
+            reused_contracts,
+            created_attestations,
+            merged_attestations,
+            errors,
+        });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('[Import BASE CVAC Error]:', err.message);
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
 
 
 // Entity creation with user account sync

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { TermoConfirmacao } from "@/entities/TermoConfirmacao";
-import { Contract } from "@/entities/Contract";
+import { TermoConfirmacao } from "@/Entities/TermoConfirmacao";
+import { Contract } from "@/Entities/Contract";
 import { useNavigate, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils/legacy";
 import { ArrowLeft, Edit, FileText, Calendar, DollarSign } from "lucide-react";

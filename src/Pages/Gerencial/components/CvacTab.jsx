@@ -9,66 +9,59 @@ export default function CvacTab({ filters }) {
         queryFn: () => fluxoApi.entities.MonthlyAttestation.list()
     });
 
-    const { data: contracts = [], isLoading: isLoadingContracts } = useQuery({
-        queryKey: ['cvac-all-contracts'],
-        queryFn: () => fluxoApi.entities.Contract.list()
+    // CORRIGIDO: usar finance_contracts (contratos CVAC), não contracts (contratos COCR)
+    const { data: financeContracts = [], isLoading: isLoadingContracts } = useQuery({
+        queryKey: ['cvac-finance-contracts'],
+        queryFn: () => fluxoApi.entities.FinanceContract.list()
     });
 
     // Current period is based on filters, not the system date
     const currentYearStr = filters?.year || String(new Date().getFullYear());
-    // Get month number avoiding 0-index date issues
     const currentMonthNum = parseInt(filters?.month || (new Date().getMonth() + 1), 10);
     const currentMonthRef = `${currentYearStr}-${String(currentMonthNum).padStart(2, '0')}`;
 
     const metrics = useMemo(() => {
-        // Create a Date object for the filtered month to get its name
-        const filteredDate = new Date(parseInt(currentYearStr), currentMonthNum - 1, 1); // Month is 0-indexed for Date constructor
-
+        const filteredDate = new Date(parseInt(currentYearStr), currentMonthNum - 1, 1);
         const dateFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long' });
         const monthName = dateFormatter.format(filteredDate);
         const monthNameCapitalized = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
-        // 1. Meta / Acumulado Anual baseada nos contratos globais estimados
-        let anualGoal = contracts.reduce((sum, c) => {
-            if (c.status === 'ATIVO' || c.status === 'VIGENTE') {
-                return sum + parseFloat(c.valor_global_estimado || 0);
-            }
-            return sum;
+        // 1. Estimativa Global baseada nos contratos CVAC (finance_contracts)
+        // Soma o valor total dos contratos financeiros cadastrados
+        const anualGoal = financeContracts.reduce((sum, c) => {
+            // finance_contracts não tem campo status no mesmo formato; soma tudo que tiver valor
+            const val = parseFloat(c.total_value || c.valor_contrato || 0);
+            return sum + val;
         }, 0);
-
-        // Se a meta estiver zerada, pegar de todos os contratos sem filtrar status só pra ter métrica
-        if (anualGoal === 0 && contracts.length > 0) {
-            anualGoal = contracts.reduce((sum, c) => sum + parseFloat(c.valor_global_estimado || 0), 0);
-        }
 
         // 2. Mês Atual
         const currentMonthAttestations = attestations.filter(a => a.reference_month === currentMonthRef);
         const currentMonthMeasurement = currentMonthAttestations.reduce((sum, a) => sum + (parseFloat(a.measurement_value) || 0), 0);
         const currentMonthBilled = currentMonthAttestations.reduce((sum, a) => sum + (parseFloat(a.billed_amount) || 0), 0);
         const currentMonthProgress = currentMonthMeasurement > 0 ? (currentMonthBilled / currentMonthMeasurement) * 100 : 0;
+        const totalExpected = currentMonthAttestations.reduce((sum, a) => sum + (parseFloat(a.expected_amount) || 0), 0);
 
         // 3. Acumulado do Ano
         const yearAttestations = attestations.filter(a => a.reference_month?.startsWith(currentYearStr));
         const yearBilled = yearAttestations.reduce((sum, a) => sum + (parseFloat(a.billed_amount) || 0), 0);
         const yearPaid = yearAttestations.reduce((sum, a) => sum + (parseFloat(a.paid_amount) || 0), 0);
+        const yearMeasurement = yearAttestations.reduce((sum, a) => sum + (parseFloat(a.measurement_value) || 0), 0);
 
-        const yearProgressToGoal = anualGoal > 0 ? (yearBilled / anualGoal) * 100 : 0;
+        // % de execução: Faturado ÷ Total Apontado do ano (mais representativo que usar meta global)
+        const yearProgressToGoal = yearMeasurement > 0 ? (yearBilled / yearMeasurement) * 100 : 0;
         const aReceber = Math.max(0, yearBilled - yearPaid);
 
-        // 4. Principais Pendências (GAP = Apontado - Faturado)
+        // 4. Principais Pendências (GAP = Apontado - Faturado) do ano corrente
         const pendencies = attestations
-            .filter(a => {
-                // Considerar apenas pendências do ano corrente
-                return a.reference_month?.startsWith(currentYearStr);
-            })
+            .filter(a => a.reference_month?.startsWith(currentYearStr))
             .map(a => {
                 const meas = parseFloat(a.measurement_value) || 0;
                 const bill = parseFloat(a.billed_amount) || 0;
                 return { ...a, gap: meas - bill };
             })
-            .filter(a => a.gap > 0) // Só atestações que possuem GAP
-            .sort((a, b) => b.gap - a.gap) // Maiores GAPs primeiro
-            .slice(0, 3); // Top 3
+            .filter(a => a.gap > 0)
+            .sort((a, b) => b.gap - a.gap)
+            .slice(0, 3);
 
         return {
             monthNameCapitalized,
@@ -80,11 +73,14 @@ export default function CvacTab({ filters }) {
             currentMonthProgress,
             yearBilled,
             yearPaid,
+            yearMeasurement,
             aReceber,
             yearProgressToGoal,
-            pendencies
+            pendencies,
+            totalExpected
         };
-    }, [attestations, contracts]);
+    // CORRIGIDO: dependências completas para reagir a mudanças de filtro e dados
+    }, [attestations, financeContracts, currentYearStr, currentMonthNum, currentMonthRef]);
 
     const formatShortCurrency = (val) => {
         if (val >= 1000000) return `R$ ${(val / 1000000).toFixed(2)}M`;
@@ -121,8 +117,14 @@ export default function CvacTab({ filters }) {
                     </h3>
                     <div className="flex flex-col md:flex-row gap-6 mb-8">
                         <div className="flex-1">
+                            <p className="text-sm text-slate-500 mb-1 font-medium">Total Esperado</p>
+                            <p className="text-2xl font-bold text-blue-600" title={formatCurrencyFull(metrics.totalExpected)}>
+                                {formatShortCurrency(metrics.totalExpected)}
+                            </p>
+                        </div>
+                        <div className="flex-1">
                             <p className="text-sm text-slate-500 mb-1 font-medium">Total Apontado</p>
-                            <p className="text-4xl font-extrabold text-slate-800 tracking-tight" title={formatCurrencyFull(metrics.currentMonthMeasurement)}>
+                            <p className="text-2xl font-bold text-slate-800 tracking-tight" title={formatCurrencyFull(metrics.currentMonthMeasurement)}>
                                 {formatShortCurrency(metrics.currentMonthMeasurement)}
                             </p>
                         </div>
@@ -170,8 +172,8 @@ export default function CvacTab({ filters }) {
                     </div>
                     <div className="pt-2">
                         <div className="flex justify-between text-sm mb-2 text-slate-300">
-                            <span className="font-medium">Consumo dos Contratos Globais</span>
-                            <span className="font-bold text-white bg-slate-700 px-2 py-0.5 rounded text-xs">{metrics.yearProgressToGoal.toFixed(1)}% alcançado</span>
+                            <span className="font-medium">Faturado vs. Apontado no Ano</span>
+                            <span className="font-bold text-white bg-slate-700 px-2 py-0.5 rounded text-xs">{metrics.yearProgressToGoal.toFixed(1)}% faturado</span>
                         </div>
                         <div className="w-full bg-slate-700/50 h-3 rounded-full overflow-hidden border border-slate-600/50">
                             <div className="bg-emerald-400 h-3 rounded-full relative transition-all duration-1000" style={{ width: `${Math.min(100, metrics.yearProgressToGoal)}%` }}>

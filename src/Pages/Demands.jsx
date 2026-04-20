@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePersistedFilters } from '@/hooks/usePersistedFilters';
 import { fluxoApi } from '@/api/fluxoClient';
 import { useAuth } from '@/context/AuthContext';
@@ -37,9 +37,11 @@ export default function DemandsPage() {
         search: '',
         status: 'active',
         analyst_id: 'all',
-        client_id: 'all',
+        analyst_type: 'analyst_id',
         cycle_id: 'all',
+        cycle_ids: [],
         weight: 'all',
+        weights: [],
         sortBy: 'date_desc'
     });
 
@@ -48,10 +50,51 @@ export default function DemandsPage() {
         setCurrentPage(1);
     }, [filters]);
 
-    const { data: demands = [], isLoading: loadingDemands } = useQuery({
-        queryKey: ['demands'],
-        queryFn: () => fluxoApi.entities.Demand.list('-created_date')
+    const { data: paginatedResult, isLoading: loadingDemands } = useQuery({
+        queryKey: ['demands', currentPage, filters, ITEMS_PER_PAGE],
+        queryFn: async () => {
+            const sortMap = {
+                'date_asc': 'created_date',
+                'date_desc': '-created_date',
+                'alpha_asc': 'product',
+                'alpha_desc': '-product',
+                'priority': 'weight'
+            };
+
+            const params = {
+                page: currentPage,
+                limit: ITEMS_PER_PAGE,
+                sort: sortMap[filters.sortBy] || '-created_date',
+                status: filters.status,
+                search: filters.search
+            };
+
+            if (filters.analyst_id !== 'all') {
+                let targetField = filters.analyst_type || 'analyst_id';
+                if (targetField === 'executive_id') targetField = 'requester_id';
+                params[targetField] = filters.analyst_id;
+            }
+            if (filters.client_id !== 'all') params.client_id = filters.client_id;
+            
+            if (filters.cycle_ids && filters.cycle_ids.length > 0) {
+                params.cycle_ids = filters.cycle_ids.join(',');
+            } else if (filters.cycle_id && filters.cycle_id !== 'all') {
+                params.cycle_id = filters.cycle_id;
+            }
+            
+            if (filters.weights && filters.weights.length > 0) {
+                params.weights = filters.weights.join(',');
+            } else if (filters.weight && filters.weight !== 'all') {
+                params.weight = filters.weight;
+            }
+
+            return fluxoApi.entities.Demand.listPaginated(params);
+        }
     });
+
+    const demands = paginatedResult?.data || [];
+    const totalDemands = paginatedResult?.total || 0;
+    const totalPages = Math.ceil(totalDemands / ITEMS_PER_PAGE);
 
     const { data: users = [] } = useQuery({
         queryKey: ['users'],
@@ -68,6 +111,12 @@ export default function DemandsPage() {
         queryFn: () => fluxoApi.entities.Cycle.list()
     });
 
+    const { data: activeRoleMap = {} } = useQuery({
+        queryKey: ['activeRoleMap'],
+        queryFn: () => fluxoApi.demands.getActiveRoles(),
+        staleTime: 120000 // Cache for 2 mins
+    });
+
     // Filtra usuários para CDPC
     const { analysts, requesters } = useMemo(() => {
         const cdpcAnalysts = users.filter(u =>
@@ -80,7 +129,6 @@ export default function DemandsPage() {
         );
         return { analysts: cdpcAnalysts, requesters: cdpcRequesters };
     }, [users]);
-
     const createMutation = useMutation({
         mutationFn: async (data) => {
             const demand = await fluxoApi.entities.Demand.create(data);
@@ -130,78 +178,18 @@ export default function DemandsPage() {
         onError: () => toast.error('Erro ao excluir demanda')
     });
 
-    const handleDelete = (id) => {
+    const handleDelete = useCallback((id) => {
         setDemandToDelete(id);
-    };
+    }, []);
 
-    const handleDuplicate = (demand) => {
+    const handleDuplicate = useCallback((demand) => {
         const { id, demand_number, created_date, qualification_date, expected_delivery_date, delivery_date, last_frozen_at, ...rest } = demand;
         setDuplicateData({ ...rest, status: 'PENDENTE TRIAGEM' });
         setShowForm(true);
-    };
-
-    const filteredDemands = useMemo(() => {
-        const filtered = demands.filter(d => {
-            // Role-based filtering
-            if (user?.role === 'analyst') {
-                const myAnalystProfile = analysts.find(a => a.email === user.email);
-                if (myAnalystProfile && d.analyst_id !== myAnalystProfile.id) {
-                    return false;
-                }
-            }
-            if (user?.role === 'requester') {
-                const myRequesterProfile = requesters.find(r => r.email === user.email);
-                if (myRequesterProfile && d.requester_id !== myRequesterProfile.id) {
-                    return false;
-                }
-            }
-
-            // Client-side Filters
-            if (filters.search) {
-                const search = filters.search.toLowerCase();
-                if (!d.product?.toLowerCase().includes(search) &&
-                    !d.demand_number?.toLowerCase().includes(search)) {
-                    return false;
-                }
-            }
-
-            if (filters.status === 'active') {
-                if (['ENTREGUE', 'CANCELADA', 'CONGELADA'].includes(d.status)) return false;
-            } else if (filters.status !== 'all' && d.status !== filters.status) {
-                return false;
-            }
-
-            if (filters.analyst_id !== 'all' && d.analyst_id !== filters.analyst_id) return false;
-            if (filters.client_id !== 'all' && d.client_id !== filters.client_id) return false;
-            if (filters.cycle_id !== 'all' && d.cycle_id !== filters.cycle_id) return false;
-            if (filters.weight !== 'all' && String(d.weight ?? 4) !== filters.weight) return false;
-
-            return true;
-        });
-
-        // Ordenação
-        const sortBy = filters.sortBy || 'date_desc';
-        return [...filtered].sort((a, b) => {
-            switch (sortBy) {
-                case 'date_asc': return new Date(a.created_date) - new Date(b.created_date);
-                case 'date_desc': return new Date(b.created_date) - new Date(a.created_date);
-                case 'alpha_asc': return (a.product || '').localeCompare(b.product || '', 'pt-BR');
-                case 'alpha_desc': return (b.product || '').localeCompare(a.product || '', 'pt-BR');
-                case 'priority': return (a.weight ?? 4) - (b.weight ?? 4);
-                default: return 0;
-            }
-        });
-    }, [demands, filters, user, analysts, requesters]);
-
+    }, [setShowForm]);
 
     const analystsMap = useMemo(() => Object.fromEntries(analysts.map(a => [a.id, a])), [analysts]);
     const clientsMap = useMemo(() => Object.fromEntries(clients.map(c => [c.id, c])), [clients]);
-
-    const totalPages = Math.ceil(filteredDemands.length / ITEMS_PER_PAGE);
-    const paginatedDemands = filteredDemands.slice(
-        (currentPage - 1) * ITEMS_PER_PAGE,
-        currentPage * ITEMS_PER_PAGE
-    );
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
@@ -212,7 +200,7 @@ export default function DemandsPage() {
                             Demandas
                         </h1>
                         <p className="text-slate-500 mt-1">
-                            {filteredDemands.length} demanda(s) encontrada(s)
+                            {totalDemands} demanda(s) encontrada(s)
                             {totalPages > 1 && ` · Página ${currentPage} de ${totalPages}`}
                         </p>
                     </div>
@@ -263,8 +251,10 @@ export default function DemandsPage() {
                     filters={filters}
                     setFilters={setFilters}
                     analysts={analysts}
+                    requesters={requesters}
                     clients={clients}
                     cycles={cycles}
+                    activeRoleMap={activeRoleMap}
                 />
 
                 <div className="mt-6">
@@ -277,7 +267,7 @@ export default function DemandsPage() {
                                 <Skeleton key={i} className="h-40 rounded-xl" />
                             ))}
                         </div>
-                    ) : filteredDemands.length === 0 ? (
+                    ) : demands.length === 0 ? (
                         <div className="text-center py-16">
                             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <List className="w-8 h-8 text-slate-400" />
@@ -294,7 +284,7 @@ export default function DemandsPage() {
                             ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
                             : "space-y-3"
                         }>
-                            {paginatedDemands.map(demand => (
+                            {demands.map(demand => (
                                 <DemandCard
                                     key={demand.id}
                                     demand={demand}

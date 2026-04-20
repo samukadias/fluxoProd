@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Contract } from "@/entities/Contract";
+import { Contract } from "@/Entities/Contract";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { createPageUrl } from "@/utils/legacy";
 import { ArrowLeft, Edit, Calendar, DollarSign, FileText, Users } from "lucide-react";

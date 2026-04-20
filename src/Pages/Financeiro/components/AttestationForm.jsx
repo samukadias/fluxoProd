@@ -201,6 +201,18 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
         updateField(field, numericValue);
     };
 
+    const handleDatePaste = useCallback((e, field) => {
+        const pastedText = e.clipboardData.getData('text');
+        // Match DD/MM/YYYY format specifically
+        const dateRegex = /^(\d{2})[\/\-\.](\d{2})[\/\-\.](\d{4})$/;
+        const match = pastedText.trim().match(dateRegex);
+        if (match) {
+            e.preventDefault();
+            const [_, day, month, year] = match;
+            updateField(field, `${year}-${month}-${day}`);
+        }
+    }, [updateField]);
+
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             {errors.length > 0 && (
@@ -347,6 +359,7 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                                 type="date"
                                 value={formData.report_generation_date}
                                 onChange={(e) => updateField('report_generation_date', e.target.value)}
+                                onPaste={(e) => handleDatePaste(e, 'report_generation_date')}
                                 className="mt-1"
                             />
                         </div>
@@ -356,6 +369,7 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                                 type="date"
                                 value={formData.report_send_date}
                                 onChange={(e) => updateField('report_send_date', e.target.value)}
+                                onPaste={(e) => handleDatePaste(e, 'report_send_date')}
                                 className="mt-1"
                             />
                         </div>
@@ -365,6 +379,7 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                                 type="date"
                                 value={formData.attestation_return_date}
                                 onChange={(e) => updateField('attestation_return_date', e.target.value)}
+                                onPaste={(e) => handleDatePaste(e, 'attestation_return_date')}
                                 className="mt-1"
                             />
                         </div>
@@ -374,6 +389,7 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                                 type="date"
                                 value={formData.invoice_send_to_client_date}
                                 onChange={(e) => updateField('invoice_send_to_client_date', e.target.value)}
+                                onPaste={(e) => handleDatePaste(e, 'invoice_send_to_client_date')}
                                 className="mt-1"
                             />
                         </div>
@@ -406,6 +422,7 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                                 type="date"
                                 value={formData.nfe_issue_date}
                                 onChange={(e) => updateField('nfe_issue_date', e.target.value)}
+                                onPaste={(e) => handleDatePaste(e, 'nfe_issue_date')}
                                 className="mt-1"
                             />
                         </div>
@@ -415,6 +432,7 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                                 type="date"
                                 value={formData.nfe_sharepoint_date}
                                 onChange={(e) => updateField('nfe_sharepoint_date', e.target.value)}
+                                onPaste={(e) => handleDatePaste(e, 'nfe_sharepoint_date')}
                                 className="mt-1"
                             />
                         </div>
@@ -424,6 +442,7 @@ export default function AttestationForm({ attestation, contract, onSubmit, isLoa
                                 type="date"
                                 value={formData.invoice_send_date}
                                 onChange={(e) => updateField('invoice_send_date', e.target.value)}
+                                onPaste={(e) => handleDatePaste(e, 'invoice_send_date')}
                                 className="mt-1"
                             />
                         </div>

@@ -4,21 +4,10 @@ import ManagerDashboard from './Dashboard';
 import AnalystDashboard from './AnalystDashboard';
 import { Loader2 } from 'lucide-react';
 
-export default function FinanceiroHome() {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
+import { useAuth } from '@/context/AuthContext';
 
-    useEffect(() => {
-        try {
-            const storedUser = localStorage.getItem('fluxo_user') || localStorage.getItem('user');
-            if (storedUser) {
-                setUser(JSON.parse(storedUser));
-            }
-        } catch (e) {
-            console.error('Erro ao carregar usuário:', e);
-        }
-        setLoading(false);
-    }, []);
+export default function FinanceiroHome() {
+    const { user, loading } = useAuth();
 
     if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin" /></div>;
 

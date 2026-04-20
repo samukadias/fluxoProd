@@ -1,6 +1,5 @@
 import React from 'react';
 import { Download } from 'lucide-react';
-import * as XLSX from 'xlsx';
 
 /**
  * Reusable export button component.
@@ -22,7 +21,8 @@ const ExportButton = ({
     label = 'Exportar',
     className = '',
 }) => {
-    const handleExport = () => {
+    const handleExport = async () => {
+        const XLSX = await import('xlsx');
         if (!data || data.length === 0) {
             return;
         }

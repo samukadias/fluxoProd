@@ -14,13 +14,16 @@ export default function DashboardFilters({
     months,
     analysts
 }) {
+    const currentYear = new Date().getFullYear().toString();
+
     const handleClearFilters = () => {
         onFilterChange({
             client: 'all',
             pd: 'all',
             esp: 'all',
-            year: 'all',
-            month: 'all'
+            year: currentYear,  // Volta para o ano atual, não "todos os anos"
+            month: 'all',
+            analyst: 'all'
         });
     };
 

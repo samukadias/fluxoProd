@@ -20,15 +20,10 @@ const ACTIVE_STATUSES = [
     "PENDÊNCIA FORNECEDOR"
 ];
 
-export default function RequesterDashboard() {
-    const [user, setUser] = useState(null);
+import { useAuth } from '@/context/AuthContext';
 
-    useEffect(() => {
-        const stored = localStorage.getItem('fluxo_user') || localStorage.getItem('user');
-        if (stored) {
-            setUser(JSON.parse(stored));
-        }
-    }, []);
+export default function RequesterDashboard() {
+    const { user } = useAuth();
 
     const { data: demands = [], isLoading } = useQuery({
         queryKey: ['my-demands', user?.email],
