@@ -13,6 +13,9 @@ import { CalendarIcon, Save, X, Check, ChevronsUpDown } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import CurrencyInput from "@/components/ui/currency-input";
+import { useQuery } from '@tanstack/react-query';
+import { fluxoApi, fluxClient } from '@/api/fluxoClient';
+import { Badge } from "@/components/ui/badge";
 
 const STAGES = [
     "Triagem",
@@ -57,6 +60,8 @@ export default function DemandForm({
     const [formData, setFormData] = useState({
         demand_number: demand?.demand_number || '',
         product: demand?.product || '',
+        product_type: demand?.product_type || '',
+        demand_types: demand?.demand_types || [],
         artifact: demand?.artifact || 'Orçamento',
         value: demand?.value ?? '',
         weight: demand?.weight ?? 1,
@@ -73,7 +78,8 @@ export default function DemandForm({
         analyst_id: demand?.analyst_id || '',
         requester_id: demand?.requester_id || '',
         support_analyst_id: demand?.support_analyst_id || '',
-        architect_support_analyst_id: demand?.architect_support_analyst_id || ''
+        architect_support_analyst_id: demand?.architect_support_analyst_id || '',
+        bottleneck_id: demand?.bottleneck_id || ''
     });
 
     const isGestor = ['admin', 'manager', 'general_manager'].includes(userRole);
@@ -87,6 +93,17 @@ export default function DemandForm({
     const [showPreVendasSupport, setShowPreVendasSupport] = useState(!!demand?.support_analyst_id);
     const [showArquitetoSupport, setShowArquitetoSupport] = useState(!!demand?.architect_support_analyst_id);
     const [openClient, setOpenClient] = useState(false);
+    const [openDemandTypes, setOpenDemandTypes] = useState(false);
+
+    const { data: demandServices = [] } = useQuery({
+        queryKey: ['demand_services'],
+        queryFn: () => fluxoApi.entities.DemandService.list()
+    });
+
+    const { data: bottleneckOptions = [] } = useQuery({
+        queryKey: ['bottleneck-options'],
+        queryFn: async () => { const res = await fluxClient.get('/bottleneck-options'); return res.data; }
+    });
 
     const submitForm = (e) => {
         if (e && e.preventDefault) e.preventDefault();
@@ -107,6 +124,8 @@ export default function DemandForm({
         const { delivery_date_change_reason, ...rest } = formData;
         const cleanedData = {
             ...rest,
+            product_type: formData.product_type === "" ? null : formData.product_type,
+            demand_types: formData.demand_types,
             value: formData.value !== '' && formData.value !== null && formData.value !== undefined
                 ? parseFloat(String(formData.value).replace(',', '.')) || null
                 : null,
@@ -122,6 +141,7 @@ export default function DemandForm({
             requester_id: formData.requester_id === "" ? null : formData.requester_id,
             support_analyst_id: formData.support_analyst_id === "" ? null : formData.support_analyst_id,
             architect_support_analyst_id: formData.architect_support_analyst_id === "" ? null : formData.architect_support_analyst_id,
+            bottleneck_id: formData.bottleneck_id === "" ? null : Number(formData.bottleneck_id) || null,
         };
 
         onSave(cleanedData);
@@ -177,6 +197,91 @@ export default function DemandForm({
                         placeholder="Nome do produto ou descrição da demanda"
                         className="h-10"
                     />
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="text-sm text-slate-600">Tipo Produto</Label>
+                    <Select
+                        value={formData.product_type}
+                        onValueChange={(v) => setFormData({ ...formData, product_type: v })}
+                    >
+                        <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Selecionar..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="none">Nenhum</SelectItem>
+                            <SelectItem value="APP">APP</SelectItem>
+                            <SelectItem value="ITO">ITO</SelectItem>
+                            <SelectItem value="APP + ITO">APP + ITO</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="space-y-2 lg:col-span-2">
+                    <Label className="text-sm text-slate-600">Tipos de Demanda (Múltipla Seleção)</Label>
+                    <Popover open={openDemandTypes} onOpenChange={setOpenDemandTypes}>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={openDemandTypes}
+                                className="w-full justify-between min-h-[40px] h-auto font-normal px-3 py-2"
+                            >
+                                <div className="flex flex-wrap gap-1">
+                                    {Array.isArray(formData.demand_types) && formData.demand_types.length > 0
+                                        ? formData.demand_types.map((dt) => (
+                                              <Badge key={dt.id} variant="secondary" className="mr-1 mb-1">
+                                                  {dt.name}
+                                              </Badge>
+                                          ))
+                                        : "Selecionar tipos..."}
+                                </div>
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                            <Command>
+                                <CommandInput placeholder="Buscar tipo..." />
+                                <CommandList>
+                                    <CommandEmpty>Nenhum tipo encontrado.</CommandEmpty>
+                                    <CommandGroup>
+                                        {demandServices.filter(s => s.active !== false).map((service) => {
+                                            const isSelected = Array.isArray(formData.demand_types) && formData.demand_types.some(dt => dt.id === service.id);
+                                            return (
+                                                <CommandItem
+                                                    key={service.id}
+                                                    value={service.service_name}
+                                                    onSelect={() => {
+                                                        const currentTypes = Array.isArray(formData.demand_types) ? formData.demand_types : [];
+                                                        const newTypes = isSelected
+                                                            ? currentTypes.filter(dt => dt.id !== service.id)
+                                                            : [...currentTypes, { id: service.id, name: service.service_name, delivery: service.delivery_name }];
+                                                        setFormData({ ...formData, demand_types: newTypes });
+                                                    }}
+                                                >
+                                                    <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
+                                                        <Check className="h-4 w-4" />
+                                                    </div>
+                                                    <span>{service.service_name}</span>
+                                                    <span className="ml-auto text-xs text-slate-400">({service.delivery_name})</span>
+                                                </CommandItem>
+                                            );
+                                        })}
+                                    </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
+                    {Array.isArray(formData.demand_types) && formData.demand_types.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t text-xs">
+                            <span className="text-slate-500 font-medium">Deliverys Atribuídos:</span>
+                            {formData.demand_types.map(dt => (
+                                <Badge key={dt.id} variant="outline" className="bg-slate-50 text-indigo-700 border-indigo-200">
+                                    {dt.name}: <span className="font-bold ml-1">{dt.delivery}</span>
+                                </Badge>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div className="space-y-2">
@@ -506,6 +611,24 @@ export default function DemandForm({
                         <SelectContent>
                             {STATUS_LIST.map(s => (
                                 <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="text-sm text-slate-600">Gargalo</Label>
+                    <Select
+                        value={formData.bottleneck_id ? String(formData.bottleneck_id) : "none"}
+                        onValueChange={(v) => setFormData({ ...formData, bottleneck_id: v === "none" ? "" : v })}
+                    >
+                        <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Selecionar..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="none">Nenhum</SelectItem>
+                            {bottleneckOptions.filter(o => o.active !== false).map(opt => (
+                                <SelectItem key={opt.id} value={String(opt.id)}>{opt.label}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>

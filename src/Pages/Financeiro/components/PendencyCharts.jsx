@@ -37,11 +37,11 @@ export default function PendencyCharts({ attestations }) {
             if (existing) {
                 existing.value += pendency;
             } else {
-                acc.push({ month: monthLabel, value: pendency });
+                acc.push({ month: monthLabel, value: pendency, rawMonth: att.reference_month });
             }
         }
         return acc;
-    }, []).sort((a, b) => a.month.localeCompare(b.month));
+    }, []).sort((a, b) => a.rawMonth.localeCompare(b.rawMonth));
 
     // Faturamento por cliente (para rank)
     const billingByClient = attestations.reduce((acc, att) => {

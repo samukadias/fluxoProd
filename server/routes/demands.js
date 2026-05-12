@@ -43,7 +43,7 @@ const UPDATABLE_FIELDS = [
     'qualification_date', 'expected_delivery_date', 'delivery_date',
     'status', 'client_id', 'cycle_id', 'stage',
     'analyst_id', 'requester_id', 'support_analyst_id',
-    'architect_support_analyst_id'
+    'architect_support_analyst_id', 'product_type', 'demand_types'
 ];
 
 router.put('/:id', async (req, res) => {
@@ -59,6 +59,9 @@ router.put('/:id', async (req, res) => {
                 delete body[key];
             } else if (body[key] === '') {
                 body[key] = null;
+            } else if (typeof body[key] === 'object' && body[key] !== null) {
+                // Ensure arrays and objects are stringified for JSONB columns!
+                body[key] = JSON.stringify(body[key]);
             }
         });
 

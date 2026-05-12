@@ -59,6 +59,14 @@ CREATE TABLE IF NOT EXISTS holidays (
     date TIMESTAMP,
     name VARCHAR(255)
 );
+-- Demand Services
+CREATE TABLE IF NOT EXISTS demand_services (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255),
+    delivery VARCHAR(255),
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 -- Contracts (New Core Table) - Moving UP before Demands/others that reference it
 CREATE TABLE IF NOT EXISTS contracts (
     id SERIAL PRIMARY KEY,
@@ -124,6 +132,10 @@ ALTER TABLE demands
 ADD COLUMN IF NOT EXISTS margem_bruta DECIMAL(5, 2);
 ALTER TABLE demands
 ADD COLUMN IF NOT EXISTS margem_liquida DECIMAL(5, 2);
+ALTER TABLE demands
+ADD COLUMN IF NOT EXISTS product_type VARCHAR(100);
+ALTER TABLE demands
+ADD COLUMN IF NOT EXISTS demand_types JSONB DEFAULT '[]';
 -- Legacy Columns for Contracts
 ALTER TABLE contracts
 ADD COLUMN IF NOT EXISTS analista_responsavel VARCHAR(255);
@@ -304,3 +316,7 @@ CREATE TABLE IF NOT EXISTS invoices(
     issue_date TIMESTAMP,
     status VARCHAR(50)
 );
+-- Performance Indexes
+CREATE INDEX IF NOT EXISTS idx_demand_annotations_demand_id ON demand_annotations(demand_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_status_history_demand_id ON status_history(demand_id);
+CREATE INDEX IF NOT EXISTS idx_stage_history_demand_id ON stage_history(demand_id);

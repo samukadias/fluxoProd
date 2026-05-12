@@ -23,7 +23,7 @@ const ALLOWED_SORT_FIELDS = {
 
 // Whitelist of allowed filter columns per table (SQL Injection Protection)
 const ALLOWED_FILTER_COLUMNS = {
-    demands: ['id', 'demand_number', 'product', 'status', 'artifact', 'complexity', 'client_id', 'analyst_id', 'cycle_id', 'requester_id', 'stage', 'support_analyst_id', 'architect_support_analyst_id', 'weight'],
+    demands: ['id', 'demand_number', 'product', 'status', 'artifact', 'complexity', 'client_id', 'analyst_id', 'cycle_id', 'requester_id', 'stage', 'support_analyst_id', 'architect_support_analyst_id', 'weight', 'product_type'],
     clients: ['id', 'name', 'sigla', 'active'],
     analysts: ['id', 'name', 'email'],
     users: ['id', 'name', 'email', 'role', 'department', 'profile_type'],
@@ -43,7 +43,7 @@ const ALLOWED_FILTER_COLUMNS = {
 
 // Whitelist of allowed write columns per table (Mass Assignment Protection)
 const ALLOWED_WRITE_COLUMNS = {
-    demands: ['product', 'demand_number', 'status', 'artifact', 'complexity', 'weight', 'client_id', 'analyst_id', 'cycle_id', 'requester_id', 'created_date', 'qualification_date', 'expected_delivery_date', 'delivery_date', 'observation', 'frozen_time_minutes', 'last_frozen_at', 'support_analyst_id', 'delivery_date_change_reason', 'contract_id', 'stage', 'value', 'architect_support_analyst_id', 'margem_bruta', 'margem_liquida'],
+    demands: ['product', 'demand_number', 'status', 'artifact', 'complexity', 'weight', 'client_id', 'analyst_id', 'cycle_id', 'requester_id', 'created_date', 'qualification_date', 'expected_delivery_date', 'delivery_date', 'observation', 'frozen_time_minutes', 'last_frozen_at', 'support_analyst_id', 'delivery_date_change_reason', 'contract_id', 'stage', 'value', 'architect_support_analyst_id', 'margem_bruta', 'margem_liquida', 'bottleneck_id'],
     clients: ['name', 'sigla', 'active'],
     analysts: ['name', 'email'],
     users: ['name', 'email', 'password', 'role', 'department', 'profile_type', 'allowed_modules', 'must_change_password'],
@@ -144,14 +144,18 @@ const createCrudRoutes = (app, resource, tableName) => {
 
             let query = tableName === 'demands' 
                 ? `SELECT d.*,
-                    COALESCE(
-                        (SELECT text FROM demand_annotations da WHERE da.demand_id = d.id ORDER BY created_at DESC LIMIT 1),
-                        d.observation
-                    ) as observation,
-                    CASE WHEN EXISTS (SELECT 1 FROM demand_annotations da WHERE da.demand_id = d.id) THEN false ELSE true END as is_legacy_observation,
-                    (SELECT user_name FROM demand_annotations da WHERE da.demand_id = d.id ORDER BY created_at DESC LIMIT 1) as last_annotation_author,
-                    (SELECT created_at FROM demand_annotations da WHERE da.demand_id = d.id ORDER BY created_at DESC LIMIT 1) as last_annotation_date
-                   FROM demands d`
+                    COALESCE(la.text, d.observation) as observation,
+                    CASE WHEN la.id IS NOT NULL THEN false ELSE true END as is_legacy_observation,
+                    la.user_name as last_annotation_author,
+                    la.created_at as last_annotation_date
+                   FROM demands d
+                   LEFT JOIN LATERAL (
+                       SELECT id, text, user_name, created_at
+                       FROM demand_annotations da
+                       WHERE da.demand_id = d.id
+                       ORDER BY created_at DESC
+                       LIMIT 1
+                   ) la ON true`
                 : `SELECT * FROM ${tableName}`;
             let countQuery = `SELECT COUNT(*) FROM ${tableName}`;
             const values = [];
@@ -165,8 +169,12 @@ const createCrudRoutes = (app, resource, tableName) => {
                         const userId = parseInt(req.user.id);
                         const paramIdx = values.length + 1;
                         const paramIdx2 = values.length + 2;
-                        // Match via analysts table (by email) OR directly by user.id as analyst_id
-                        whereConditions.push(`(analyst_id IN (SELECT id FROM analysts WHERE email = $${paramIdx}) OR analyst_id = $${paramIdx2})`);
+                        // Match via analysts table (by email) OR directly by user.id for all analyst roles
+                        whereConditions.push(`(
+                            analyst_id IN (SELECT id FROM analysts WHERE email = $${paramIdx}) OR analyst_id = $${paramIdx2} OR
+                            support_analyst_id IN (SELECT id FROM analysts WHERE email = $${paramIdx}) OR support_analyst_id = $${paramIdx2} OR
+                            architect_support_analyst_id IN (SELECT id FROM analysts WHERE email = $${paramIdx}) OR architect_support_analyst_id = $${paramIdx2}
+                        )`);
                         values.push(req.user.email);
                         values.push(userId);
                         console.log(`[ANALYST FILTER] email=${req.user.email}, userId=${userId}, page=${page}, limit=${limit}`);
@@ -178,7 +186,7 @@ const createCrudRoutes = (app, resource, tableName) => {
                 }
 
                 if (filters.status === 'active') {
-                    whereConditions.push(`status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA')`);
+                    whereConditions.push(`status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA', 'TRIAGEM NÃO ELEGÍVEL')`);
                     delete filters.status;
                 } else if (filters.status === 'all') {
                     delete filters.status;
@@ -209,6 +217,17 @@ const createCrudRoutes = (app, resource, tableName) => {
                         values.push(...ws);
                     }
                     delete filters.weights;
+                }
+
+                if (filters.demand_types) {
+                    const dts = Array.isArray(filters.demand_types) ? filters.demand_types : filters.demand_types.split(',');
+                    if (dts.length > 0) {
+                        const paramsList = dts.map((_, i) => `$${values.length + i + 1}`).join(', ');
+                        // Ensure demand_types is an array to avoid jsonb_array_elements errors on null/strings
+                        whereConditions.push(`jsonb_typeof(demand_types) = 'array' AND EXISTS (SELECT 1 FROM jsonb_array_elements(demand_types) AS dt WHERE (dt->>'id') IN (${paramsList}))`);
+                        values.push(...dts.map(String));
+                    }
+                    delete filters.demand_types;
                 }
             } else {
                 if (filters.status === 'all') delete filters.status;
@@ -429,6 +448,18 @@ const createCrudRoutes = (app, resource, tableName) => {
 
             const result = await db.query(query, [req.params.id, ...values]);
             if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+
+            // Auto-close pending reopenings when demand is delivered
+            if (tableName === 'demands' && body.status === 'ENTREGUE') {
+                const changedBy = req.user?.name || req.user?.email || 'system';
+                await db.query(
+                    `UPDATE demand_reopenings 
+                     SET redelivered_at = NOW(), redelivered_by_name = $1 
+                     WHERE demand_id = $2 AND redelivered_at IS NULL`,
+                    [changedBy, req.params.id]
+                );
+            }
+
             res.json(result.rows[0]);
         } catch (err) {
             handleError(err, res, `Update ${resource}`);

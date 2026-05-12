@@ -4,12 +4,14 @@ import { fluxoApi } from '@/api/fluxoClient';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid, List, Settings } from "lucide-react";
+import { Plus, LayoutGrid, List, Settings, Download, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import * as XLSX from 'xlsx';
 import DemandFilters from '@/components/demands/DemandFilters';
 import DemandCard from '@/components/demands/DemandCard';
 import DemandForm from '@/components/demands/DemandForm';
 import ReopeningReasonsManager from '@/Components/demands/ReopeningReasonsManager';
+import BottleneckOptionsManager from '@/Components/demands/BottleneckOptionsManager';
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
@@ -30,8 +32,10 @@ export default function DemandsPage() {
     const [duplicateData, setDuplicateData] = useState(null);
     const [viewMode, setViewMode] = useState('list');
     const [showReasonsManager, setShowReasonsManager] = useState(false);
+    const [showBottleneckManager, setShowBottleneckManager] = useState(false);
     const [demandToDelete, setDemandToDelete] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const [isExporting, setIsExporting] = useState(false);
     const ITEMS_PER_PAGE = viewMode === 'grid' ? 18 : 24;
     const [filters, setFilters] = usePersistedFilters('cdpc_filters', {
         search: '',
@@ -42,6 +46,9 @@ export default function DemandsPage() {
         cycle_ids: [],
         weight: 'all',
         weights: [],
+        product_type: 'all',
+        demand_types: [],
+        stage: 'all',
         sortBy: 'date_desc'
     });
 
@@ -88,6 +95,18 @@ export default function DemandsPage() {
                 params.weight = filters.weight;
             }
 
+            if (filters.product_type && filters.product_type !== 'all') {
+                params.product_type = filters.product_type;
+            }
+
+            if (filters.demand_types && filters.demand_types.length > 0) {
+                params.demand_types = filters.demand_types.join(',');
+            }
+
+            if (filters.stage && filters.stage !== 'all') {
+                params.stage = filters.stage;
+            }
+
             return fluxoApi.entities.Demand.listPaginated(params);
         }
     });
@@ -109,6 +128,11 @@ export default function DemandsPage() {
     const { data: cycles = [] } = useQuery({
         queryKey: ['cycles'],
         queryFn: () => fluxoApi.entities.Cycle.list()
+    });
+
+    const { data: demandServices = [] } = useQuery({
+        queryKey: ['demand_services'],
+        queryFn: () => fluxoApi.entities.DemandService.list()
     });
 
     const { data: activeRoleMap = {} } = useQuery({
@@ -191,6 +215,106 @@ export default function DemandsPage() {
     const analystsMap = useMemo(() => Object.fromEntries(analysts.map(a => [a.id, a])), [analysts]);
     const clientsMap = useMemo(() => Object.fromEntries(clients.map(c => [c.id, c])), [clients]);
 
+    const exportToExcel = async () => {
+        setIsExporting(true);
+        try {
+            const sortMap = {
+                'date_asc': 'created_date',
+                'date_desc': '-created_date',
+                'alpha_asc': 'product',
+                'alpha_desc': '-product',
+                'priority': 'weight'
+            };
+
+            const params = {
+                page: 1,
+                limit: 1000,
+                sort: sortMap[filters.sortBy] || '-created_date',
+                status: filters.status,
+                search: filters.search
+            };
+
+            if (filters.analyst_id !== 'all') {
+                let targetField = filters.analyst_type || 'analyst_id';
+                if (targetField === 'executive_id') targetField = 'requester_id';
+                params[targetField] = filters.analyst_id;
+            }
+            if (filters.client_id !== 'all') params.client_id = filters.client_id;
+            
+            if (filters.cycle_ids && filters.cycle_ids.length > 0) params.cycle_ids = filters.cycle_ids.join(',');
+            else if (filters.cycle_id && filters.cycle_id !== 'all') params.cycle_id = filters.cycle_id;
+            
+            if (filters.weights && filters.weights.length > 0) params.weights = filters.weights.join(',');
+            else if (filters.weight && filters.weight !== 'all') params.weight = filters.weight;
+
+            if (filters.product_type && filters.product_type !== 'all') params.product_type = filters.product_type;
+            if (filters.demand_types && filters.demand_types.length > 0) params.demand_types = filters.demand_types.join(',');
+            if (filters.stage && filters.stage !== 'all') params.stage = filters.stage;
+
+            const res = await fluxoApi.entities.Demand.listPaginated(params);
+            const allMatchingDemands = res.data || [];
+
+            if (allMatchingDemands.length === 0) {
+                toast.error("Nenhuma demanda encontrada para exportar.");
+                setIsExporting(false);
+                return;
+            }
+
+            // Fetch bottleneck options for label resolution
+            let bottleneckMap = {};
+            try {
+                const { fluxClient } = await import('@/api/fluxoClient');
+                const bRes = await fluxClient.get('/bottleneck-options/all');
+                bottleneckMap = Object.fromEntries((bRes.data || []).map(b => [b.id, b.label]));
+            } catch (e) { /* ignore */ }
+
+            const rows = allMatchingDemands.map(d => ({
+                'Nº da Demanda': d.demand_number,
+                'Produto': d.product,
+                'Status': d.status,
+                'Etapa': d.stage,
+                'Tipo Produto': d.product_type,
+                'Cliente': clientsMap[d.client_id]?.name || '',
+                'Responsável': analystsMap[d.analyst_id]?.name || '',
+                'Gargalo': bottleneckMap[d.bottleneck_id] || '',
+                'Data Criação': d.created_date ? new Date(d.created_date).toLocaleDateString('pt-BR') : '',
+                'Data Entrega': d.delivery_date ? new Date(d.delivery_date).toLocaleDateString('pt-BR') : '',
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(rows);
+            // Auto-width columns
+            const colWidths = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length, 20) }));
+            worksheet['!cols'] = colWidths;
+
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Demandas");
+            
+            const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+            
+            const dateStr = new Date().toISOString().split('T')[0];
+            const fileName = `Demandas_Export_${dateStr}.xlsx`;
+
+            // Bulletproof download mechanism
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            toast.success("Exportação concluída com sucesso!");
+
+        } catch (error) {
+            console.error("Error exporting", error);
+            toast.error(`Erro ao exportar: ${error.message || 'Erro desconhecido'}`);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -224,17 +348,40 @@ export default function DemandsPage() {
                             </Button>
                         </div>
                         {['manager', 'admin', 'gestor'].includes(user?.role) && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setShowReasonsManager(true)}
-                                className="text-slate-500 border-slate-200 hover:bg-slate-50"
-                                title="Configurar motivos de reabertura"
-                            >
-                                <Settings className="w-4 h-4 mr-1.5" />
-                                Motivos
-                            </Button>
+                            <>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowReasonsManager(true)}
+                                    className="text-slate-500 border-slate-200 hover:bg-slate-50"
+                                    title="Configurar motivos de reabertura"
+                                >
+                                    <Settings className="w-4 h-4 mr-1.5" />
+                                    Motivos
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowBottleneckManager(true)}
+                                    className="text-slate-500 border-slate-200 hover:bg-slate-50"
+                                    title="Configurar opções de gargalo"
+                                >
+                                    <Settings className="w-4 h-4 mr-1.5" />
+                                    Gargalos
+                                </Button>
+                            </>
                         )}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={exportToExcel}
+                            disabled={isExporting || demands.length === 0}
+                            className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                            title="Exportar demandas para Excel"
+                        >
+                            {isExporting ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Download className="w-4 h-4 mr-1.5" />}
+                            Exportar
+                        </Button>
                         {user?.role !== 'requester' && user?.role !== 'viewer' && (
                             <Button
                                 onClick={() => setShowForm(true)}
@@ -254,6 +401,7 @@ export default function DemandsPage() {
                     requesters={requesters}
                     clients={clients}
                     cycles={cycles}
+                    demandServices={demandServices}
                     activeRoleMap={activeRoleMap}
                 />
 
@@ -357,6 +505,19 @@ export default function DemandsPage() {
                         </DialogTitle>
                     </DialogHeader>
                     <ReopeningReasonsManager />
+                </DialogContent>
+            </Dialog>
+
+            {/* Gerenciador de Opções de Gargalo */}
+            <Dialog open={showBottleneckManager} onOpenChange={setShowBottleneckManager}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Settings className="w-5 h-5 text-slate-500" />
+                            Opções de Gargalo
+                        </DialogTitle>
+                    </DialogHeader>
+                    <BottleneckOptionsManager />
                 </DialogContent>
             </Dialog>
 

@@ -105,6 +105,8 @@ const initDb = async () => {
             'ALTER TABLE demands ADD COLUMN IF NOT EXISTS architect_support_analyst_id INTEGER',
             'ALTER TABLE demands ADD COLUMN IF NOT EXISTS stage VARCHAR(50)',
             'ALTER TABLE demands ADD COLUMN IF NOT EXISTS value DECIMAL(15, 2)',
+            'ALTER TABLE demands ADD COLUMN IF NOT EXISTS product_type VARCHAR(50)',
+            'ALTER TABLE demands ADD COLUMN IF NOT EXISTS demand_types JSONB DEFAULT \'[]\'',
             'ALTER TABLE users ADD COLUMN IF NOT EXISTS allowed_modules TEXT[] DEFAULT \'{flow}\'',
             'ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(50)',
             'ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_type VARCHAR(50)',
@@ -511,6 +513,42 @@ const initDb = async () => {
         `);
 
         // ========================================
+        // GARGALOS DE DEMANDAS (configuráveis pelo gestor)
+        // ========================================
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS demand_bottleneck_options (
+                id SERIAL PRIMARY KEY,
+                label VARCHAR(255) NOT NULL,
+                active BOOLEAN DEFAULT TRUE,
+                created_by VARCHAR(255),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Coluna bottleneck_id na tabela demands
+        try { await db.query('ALTER TABLE demands ADD COLUMN IF NOT EXISTS bottleneck_id INTEGER'); } catch (e) { /* exists */ }
+
+        // Seed de gargalos padrão (só se a tabela estiver vazia)
+        const bottleneckCount = await db.query('SELECT COUNT(*) FROM demand_bottleneck_options');
+        if (parseInt(bottleneckCount.rows[0].count) === 0) {
+            const defaultBottlenecks = [
+                'Pendência Cliente',
+                'Falta de Recurso',
+                'Dependência Técnica',
+                'Aprovação Pendente',
+                'Dependência de Terceiros',
+                'Outro'
+            ];
+            for (const label of defaultBottlenecks) {
+                await db.query(
+                    `INSERT INTO demand_bottleneck_options (label, created_by) VALUES ($1, 'Sistema')`,
+                    [label]
+                );
+            }
+        }
+
+        // ========================================
         // ANOTAÇÕES DE DEMANDAS
         // ========================================
         await db.query(`
@@ -539,6 +577,41 @@ const initDb = async () => {
             }
         } catch (migrationErr) {
             console.error('⚠️ Erro na migração de observações:', migrationErr.message);
+        }
+
+        // ========================================
+        // SERVIÇOS E TIPOS DE DEMANDA
+        // ========================================
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS demand_services (
+                id SERIAL PRIMARY KEY,
+                service_name VARCHAR(255) NOT NULL,
+                delivery_name VARCHAR(255) NOT NULL,
+                active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // ========================================
+        // DATA FIX: Close orphaned reopenings for already-delivered demands
+        // Before the auto-close trigger existed, demands could be re-delivered
+        // via the status dropdown without closing the reopening record.
+        // ========================================
+        try {
+            const fixResult = await db.query(`
+                UPDATE demand_reopenings dr
+                SET redelivered_at = COALESCE(d.delivery_date, NOW()),
+                    redelivered_by_name = 'Sistema (Correção automática)'
+                FROM demands d
+                WHERE dr.demand_id = d.id
+                  AND dr.redelivered_at IS NULL
+                  AND d.status = 'ENTREGUE'
+            `);
+            if (fixResult.rowCount > 0) {
+                console.log(`🔧 Corrigidos ${fixResult.rowCount} registro(s) de reabertura órfã(s).`);
+            }
+        } catch (fixErr) {
+            console.error('⚠️ Erro ao corrigir reaberturas órfãs:', fixErr.message);
         }
 
         // ========================================

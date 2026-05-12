@@ -2,6 +2,8 @@ export class Demand {
     constructor(data = {}) {
         this.demand_number = data.demand_number;
         this.product = data.product;
+        this.product_type = data.product_type;
+        this.demand_types = data.demand_types || [];
         this.artifact = data.artifact;
         this.weight = data.weight ?? 1;
         this.complexity = data.complexity ?? "Média";

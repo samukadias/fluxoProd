@@ -75,8 +75,8 @@ router.get('/cdpc', async (req, res) => {
 
         const queries = {
             // Existing ones + Em Tratativa
-            backlogCount: `SELECT COUNT(*) FROM demands WHERE status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA') AND ${baseWhere}`,
-            emTratativa: `SELECT COUNT(*) FROM demands WHERE status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA', 'PENDENTE TRIAGEM') AND ${baseWhere}`,
+            backlogCount: `SELECT COUNT(*) FROM demands WHERE status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA', 'TRIAGEM NÃO ELEGÍVEL') AND ${baseWhere}`,
+            emTratativa: `SELECT COUNT(*) FROM demands WHERE status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA', 'PENDENTE TRIAGEM', 'TRIAGEM NÃO ELEGÍVEL') AND ${baseWhere}`,
 
             // Monthly/Period Input
             entriesThisMonth: `SELECT COUNT(*) FROM demands WHERE ${expectedDateFilter} AND ${baseWhere}`,
@@ -103,7 +103,7 @@ router.get('/cdpc', async (req, res) => {
                 SELECT 
                     COUNT(*) as count
                 FROM demands d
-                WHERE status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA') 
+                WHERE status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA', 'TRIAGEM NÃO ELEGÍVEL') 
                 AND weight IN (0, 1)
                 AND ${expectedDateFilter.replace(/qualification_date/g, 'd.qualification_date').replace(/created_date/g, 'd.created_date')}
                 AND ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
@@ -114,7 +114,7 @@ router.get('/cdpc', async (req, res) => {
                 SELECT c.name, COUNT(d.id) as count
                 FROM demands d
                 JOIN clients c ON d.client_id = c.id
-                WHERE d.status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA') 
+                WHERE d.status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA', 'TRIAGEM NÃO ELEGÍVEL') 
                 AND d.weight IN (0, 1)
                 AND ${expectedDateFilter.replace(/qualification_date/g, 'd.qualification_date').replace(/created_date/g, 'd.created_date')}
                 AND ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
@@ -146,7 +146,7 @@ router.get('/cdpc', async (req, res) => {
                 SELECT c.name, COUNT(d.id) as count
                 FROM demands d
                 JOIN clients c ON d.client_id = c.id
-                WHERE d.status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA')
+                WHERE d.status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA', 'TRIAGEM NÃO ELEGÍVEL')
                 AND ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
                 GROUP BY c.id, c.name
                 ORDER BY count DESC
@@ -154,11 +154,12 @@ router.get('/cdpc', async (req, res) => {
             `,
 
             currentlyReopened: `
-                SELECT d.id, d.product, d.client_id, d.delivery_date, c.name as client_name 
+                SELECT DISTINCT d.id, d.product, d.client_id, d.delivery_date, d.status, c.name as client_name,
+                       dr.reopened_at, dr.reason_label
                 FROM demands d 
+                JOIN demand_reopenings dr ON dr.demand_id = d.id AND dr.redelivered_at IS NULL
                 LEFT JOIN clients c ON d.client_id = c.id
-                WHERE d.status = 'REABERTA'
-                AND ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
+                WHERE ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
             `,
             cancelledByExecutive: `
                 SELECT u.id, COALESCE(u.name, 'Não Informado') as name, COUNT(d.id) as count
@@ -371,4 +372,223 @@ router.get('/cocr', async (req, res) => {
     }
 });
 
+
+/**
+ * GET /metrics/weekly
+ * Weekly tracking metrics for CDPC — compares current week vs previous week.
+ * Week boundary: Monday 00:00 → Sunday 23:59 (America/Sao_Paulo, stored as UTC in DB).
+ * Supports optional ?analyst_id= filter.
+ */
+router.get('/weekly', async (req, res) => {
+    const { analyst_id } = req.query;
+    const cacheKey = `weekly_${analyst_id || 'all'}`;
+    const cached = metricsCache.get(cacheKey);
+    if (cached) return res.json(cached);
+
+    const client = await db.connect();
+    try {
+        // ── Week boundaries (ISO Mon-Sun, stored UTC in DB) ──────────────────
+        const now = new Date();
+        const dayOfWeek = now.getDay(); // 0=Sun … 6=Sat
+        const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+        const thisMonday = new Date(now);
+        thisMonday.setDate(now.getDate() + diffToMonday);
+        thisMonday.setHours(0, 0, 0, 0);
+
+        const thisSunday = new Date(thisMonday);
+        thisSunday.setDate(thisMonday.getDate() + 6);
+        thisSunday.setHours(23, 59, 59, 999);
+
+        const lastMonday = new Date(thisMonday);
+        lastMonday.setDate(thisMonday.getDate() - 7);
+        const lastSunday = new Date(thisMonday);
+        lastSunday.setDate(thisMonday.getDate() - 1);
+        lastSunday.setHours(23, 59, 59, 999);
+
+        const analystFilter = analyst_id ? `AND analyst_id = '${analyst_id}'` : '';
+
+        // ── Active demand sets per week ──────────────────────────────────────
+        // A demand is "active" in a given week if it was NOT in a closed status
+        // at the END of that week. We reconstruct this from status_history.
+        // For simplicity: demand counts are from current snapshot (this week)
+        // and we reconstruct last week's active set from status_history.
+
+        const CLOSED_STATUSES = "('ENTREGUE','CANCELADA','CONGELADA','TRIAGEM NÃO ELEGÍVEL')";
+
+        // Current active demands
+        const activeNowRes = await client.query(`
+            SELECT id, weight, stage, status FROM demands
+            WHERE status NOT IN ${CLOSED_STATUSES} ${analystFilter}
+        `);
+
+        // Last week active: demands where last known status before lastSunday was NOT closed
+        // We join with status_history to find status at end of last week
+        const lastWeekActiveRes = await client.query(`
+            WITH last_status_before_sunday AS (
+                SELECT DISTINCT ON (sh.demand_id) 
+                    sh.demand_id, sh.to_status
+                FROM status_history sh
+                JOIN demands d ON d.id = sh.demand_id
+                WHERE sh.changed_at <= $1
+                ${analyst_id ? `AND d.analyst_id = '${analyst_id}'` : ''}
+                ORDER BY sh.demand_id, sh.changed_at DESC
+            )
+            SELECT ls.demand_id, ls.to_status,
+                   d.weight, d.stage
+            FROM last_status_before_sunday ls
+            JOIN demands d ON d.id = ls.demand_id
+            WHERE ls.to_status NOT IN ${CLOSED_STATUSES}
+        `, [lastSunday]);
+
+        // Demands with NO status history yet (created before any history) — include them as active last week if active now
+        // (conservative: count current active demands that have no history entries before lastSunday)
+
+        const activeNow = activeNowRes.rows;
+        const activeLastWeek = lastWeekActiveRes.rows;
+
+        // ── Stage reconstruction for last week ───────────────────────────────
+        // For demands active last week, find which stage they were in at lastSunday
+        // Using stage_history: the entry where entered_at <= lastSunday AND (exited_at > lastSunday OR exited_at IS NULL)
+        const stageLastWeekRes = await client.query(`
+            SELECT sh.demand_id, sh.stage
+            FROM stage_history sh
+            JOIN demands d ON d.id = sh.demand_id
+            WHERE sh.entered_at <= $1
+              AND (sh.exited_at > $1 OR sh.exited_at IS NULL)
+              ${analyst_id ? `AND d.analyst_id = '${analyst_id}'` : ''}
+        `, [lastSunday]);
+
+        const stageLastWeekMap = {};
+        stageLastWeekRes.rows.forEach(r => { stageLastWeekMap[r.demand_id] = r.stage; });
+
+        // ── Stage evolution this week ─────────────────────────────────────────
+        const stageEvolutionRes = await client.query(`
+            SELECT sh.demand_id,
+                   FIRST_VALUE(sh.stage) OVER (PARTITION BY sh.demand_id ORDER BY sh.entered_at ASC) AS first_stage,
+                   LAST_VALUE(sh.stage)  OVER (PARTITION BY sh.demand_id ORDER BY sh.entered_at ASC
+                       ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_stage
+            FROM stage_history sh
+            JOIN demands d ON d.id = sh.demand_id
+            WHERE sh.entered_at BETWEEN $1 AND $2
+            ${analyst_id ? `AND d.analyst_id = '${analyst_id}'` : ''}
+        `, [thisMonday, thisSunday]);
+
+        const STAGE_ORDER = ['Triagem', 'Qualificação', 'PO', 'OO', 'RT', 'ESP'];
+        const stageIdx = s => STAGE_ORDER.indexOf(s);
+
+        const evolutionSet = new Set();
+        const regressionSet = new Set();
+        const seenEvolution = new Set();
+
+        stageEvolutionRes.rows.forEach(r => {
+            if (seenEvolution.has(r.demand_id)) return;
+            seenEvolution.add(r.demand_id);
+            const diff = stageIdx(r.last_stage) - stageIdx(r.first_stage);
+            if (diff > 0) evolutionSet.add(r.demand_id);
+            if (diff < 0) regressionSet.add(r.demand_id);
+        });
+
+        // Active demands with NO stage movement this week
+        const activeIds = new Set(activeNow.map(d => d.id));
+        const movedIds = new Set([...evolutionSet, ...regressionSet]);
+        const noEvolutionCount = [...activeIds].filter(id => !movedIds.has(id)).length;
+
+        // ── Status history events this week ──────────────────────────────────
+        const weekEventsRes = await client.query(`
+            SELECT sh.demand_id, sh.from_status, sh.to_status, sh.changed_at
+            FROM status_history sh
+            JOIN demands d ON d.id = sh.demand_id
+            WHERE sh.changed_at BETWEEN $1 AND $2
+            ${analyst_id ? `AND d.analyst_id = '${analyst_id}'` : ''}
+        `, [thisMonday, thisSunday]);
+
+        const entranceIds = new Set();
+        const reaberturaIds = new Set();
+        const cancelamentoIds = new Set();
+        const entregueIds = new Set();
+
+        weekEventsRes.rows.forEach(r => {
+            // Entradas: became active from a null/closed state or first assignment
+            if (!r.from_status && r.to_status && !['ENTREGUE','CANCELADA','CONGELADA','TRIAGEM NÃO ELEGÍVEL'].includes(r.to_status)) {
+                entranceIds.add(r.demand_id);
+            }
+            // Reaberturas: from ENTREGUE back to active
+            if (r.from_status === 'ENTREGUE' && !['ENTREGUE','CANCELADA'].includes(r.to_status)) {
+                reaberturaIds.add(r.demand_id);
+            }
+            if (r.to_status === 'CANCELADA') cancelamentoIds.add(r.demand_id);
+            if (r.to_status === 'ENTREGUE') entregueIds.add(r.demand_id);
+        });
+
+        // Also count demands created this week (no prior status history = brand new)
+        const newDemandsRes = await client.query(`
+            SELECT id FROM demands
+            WHERE created_date BETWEEN $1 AND $2
+            ${analyst_id ? `AND analyst_id = '${analyst_id}'` : ''}
+        `, [thisMonday, thisSunday]);
+        newDemandsRes.rows.forEach(r => entranceIds.add(r.id));
+
+        // ── Priority counts ───────────────────────────────────────────────────
+        const countByWeight = (rows) => {
+            const result = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
+            rows.forEach(r => {
+                const w = r.weight ?? 4;
+                if (result[w] !== undefined) result[w]++;
+            });
+            return result;
+        };
+
+        const countByStage = (rows, stageMap = null) => {
+            const result = {};
+            STAGE_ORDER.forEach(s => result[s] = 0);
+            rows.forEach(r => {
+                const stage = stageMap ? stageMap[r.demand_id] : r.stage;
+                if (stage && result[stage] !== undefined) result[stage]++;
+            });
+            return result;
+        };
+
+        const response = {
+            weeks: {
+                current: {
+                    label: `${thisMonday.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`,
+                    total: activeNow.length,
+                    byPriority: countByWeight(activeNow),
+                    byStage: countByStage(activeNow),
+                    entradas: entranceIds.size,
+                    reaberturas: reaberturaIds.size,
+                    cancelamentos: cancelamentoIds.size,
+                    entregues: entregueIds.size,
+                    comEvolucao: evolutionSet.size,
+                    semEvolucao: noEvolutionCount,
+                    comRegressao: regressionSet.size,
+                },
+                previous: {
+                    label: `${lastMonday.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`,
+                    total: activeLastWeek.length,
+                    byPriority: countByWeight(activeLastWeek),
+                    byStage: countByStage(activeLastWeek, stageLastWeekMap),
+                    entradas: null,
+                    reaberturas: null,
+                    cancelamentos: null,
+                    entregues: null,
+                    comEvolucao: null,
+                    semEvolucao: null,
+                    comRegressao: null,
+                }
+            }
+        };
+
+        metricsCache.set(cacheKey, response, 300);
+        res.json(response);
+    } catch (err) {
+        console.error('[metrics/weekly] Error:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
+    }
+});
+
 module.exports = router;
+

@@ -60,6 +60,7 @@ const { createCrudRoutes } = require('./helpers/crud');
 const authRoutes = require('./routes/auth');
 const demandRoutes = require('./routes/demands');
 const reopeningRoutes = require('./routes/reopenings');
+const bottleneckRoutes = require('./routes/bottlenecks');
 const { router: notificationRoutes, generateExpiringContractNotifications } = require('./routes/notifications');
 const activityRoutes = require('./routes/activity');
 const metricsRoutes = require('./routes/metrics');
@@ -75,6 +76,7 @@ const Sentry = require('@sentry/node');
 const { nodeProfilingIntegration } = require('@sentry/profiling-node');
 
 const app = express();
+app.set('trust proxy', 1);
 
 // ========================================
 // SENTRY INITIALIZATION
@@ -540,6 +542,9 @@ app.use('/', reopeningRoutes);
 // Demand sub-routes: /:id/reopenings, /:id/reopen, /:id/redeliver
 app.use('/demands', reopeningRoutes);
 
+// Bottleneck options (gestor CRUD)
+app.use('/', bottleneckRoutes);
+
 // Metrics
 app.use('/metrics', metricsRoutes);
 
@@ -567,6 +572,7 @@ const crudEntities = [
     ['holidays', 'holidays'],
     ['attestations', 'monthly_attestations'],
     ['termos_confirmacao', 'confirmation_terms'],
+    ['demand_services', 'demand_services'],
 ];
 
 for (const [resource, table] of crudEntities) {

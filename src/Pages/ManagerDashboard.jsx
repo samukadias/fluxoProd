@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Clock, AlertTriangle, CheckCircle2, TrendingUp, Layers, Briefcase, Timer, List, RotateCcw, X, ExternalLink } from "lucide-react";
+import { FileText, Clock, AlertTriangle, CheckCircle2, TrendingUp, Layers, Briefcase, Timer, List, RotateCcw, X, ExternalLink, CalendarClock, PackageCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatsCard from '@/components/dashboard/StatsCard';
 import BottleneckChart from '@/components/dashboard/BottleneckChart';
@@ -20,6 +20,8 @@ import ReopeningReasonsChart from '@/components/dashboard/ReopeningReasonsChart'
 import { calculateWorkDays } from '@/Components/demands/EffortCalculator';
 import { isAfter, parseISO, format, getYear, subMonths, isSameMonth } from 'date-fns';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import WeeklyTrackingTab from '@/components/dashboard/WeeklyTrackingTab';
+import ResumoTab from '@/components/dashboard/ResumoTab';
 
 const ACTIVE_STATUSES = [
     "PENDENTE TRIAGEM",
@@ -54,11 +56,14 @@ export default function ManagerDashboard() {
     const { user } = useAuth();
     const currentYear = getYear(new Date());
     const [selectedYear, setSelectedYear] = useState(String(currentYear));
+    const [selectedEntryMonth, setSelectedEntryMonth] = useState('all');
+    const [selectedDeliveryMonth, setSelectedDeliveryMonth] = useState('all');
     const [selectedAnalyst, setSelectedAnalyst] = useState('all');
     const [selectedFilter, setSelectedFilter] = useState(null);
     const [selectedHeatmapStatus, setSelectedHeatmapStatus] = useState(null);
     const [selectedExec, setSelectedExec] = useState(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState('overview');
 
     const { data: demands = [] } = useQuery({
         queryKey: ['demands'],
@@ -146,9 +151,28 @@ export default function ManagerDashboard() {
     const filteredDemands = useMemo(() => {
         return demands.filter(d => {
             const refDate = d.qualification_date || d.created_date;
+            const delivDate = d.delivery_date;
+
+            // Filtro por Safra (Ano)
             if (refDate) {
                 const demandYear = String(getYear(parseISO(refDate)));
                 if (demandYear !== selectedYear) return false;
+            } else if (selectedYear !== 'all') {
+                return false;
+            }
+
+            // Filtro por Mês (Entrada/Safra)
+            if (selectedEntryMonth !== 'all') {
+                if (!refDate) return false;
+                const entryMonthStr = String(parseISO(refDate).getMonth() + 1).padStart(2, '0');
+                if (entryMonthStr !== selectedEntryMonth) return false;
+            }
+
+            // Filtro por Mês (Entrega)
+            if (selectedDeliveryMonth !== 'all') {
+                if (!delivDate) return false;
+                const delivMonthStr = String(parseISO(delivDate).getMonth() + 1).padStart(2, '0');
+                if (delivMonthStr !== selectedDeliveryMonth) return false;
             }
 
             // PERMISSÕES:
@@ -177,7 +201,7 @@ export default function ManagerDashboard() {
             if (selectedAnalyst !== 'all' && d.analyst_id !== selectedAnalyst) return false;
             return true;
         });
-    }, [demands, selectedYear, selectedAnalyst, currentAnalyst, currentRequester, user]);
+    }, [demands, selectedYear, selectedEntryMonth, selectedDeliveryMonth, selectedAnalyst, currentAnalyst, currentRequester, user]);
 
     const executiveCanceledDetails = useMemo(() => {
         if (!selectedExec) return [];
@@ -212,6 +236,24 @@ export default function ManagerDashboard() {
             return acc;
         }, {});
     }, [clients]);
+
+    const nextDeliveries = useMemo(() => {
+        return [...filteredDemands]
+            .filter(d => ACTIVE_STATUSES.includes(d.status) && d.status !== 'CONGELADA')
+            .sort((a, b) => {
+                if (!a.expected_delivery_date) return 1;
+                if (!b.expected_delivery_date) return -1;
+                return new Date(a.expected_delivery_date) - new Date(b.expected_delivery_date);
+            })
+            .slice(0, 5);
+    }, [filteredDemands]);
+
+    const lastDeliveries = useMemo(() => {
+        return [...filteredDemands]
+            .filter(d => d.status === 'ENTREGUE' && d.delivery_date)
+            .sort((a, b) => new Date(b.delivery_date) - new Date(a.delivery_date))
+            .slice(0, 5);
+    }, [filteredDemands]);
 
     const detailedDemands = useMemo(() => {
 
@@ -510,50 +552,181 @@ export default function ManagerDashboard() {
     return (
         <div className="p-6 min-h-screen bg-slate-50 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-100/50 via-slate-50 to-slate-100">
             <div className="max-w-7xl mx-auto">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-                    <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                            Dashboard CDPC
-                            {(user?.name || user?.full_name) && (
-                                <span className="text-lg sm:text-2xl font-normal text-slate-500">
-                                    | Olá, <span className="text-indigo-600">{(user.name || user.full_name).split(' ')[0]}</span>
-                                </span>
-                            )}
-                        </h1>
-                        <p className="text-slate-500 mt-1">
-                            {isRequester ? "Minhas Solicitações" : "Visão geral e análise de gargalos"}
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <Select value={selectedYear} onValueChange={setSelectedYear}>
-                            <SelectTrigger className="w-28 bg-white">
-                                <SelectValue placeholder="Ano" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {years.map(y => (
-                                    <SelectItem key={y} value={y}>{y}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        {isManager && (
-                            <Select value={selectedAnalyst} onValueChange={setSelectedAnalyst}>
-                                <SelectTrigger className="w-48 bg-white">
-                                    <SelectValue placeholder="Responsável" />
+                <div className="flex flex-col mb-6">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                        Dashboard CDPC
+                        {(user?.name || user?.full_name) && (
+                            <span className="text-lg sm:text-2xl font-normal text-slate-500">
+                                | Olá, <span className="text-indigo-600">{(user.name || user.full_name).split(' ')[0]}</span>
+                            </span>
+                        )}
+                    </h1>
+                    <p className="text-slate-500 mt-1">
+                        {isRequester ? "Minhas Solicitações" : "Visão geral e análise de gargalos"}
+                    </p>
+                </div>
+
+                {/* ── Barra de Filtros Global (sempre visível) ── */}
+                <div className="flex flex-col gap-4 bg-white border border-slate-200 rounded-2xl px-5 pt-8 pb-4 shadow-sm mb-6">
+                    {/* Linha dos filtros — sempre centralizada */}
+                    <div className="flex flex-wrap justify-center items-end gap-x-5 gap-y-6">
+                        <div className="flex flex-col gap-1" title="Filtra todas as métricas do dashboard pelo ano em que a demanda deu entrada (criação ou qualificação).">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-help">Ano (Safra)</span>
+                            <Select value={selectedYear} onValueChange={setSelectedYear}>
+                                <SelectTrigger className="w-24 bg-white">
+                                    <SelectValue placeholder="Ano" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Todos os Responsáveis</SelectItem>
-                                    {[...analysts].sort((a, b) => a.name.localeCompare(b.name)).map(a => (
-                                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                                    {years.map(y => (
+                                        <SelectItem key={y} value={y}>{y}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+
+                        <div className="flex flex-col gap-1" title="Filtra as métricas pelo mês em que a demanda entrou na esteira (data de qualificação ou criação).">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-help">Mês Entrada (Safra)</span>
+                            <Select value={selectedEntryMonth} onValueChange={setSelectedEntryMonth}>
+                                <SelectTrigger className="w-36 bg-white">
+                                    <SelectValue placeholder="Mês (Entrada)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos os meses</SelectItem>
+                                    <SelectItem value="01">Janeiro</SelectItem>
+                                    <SelectItem value="02">Fevereiro</SelectItem>
+                                    <SelectItem value="03">Março</SelectItem>
+                                    <SelectItem value="04">Abril</SelectItem>
+                                    <SelectItem value="05">Maio</SelectItem>
+                                    <SelectItem value="06">Junho</SelectItem>
+                                    <SelectItem value="07">Julho</SelectItem>
+                                    <SelectItem value="08">Agosto</SelectItem>
+                                    <SelectItem value="09">Setembro</SelectItem>
+                                    <SelectItem value="10">Outubro</SelectItem>
+                                    <SelectItem value="11">Novembro</SelectItem>
+                                    <SelectItem value="12">Dezembro</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="flex flex-col gap-1" title="Filtra as métricas pelo mês em que a demanda foi efetivamente entregue (data de entrega real).">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-help">Mês Entrega</span>
+                            <Select value={selectedDeliveryMonth} onValueChange={setSelectedDeliveryMonth}>
+                                <SelectTrigger className="w-36 bg-white">
+                                    <SelectValue placeholder="Mês (Entrega)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos os meses</SelectItem>
+                                    <SelectItem value="01">Janeiro</SelectItem>
+                                    <SelectItem value="02">Fevereiro</SelectItem>
+                                    <SelectItem value="03">Março</SelectItem>
+                                    <SelectItem value="04">Abril</SelectItem>
+                                    <SelectItem value="05">Maio</SelectItem>
+                                    <SelectItem value="06">Junho</SelectItem>
+                                    <SelectItem value="07">Julho</SelectItem>
+                                    <SelectItem value="08">Agosto</SelectItem>
+                                    <SelectItem value="09">Setembro</SelectItem>
+                                    <SelectItem value="10">Outubro</SelectItem>
+                                    <SelectItem value="11">Novembro</SelectItem>
+                                    <SelectItem value="12">Dezembro</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {isManager && (
+                            <div className="flex flex-col gap-1" title="Filtra o dashboard para exibir apenas as demandas atribuídas ao analista selecionado.">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-help">Responsável (Analista)</span>
+                                <Select value={selectedAnalyst} onValueChange={setSelectedAnalyst}>
+                                    <SelectTrigger className="w-52 bg-white">
+                                        <SelectValue placeholder="Responsável" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todos os Responsáveis</SelectItem>
+                                        {[...analysts].sort((a, b) => a.name.localeCompare(b.name)).map(a => (
+                                            <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         )}
                     </div>
+
+                    {/* Linha do botão "Limpar" — centralizada e independente */}
+                    {(selectedEntryMonth !== 'all' || selectedDeliveryMonth !== 'all' || selectedAnalyst !== 'all') && (
+                        <div className="flex justify-center">
+                            <button
+                                onClick={() => { setSelectedEntryMonth('all'); setSelectedDeliveryMonth('all'); setSelectedAnalyst('all'); }}
+                                className="text-xs text-indigo-600 font-semibold border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 rounded-lg px-3 py-1.5 transition-colors"
+                                title="Clique para limpar todos os filtros e voltar à visão completa."
+                            >
+                                × Limpar filtros
+                            </button>
+                        </div>
+                    )}
                 </div>
 
+                {/* ── Abas de Navegação ── */}
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl mb-8 w-fit">
+                    <button
+                        onClick={() => setActiveTab('overview')}
+                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                            activeTab === 'overview'
+                                ? 'bg-white text-indigo-700 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        Visão Geral
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('weekly')}
+                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                            activeTab === 'weekly'
+                                ? 'bg-white text-indigo-700 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        Acompanhamento Semanal
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('resumo')}
+                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                            activeTab === 'resumo'
+                                ? 'bg-white text-indigo-700 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        Resumo
+                    </button>
+                </div>
+
+                {/* ── Aba: Acompanhamento Semanal ── */}
+                {activeTab === 'weekly' && (
+                    <WeeklyTrackingTab
+                        analystId={selectedAnalyst}
+                        demands={demands}
+                        history={history}
+                        stageHistory={stageHistory}
+                    />
+                )}
+
+                {/* ── Aba: Resumo ── */}
+                {activeTab === 'resumo' && (
+                    <ResumoTab
+                        analystId={selectedAnalyst}
+                        demands={demands}
+                        analysts={analysts}
+                        usersMap={usersMap}
+                        selectedYear={selectedYear}
+                        selectedEntryMonth={selectedEntryMonth}
+                        selectedDeliveryMonth={selectedDeliveryMonth}
+                    />
+                )}
+
+                {/* ── Aba: Visão Geral ── */}
+                {activeTab === 'overview' && (<div className="contents">
                 <div className={`grid grid-cols-1 sm:grid-cols-2 ${isAnalystCDPC ? 'lg:grid-cols-5' : 'lg:grid-cols-6'} gap-4 mb-8`}>
                     <StatsCard
                         title="Total de Demandas"
+                        tooltip="Volume total de demandas criadas/qualificadas no período selecionado."
                         value={stats.total}
                         icon={FileText}
                         type="default"
@@ -563,6 +736,7 @@ export default function ManagerDashboard() {
                     {!isAnalystCDPC && (
                         <StatsCard
                             title="Backlog"
+                            tooltip="Demandas que estão aguardando início (Pendente Triagem, Designada)."
                             value={stats.backlog}
                             icon={Layers}
                             type="info"
@@ -571,6 +745,7 @@ export default function ManagerDashboard() {
                     )}
                     <StatsCard
                         title="Em Tratativa"
+                        tooltip="Demandas que estão em execução no momento (Em andamento, correção, pendências, etc)."
                         value={stats.tratativa}
                         icon={Briefcase}
                         type="purple"
@@ -578,6 +753,7 @@ export default function ManagerDashboard() {
                     />
                     <StatsCard
                         title="Em Aberto"
+                        tooltip="Demandas ativas, incluindo backlog e em tratativa (exceto congeladas)."
                         value={stats.open}
                         icon={Clock}
                         type="warning"
@@ -585,6 +761,7 @@ export default function ManagerDashboard() {
                     />
                     <StatsCard
                         title="Atrasadas"
+                        tooltip="Demandas ativas que já ultrapassaram a data de previsão de entrega."
                         value={stats.overdue}
                         icon={AlertTriangle}
                         type="danger"
@@ -592,12 +769,89 @@ export default function ManagerDashboard() {
                     />
                     <StatsCard
                         title="Entregues"
+                        tooltip="Demandas que foram concluídas e entregues."
                         value={stats.delivered}
                         icon={CheckCircle2}
                         type="success"
                         onClick={() => setSelectedFilter(selectedFilter === 'delivered' ? null : 'delivered')}
                     />
                 </div>
+
+                {/* ── Próximas Entregas & Últimas Entregues (Widget) ── */}
+                {!isRequester && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {/* Próximas Entregas */}
+                        <Card className="border-indigo-100/50 shadow-md">
+                            <CardHeader className="bg-indigo-50/30 pb-3 border-b border-indigo-50">
+                                <CardTitle title="Lista das próximas demandas ativas com prazo de entrega mais próximo e urgente." className="text-sm font-bold text-slate-700 flex items-center gap-2 cursor-help">
+                                    <CalendarClock className="w-5 h-5 text-indigo-500" />
+                                    Próximas Entregas
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
+                                    {nextDeliveries.length > 0 ? nextDeliveries.map(d => {
+                                        const isOverdue = d.expected_delivery_date && isAfter(new Date(), parseISO(d.expected_delivery_date));
+                                        return (
+                                            <div key={d.id} className="py-3 px-4 hover:bg-slate-50 transition-colors flex items-center justify-between">
+                                                <div className="flex flex-col overflow-hidden mr-4">
+                                                    <span className="text-sm font-semibold text-slate-800 truncate" title={d.product || 'Sem Produto'}>
+                                                        {d.product || 'Sem Produto'}
+                                                    </span>
+                                                    <span className="text-xs text-slate-500 truncate" title={d.title || d.project_name || '-'}>
+                                                        #{d.demand_number || d.id} • {usersMap[d.analyst_id] || 'Sem Analista'}
+                                                    </span>
+                                                </div>
+                                                <div className="flex flex-col items-end shrink-0">
+                                                    <span className={`text-xs font-mono font-medium ${isOverdue ? 'text-red-600 font-bold' : 'text-slate-600'}`}>
+                                                        {d.expected_delivery_date ? format(parseISO(d.expected_delivery_date), 'dd/MM/yyyy') : 'Sem Prazo'}
+                                                    </span>
+                                                    {isOverdue && <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded uppercase font-bold mt-1">Atrasada</span>}
+                                                </div>
+                                            </div>
+                                        );
+                                    }) : (
+                                        <div className="p-6 text-center text-sm text-slate-400">Nenhuma demanda ativa no momento.</div>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Últimas Entregues */}
+                        <Card className="border-emerald-100/50 shadow-md">
+                            <CardHeader className="bg-emerald-50/30 pb-3 border-b border-emerald-50">
+                                <CardTitle title="Lista das últimas demandas que foram marcadas como ENTREGUE." className="text-sm font-bold text-slate-700 flex items-center gap-2 cursor-help">
+                                    <PackageCheck className="w-5 h-5 text-emerald-500" />
+                                    Últimas Entregues
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
+                                    {lastDeliveries.length > 0 ? lastDeliveries.map(d => (
+                                        <div key={d.id} className="py-3 px-4 hover:bg-slate-50 transition-colors flex items-center justify-between">
+                                            <div className="flex flex-col overflow-hidden mr-4">
+                                                <span className="text-sm font-semibold text-slate-800 truncate" title={d.product || 'Sem Produto'}>
+                                                    {d.product || 'Sem Produto'}
+                                                </span>
+                                                <span className="text-xs text-slate-500 truncate" title={d.title || d.project_name || '-'}>
+                                                    #{d.demand_number || d.id} • {usersMap[d.analyst_id] || 'Sem Analista'}
+                                                </span>
+                                            </div>
+                                            <div className="flex flex-col items-end shrink-0">
+                                                <span className="text-xs font-mono font-medium text-emerald-700">
+                                                    {d.delivery_date ? format(parseISO(d.delivery_date), 'dd/MM/yyyy') : '-'}
+                                                </span>
+                                                <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded uppercase font-bold mt-1">Entregue</span>
+                                            </div>
+                                        </div>
+                                    )) : (
+                                        <div className="p-6 text-center text-sm text-slate-400">Nenhuma demanda entregue no período.</div>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
 
                 {/* Filtered Demands List (Drill Down) */}
                 {selectedFilter && (
@@ -1029,6 +1283,7 @@ export default function ManagerDashboard() {
                         </div>
                     )
                 }
+                </div>)}
             </div >
 
             {/* Drill-down Modal */}

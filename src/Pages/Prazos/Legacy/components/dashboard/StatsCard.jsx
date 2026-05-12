@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
 
-export default function StatsCard({ title, value, fullValue, icon: Icon, color, isLoading, progress, progressLabel, onClick }) {
+export default function StatsCard({ title, value, fullValue, icon: Icon, color, isLoading, progress, progressLabel, dateRange, onClick }) {
   const getStyles = (color) => {
     switch (color) {
       case 'orange': // Warning/Expiring
@@ -80,7 +80,9 @@ export default function StatsCard({ title, value, fullValue, icon: Icon, color, 
         <CardContent className="p-6 flex flex-col h-full justify-between">
           <div className="flex justify-between items-start">
             <div className="flex-1 min-w-0">
-              <p className={`text-sm font-medium ${styles.text} opacity-90 mb-2 truncate`} title={title}>{title}</p>
+              <p className={`text-sm font-medium ${styles.text} opacity-90 mb-2 truncate`} title={title}>
+                {title} {dateRange && <span className="text-xs opacity-75 font-normal ml-1">{dateRange}</span>}
+              </p>
               <p className={`text-2xl lg:text-3xl font-bold ${styles.text} truncate`} title={fullValue || value}>{value}</p>
             </div>
             <div className={`p-3 rounded-xl ${styles.iconBg} flex-shrink-0 ml-3`}>

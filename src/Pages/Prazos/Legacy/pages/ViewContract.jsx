@@ -201,6 +201,22 @@ export default function ViewContract() {
                   </p>
                 </div>
               )}
+              {contract.margem_bruta !== null && contract.margem_bruta !== undefined && (
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">MB (%)</p>
+                  <p className="text-lg text-slate-800">
+                    {contract.margem_bruta.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                  </p>
+                </div>
+              )}
+              {contract.margem_liquida !== null && contract.margem_liquida !== undefined && (
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">ML (%)</p>
+                  <p className="text-lg text-slate-800">
+                    {contract.margem_liquida.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

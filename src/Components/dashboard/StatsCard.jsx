@@ -10,7 +10,8 @@ export default function StatsCard({
     icon: Icon,
     trend,
     trendUp,
-    onClick
+    onClick,
+    tooltip
 }) {
     const getStyles = () => {
         switch (type) {
@@ -63,6 +64,7 @@ export default function StatsCard({
             className="h-full"
         >
             <Card
+                title={tooltip}
                 onClick={onClick}
                 className={`${styles.bg} border-0 shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 overflow-hidden h-full relative group ${onClick ? 'cursor-pointer' : ''}`}
             >

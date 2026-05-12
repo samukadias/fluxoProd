@@ -192,19 +192,31 @@ export default function CdpcTab({
                     <div className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
                         <div className="divide-y divide-slate-100">
                             {metrics.currentlyReopened.map((d) => {
-                                const daysOpen = d.delivery_date
-                                    ? Math.ceil((Date.now() - new Date(d.delivery_date).getTime()) / 86400000)
+                                const daysOpen = d.reopened_at
+                                    ? Math.ceil((Date.now() - new Date(d.reopened_at).getTime()) / 86400000)
                                     : null;
                                 return (
                                     <div key={d.id} className="flex items-center justify-between px-5 py-3 hover:bg-amber-50/40 transition-colors">
-                                        <div>
-                                            <p className="text-sm font-semibold text-slate-800">{d.product}</p>
-                                            {d.client_name && <p className="text-xs text-slate-400">{d.client_name}</p>}
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-slate-800 truncate">{d.product}</p>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                {d.client_name && <span className="text-xs text-slate-400">{d.client_name}</span>}
+                                                {d.reason_label && (
+                                                    <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                                                        {d.reason_label}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            {d.status && d.status !== 'REABERTA' && (
+                                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                                                    {d.status}
+                                                </span>
+                                            )}
                                             {daysOpen !== null && (
                                                 <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${daysOpen > 5 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                    {daysOpen}d aberta
+                                                    {daysOpen}d reaberta
                                                 </span>
                                             )}
                                             <Link to={`/demand-detail?id=${d.id}`} className="text-xs text-indigo-600 hover:underline font-medium">

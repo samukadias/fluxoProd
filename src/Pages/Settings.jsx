@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Building2, Layers, Calendar, UserCog, Database, X, ShieldCheck } from "lucide-react";
+import { Users, Building2, Layers, Calendar, UserCog, Database, X, ShieldCheck, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Components
@@ -11,6 +11,7 @@ import ClientsTab from './Settings/tabs/ClientsTab';
 import CyclesTab from './Settings/tabs/CyclesTab';
 import HolidaysTab from './Settings/tabs/HolidaysTab';
 import ImportExportTab from './Settings/tabs/ImportExportTab';
+import DemandServicesTab from './Settings/tabs/DemandServicesTab';
 
 import { useAuth } from '@/context/AuthContext';
 
@@ -87,6 +88,10 @@ export default function SettingsPage() {
                                         <Calendar className="w-4 h-4" />
                                         Feriados
                                     </TabsTrigger>
+                                    <TabsTrigger value="services" className={tabTriggerClass}>
+                                        <Briefcase className="w-4 h-4" />
+                                        Serviços Demanda
+                                    </TabsTrigger>
                                 </>
                             )}
                             <TabsTrigger value="import_export" className={tabTriggerClass}>
@@ -138,6 +143,18 @@ export default function SettingsPage() {
                                 </CardHeader>
                                 <CardContent className="p-6">
                                     <HolidaysTab />
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+
+                        <TabsContent value="services" className="mt-0 focus-visible:outline-none">
+                            <Card className="border-0 shadow-lg bg-white">
+                                <CardHeader className="border-b bg-slate-50/50">
+                                    <CardTitle className="text-lg text-slate-800">Serviços de Demanda</CardTitle>
+                                    <CardDescription>Cadastre e gerencie os tipos de serviços e seus responsáveis de delivery correspondentes.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="p-6">
+                                    <DemandServicesTab />
                                 </CardContent>
                             </Card>
                         </TabsContent>

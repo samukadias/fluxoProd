@@ -643,28 +643,53 @@ export default function ImportExportTab() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <ExportCard
                         title="Demandas (CDPC)"
-                        description="Todas as demandas com status, responsáveis e datas"
+                        description="Todas as demandas com todos os campos atualizados"
                         fetchFn={async () => {
-                            const [demands, users, clients, cycles] = await Promise.all([
+                            const [demands, users, clients, cycles, demandServices, bottleneckRes] = await Promise.all([
                                 fluxoApi.entities.Demand.list(),
                                 fluxoApi.entities.User.list(),
                                 fluxoApi.entities.Client.list(),
-                                fluxoApi.entities.Cycle.list()
+                                fluxoApi.entities.Cycle.list(),
+                                fluxoApi.entities.DemandService.list(),
+                                (async () => { try { const { fluxClient } = await import('@/api/fluxoClient'); const r = await fluxClient.get('/bottleneck-options/all'); return r.data || []; } catch(e) { return []; } })()
                             ]);
 
                             const userMap = new Map(users.map(u => [u.id, u.name]));
                             const clientMap = new Map(clients.map(c => [c.id, c.name]));
                             const cycleMap = new Map(cycles.map(c => [c.id, c.name]));
+                            const serviceMap = new Map(demandServices.map(s => [String(s.id), s.service_name]));
+                            const bottleneckMap = new Map(bottleneckRes.map(b => [b.id, b.label]));
 
-                            return demands.map(d => ({
-                                ...d,
-                                analyst_name: userMap.get(d.analyst_id) || '',
-                                requester_name: userMap.get(d.requester_id) || '',
-                                support_analyst_name: userMap.get(d.support_analyst_id) || '',
-                                architect_support_analyst_name: userMap.get(d.architect_support_analyst_id) || '',
-                                client_name: clientMap.get(d.client_id) || '',
-                                cycle_name: cycleMap.get(d.cycle_id) || ''
-                            }));
+                            const weightLabel = (w) => {
+                                const n = Number(w);
+                                if (n === 0) return 'P0 - Estratégico';
+                                if (n === 1) return 'P1 - Muito Alta';
+                                if (n === 2) return 'P2 - Alta';
+                                if (n === 3) return 'P3 - Média';
+                                return 'P4 - Baixa';
+                            };
+
+                            return demands.map(d => {
+                                // demand_types is JSONB array of {id, name}
+                                let demandTypesStr = '';
+                                try {
+                                    const types = Array.isArray(d.demand_types) ? d.demand_types : JSON.parse(d.demand_types || '[]');
+                                    demandTypesStr = types.map(t => t.name || serviceMap.get(String(t.id)) || '').filter(Boolean).join(', ');
+                                } catch (e) { /* ignore */ }
+
+                                return {
+                                    ...d,
+                                    analyst_name: userMap.get(d.analyst_id) || '',
+                                    requester_name: userMap.get(d.requester_id) || '',
+                                    support_analyst_name: userMap.get(d.support_analyst_id) || '',
+                                    architect_support_analyst_name: userMap.get(d.architect_support_analyst_id) || '',
+                                    client_name: clientMap.get(d.client_id) || '',
+                                    cycle_name: cycleMap.get(d.cycle_id) || '',
+                                    priority_label: d.weight != null ? weightLabel(d.weight) : '',
+                                    demand_types_names: demandTypesStr,
+                                    bottleneck_label: bottleneckMap.get(d.bottleneck_id) || '',
+                                };
+                            });
                         }}
                         filename="demandas_cdpc"
                         sheetName="Demandas"
@@ -673,23 +698,27 @@ export default function ImportExportTab() {
                             product: 'Produto',
                             status: 'Status',
                             stage: 'Etapa',
-                            complexity: 'Complexidade',
+                            priority_label: 'Prioridade',
+                            product_type: 'Tipo Produto',
+                            demand_types_names: 'Tipos de Demanda',
                             artifact: 'Artefato',
                             value: 'Valor (R$)',
+                            margem_bruta: 'Margem Bruta (%)',
+                            margem_liquida: 'Margem Líquida (%)',
                             client_name: 'Cliente',
                             analyst_name: 'Analista Responsável',
                             requester_name: 'Executivo/Solicitante',
-                            cycle_name: 'Ciclo',
                             support_analyst_name: 'Suporte Pré-Vendas',
                             architect_support_analyst_name: 'Suporte Arquiteto',
-                            margem_bruta: 'MB (%)',
-                            margem_liquida: 'ML (%)',
+                            cycle_name: 'Ciclo',
                             created_date: 'Data Criação',
-                            qualification_date: 'Data Início',
+                            qualification_date: 'Data Qualificação',
                             expected_delivery_date: 'Previsão Entrega',
-                            delivery_date: 'Data Fim',
+                            delivery_date: 'Data Entrega Real',
+                            delivery_date_change_reason: 'Motivo Alteração Prazo',
                             frozen_time_minutes: 'Tempo Congelado (min)',
-                            observation: 'Observação',
+                            observation: 'Última Observação/Anotação',
+                            bottleneck_label: 'Gargalo',
                         }}
                         isProcessing={isProcessing}
                         setIsProcessing={setIsProcessing}

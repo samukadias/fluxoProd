@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { 
-    Search, 
-    Filter, 
-    LayoutGrid, 
-    BarChart3, 
+import {
+    Search,
+    Filter,
+    LayoutGrid,
+    BarChart3,
     Download,
     RefreshCw,
     ChevronLeft,
@@ -13,8 +13,18 @@ import {
     User,
     Activity,
     List,
-    Building2
+    Building2,
+    Package,
+    Briefcase,
+    Layers,
+    Database,
+    FileDown
 } from 'lucide-react';
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from "@/lib/utils";
 import { useQuery } from '@tanstack/react-query';
@@ -31,8 +41,12 @@ export default function CdpcDashboard() {
     const [filters, setFilters] = useState({
         responsible: 'Todos',
         status: 'active',
-        client: 'Todos'
+        client: 'Todos',
+        productType: 'Todos',
+        demandTypes: [],
+        stage: 'Todos'
     });
+    const [openDemandTypeFilter, setOpenDemandTypeFilter] = useState(false);
 
     const [selectedDemandId, setSelectedDemandId] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -42,10 +56,135 @@ export default function CdpcDashboard() {
         setIsModalOpen(true);
     };
 
+    const [isFullExporting, setIsFullExporting] = useState(false);
+
+    const handleFullExport = async () => {
+        setIsFullExporting(true);
+        try {
+            const [demands, users, clients, cycles, demandServices] = await Promise.all([
+                fluxoApi.entities.Demand.list(),
+                fluxoApi.entities.User.list(),
+                fluxoApi.entities.Client.list(),
+                fluxoApi.entities.Cycle.list(),
+                fluxoApi.entities.DemandService.list(),
+            ]);
+
+            const userMap = new Map(users.map(u => [u.id, u.name]));
+            const clientMap = new Map(clients.map(c => [c.id, c.name]));
+            const cycleMap = new Map(cycles.map(c => [c.id, c.name]));
+            const serviceMap = new Map(demandServices.map(s => [String(s.id), s.service_name]));
+
+            const weightLabel = (w) => {
+                const n = Number(w);
+                if (n === 0) return 'P0 - Estratégico';
+                if (n === 1) return 'P1 - Muito Alta';
+                if (n === 2) return 'P2 - Alta';
+                if (n === 3) return 'P3 - Média';
+                return 'P4 - Baixa';
+            };
+
+            const exportData = demands.map(d => {
+                // demand_types is JSONB array of {id, name}
+                let demandTypesStr = '';
+                try {
+                    const types = Array.isArray(d.demand_types) ? d.demand_types : JSON.parse(d.demand_types || '[]');
+                    demandTypesStr = types.map(t => t.name || serviceMap.get(String(t.id)) || '').filter(Boolean).join(', ');
+                } catch (e) { /* ignore */ }
+
+                const row = {
+                    demand_number: d.demand_number,
+                    product: d.product,
+                    status: d.status,
+                    stage: d.stage,
+                    priority_label: d.weight != null ? weightLabel(d.weight) : '',
+                    product_type: d.product_type,
+                    demand_types_names: demandTypesStr,
+                    artifact: d.artifact,
+                    value: d.value,
+                    margem_bruta: d.margem_bruta,
+                    margem_liquida: d.margem_liquida,
+                    client_name: clientMap.get(d.client_id) || '',
+                    analyst_name: userMap.get(d.analyst_id) || '',
+                    requester_name: userMap.get(d.requester_id) || '',
+                    support_analyst_name: userMap.get(d.support_analyst_id) || '',
+                    architect_support_analyst_name: userMap.get(d.architect_support_analyst_id) || '',
+                    cycle_name: cycleMap.get(d.cycle_id) || '',
+                    created_date: d.created_date,
+                    qualification_date: d.qualification_date,
+                    expected_delivery_date: d.expected_delivery_date,
+                    delivery_date: d.delivery_date,
+                    delivery_date_change_reason: d.delivery_date_change_reason,
+                    frozen_time_minutes: d.frozen_time_minutes,
+                    observation: d.observation,
+                };
+
+                const columnMap = {
+                    demand_number: 'Nº Demanda',
+                    product: 'Produto',
+                    status: 'Status',
+                    stage: 'Etapa',
+                    priority_label: 'Prioridade',
+                    product_type: 'Tipo Produto',
+                    demand_types_names: 'Tipos de Demanda',
+                    artifact: 'Artefato',
+                    value: 'Valor (R$)',
+                    margem_bruta: 'Margem Bruta (%)',
+                    margem_liquida: 'Margem Líquida (%)',
+                    client_name: 'Cliente',
+                    analyst_name: 'Analista Responsável',
+                    requester_name: 'Executivo/Solicitante',
+                    support_analyst_name: 'Suporte Pré-Vendas',
+                    architect_support_analyst_name: 'Suporte Arquiteto',
+                    cycle_name: 'Ciclo',
+                    created_date: 'Data Criação',
+                    qualification_date: 'Data Qualificação',
+                    expected_delivery_date: 'Previsão Entrega',
+                    delivery_date: 'Data Entrega Real',
+                    delivery_date_change_reason: 'Motivo Alteração Prazo',
+                    frozen_time_minutes: 'Tempo Congelado (min)',
+                    observation: 'Última Observação/Anotação',
+                };
+
+                const mappedRow = {};
+                Object.entries(columnMap).forEach(([key, displayName]) => {
+                    let value = row[key];
+                    // Format dates
+                    if (value && typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}/)) {
+                        try { value = new Date(value).toLocaleDateString('pt-BR'); } catch (e) { /* keep */ }
+                    }
+                    // Format booleans
+                    if (typeof value === 'boolean') value = value ? 'Sim' : 'Não';
+                    mappedRow[displayName] = value ?? '';
+                });
+                return mappedRow;
+            });
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            // Auto-size columns
+            const colWidths = Object.keys(exportData[0] || {}).map(key => ({
+                wch: Math.max(key.length, ...exportData.slice(0, 100).map(row => String(row[key] || '').length)) + 2
+            }));
+            ws['!cols'] = colWidths;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Demandas');
+            XLSX.writeFile(wb, `demandas_completas_cdpc_${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+            toast.success("Exportação completa concluída com sucesso!");
+        } catch (err) {
+            console.error('Full export error:', err);
+            toast.error("Erro ao realizar exportação completa");
+        } finally {
+            setIsFullExporting(false);
+        }
+    };
+
     const exportToExcel = () => {
         const rows = filteredOptys.map(o => ({
             'Nº Demanda': o.demand_number || '',
             'Título': o.title,
+            'Tipo Produto': o.product_type || '',
+            'Tipos Demanda': o.demand_types ? o.demand_types.map(dt => dt.name).join(', ') : '',
             'Status': o.status,
             'Prioridade': o.priority,
             'Responsável': o.responsible,
@@ -85,6 +224,11 @@ export default function CdpcDashboard() {
     const { data: clients = [] } = useQuery({
         queryKey: ['clients'],
         queryFn: () => fluxoApi.entities.Client.list()
+    });
+
+    const { data: demandServices = [] } = useQuery({
+        queryKey: ['demand_services'],
+        queryFn: () => fluxoApi.entities.DemandService.list()
     });
 
     // --- Data Processing & Mapping ---
@@ -131,7 +275,12 @@ export default function CdpcDashboard() {
                 is_legacy_observation: d.is_legacy_observation,
                 last_annotation_author: d.last_annotation_author || null,
                 last_annotation_date: d.last_annotation_date || null,
-                weight: d.weight ?? 4
+                weight: d.weight ?? 4,
+                product_type: d.product_type,
+                demand_types: d.demand_types || [],
+                stage: d.stage,
+                expected_delivery_date_raw: d.expected_delivery_date || null,
+                delivery_date_raw: d.delivery_date || null
             };
         });
     }, [rawDemands, usersMap, clientsMap]);
@@ -150,18 +299,30 @@ export default function CdpcDashboard() {
             
             let matchesStatus = true;
             if (filters.status === 'active') {
-                matchesStatus = !['ENTREGUE', 'CANCELADA', 'CONGELADA'].includes(opty.status);
+                matchesStatus = !['ENTREGUE', 'CANCELADA', 'CONGELADA', 'TRIAGEM NÃO ELEGÍVEL'].includes(opty.status);
             } else if (filters.status !== 'Todos') {
                 matchesStatus = opty.status === filters.status;
             }
+
+            const matchesProductType = filters.productType === 'Todos' || opty.product_type === filters.productType;
             
-            return matchesSearch && matchesResponsible && matchesClient && matchesStatus;
+            let matchesDemandType = true;
+            if (filters.demandTypes.length > 0) {
+                // If any of the selected filter types exist in the opty's demand_types
+                matchesDemandType = filters.demandTypes.some(typeId => 
+                    opty.demand_types.some(dt => String(dt.id) === String(typeId))
+                );
+            }
+
+            const matchesStage = filters.stage === 'Todos' || opty.stage === filters.stage;
+            
+            return matchesSearch && matchesResponsible && matchesClient && matchesStatus && matchesProductType && matchesDemandType && matchesStage;
         });
     }, [allDemandsAsOptys, searchTerm, filters]);
 
     const metrics = useMemo(() => {
         const baseData = filteredOptys.length > 0 ? filteredOptys : allDemandsAsOptys;
-        const activeOptys = filteredOptys.filter(o => !['ENTREGUE', 'CANCELADA', 'CONGELADA'].includes(o.status));
+        const activeOptys = filteredOptys.filter(o => !['ENTREGUE', 'CANCELADA', 'CONGELADA', 'TRIAGEM NÃO ELEGÍVEL'].includes(o.status));
         
         // If searching/filtering, metrics should reflect the filtered subset
         const targetOptys = activeOptys.length > 0 ? activeOptys : []; // Fallback empty if nothing matches
@@ -329,7 +490,7 @@ export default function CdpcDashboard() {
                         </div>
                     </div>
 
-                    <div className="w-64">
+                    <div className="w-48">
                         <p className="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest flex items-center gap-1.5">
                             <Building2 className="w-3 h-3" /> Cliente
                         </p>
@@ -345,15 +506,133 @@ export default function CdpcDashboard() {
                         </div>
                     </div>
 
-                    <motion.button 
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => refetch()}
-                        disabled={loadingDemands}
-                        className="bg-slate-900 text-white p-3.5 rounded-2xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 disabled:opacity-50"
-                    >
-                        {loadingDemands ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
-                    </motion.button>
+                    <div className="w-48">
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest flex items-center gap-1.5">
+                            <Package className="w-3 h-3" /> Tipo Produto
+                        </p>
+                        <div className="relative">
+                            <select 
+                                className="w-full bg-slate-100/50 border-2 border-transparent rounded-2xl px-4 py-3 text-sm appearance-none outline-none focus:bg-white focus:border-indigo-500/20 focus:ring-4 focus:ring-indigo-500/5 font-bold text-slate-700 transition-all cursor-pointer"
+                                value={filters.productType}
+                                onChange={(e) => setFilters(prev => ({ ...prev, productType: e.target.value }))}
+                            >
+                                <option value="Todos">Todos</option>
+                                <option value="APP">APP</option>
+                                <option value="ITO">ITO</option>
+                                <option value="APP + ITO">APP + ITO</option>
+                            </select>
+                            <ChevronLeft className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-270 pointer-events-none" />
+                        </div>
+                    </div>
+
+                    <div className="w-64">
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest flex items-center gap-1.5">
+                            <Briefcase className="w-3 h-3" /> Tipo Serviço
+                        </p>
+                        <Popover open={openDemandTypeFilter} onOpenChange={setOpenDemandTypeFilter}>
+                            <PopoverTrigger asChild>
+                                <button
+                                    className="w-full bg-slate-100/50 border-2 border-transparent rounded-2xl px-4 py-3 text-sm text-left flex justify-between items-center focus:bg-white focus:border-indigo-500/20 focus:ring-4 focus:ring-indigo-500/5 font-bold text-slate-700 transition-all h-[48px]"
+                                >
+                                    <span className="truncate">
+                                        {filters.demandTypes.length === 0 
+                                            ? "Todos" 
+                                            : `${filters.demandTypes.length} serviço(s) selecionado(s)`}
+                                    </span>
+                                    <ChevronLeft className="w-4 h-4 text-slate-400 rotate-270" />
+                                </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0" align="start">
+                                <Command>
+                                    <CommandInput placeholder="Buscar serviço..." />
+                                    <CommandList>
+                                        <CommandEmpty>Nenhum serviço encontrado.</CommandEmpty>
+                                        <CommandGroup>
+                                            {demandServices.filter(s => s.active !== false).map((service) => {
+                                                const isSelected = filters.demandTypes.includes(String(service.id));
+                                                return (
+                                                    <CommandItem
+                                                        key={service.id}
+                                                        value={service.name}
+                                                        onSelect={() => {
+                                                            setFilters(prev => {
+                                                                const newDemandTypes = isSelected
+                                                                    ? prev.demandTypes.filter(id => id !== String(service.id))
+                                                                    : [...prev.demandTypes, String(service.id)];
+                                                                return { ...prev, demandTypes: newDemandTypes };
+                                                            });
+                                                        }}
+                                                    >
+                                                        <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
+                                                            <Check className="h-4 w-4" />
+                                                        </div>
+                                                        <span>{service.name}</span>
+                                                    </CommandItem>
+                                                );
+                                            })}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+
+                    <div className="w-48">
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest flex items-center gap-1.5">
+                            <Layers className="w-3 h-3" /> Etapa
+                        </p>
+                        <div className="relative">
+                            <select 
+                                className="w-full bg-slate-100/50 border-2 border-transparent rounded-2xl px-4 py-3 text-sm appearance-none outline-none focus:bg-white focus:border-indigo-500/20 focus:ring-4 focus:ring-indigo-500/5 font-bold text-slate-700 transition-all cursor-pointer"
+                                value={filters.stage}
+                                onChange={(e) => setFilters(prev => ({ ...prev, stage: e.target.value }))}
+                            >
+                                <option value="Todos">Todas as Etapas</option>
+                                <option value="Triagem">Triagem</option>
+                                <option value="Qualificação">Qualificação</option>
+                                <option value="PO">PO</option>
+                                <option value="OO">OO</option>
+                                <option value="RT">RT</option>
+                                <option value="ESP">ESP</option>
+                            </select>
+                            <ChevronLeft className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-270 pointer-events-none" />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 ml-auto">
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={handleFullExport}
+                            disabled={isFullExporting}
+                            title="Exportação Completa (Todos os dados)"
+                            className="bg-emerald-50 text-emerald-600 border border-emerald-200 p-3.5 rounded-2xl hover:bg-emerald-100 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                        >
+                            {isFullExporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Database className="w-5 h-5" />}
+                        </motion.button>
+
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={exportToExcel}
+                            disabled={filteredOptys.length === 0}
+                            title="Exportar dados filtrados para Excel"
+                            className="bg-indigo-50 text-indigo-600 border border-indigo-200 p-3.5 rounded-2xl hover:bg-indigo-100 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                        >
+                            <Download className="w-5 h-5" />
+                        </motion.button>
+                        
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => refetch()}
+                            disabled={loadingDemands}
+                            title="Atualizar dados"
+                            className="bg-slate-900 text-white p-3.5 rounded-2xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 disabled:opacity-50 flex items-center justify-center"
+                        >
+                            {loadingDemands ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+                        </motion.button>
+                    </div>
                 </div>
 
                 {/* Dashboard Modes */}
@@ -374,13 +653,6 @@ export default function CdpcDashboard() {
                                 <span className="w-8 h-1 bg-indigo-500 rounded-full" />
                                 {filteredOptys.length} OPORTUNIDADES ENCONTRADAS
                             </h3>
-                            <button 
-                                onClick={exportToExcel}
-                                disabled={filteredOptys.length === 0}
-                                className="flex items-center gap-2 text-[10px] font-black text-indigo-600 hover:bg-indigo-50 px-4 py-2 rounded-xl transition-all uppercase border border-indigo-100 bg-white shadow-sm hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                                <Download className="w-3.5 h-3.5" /> Exportar Relatório ({filteredOptys.length})
-                            </button>
                         </div>
                         <AnimatePresence mode="popLayout">
                             <motion.div 

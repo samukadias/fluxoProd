@@ -94,13 +94,36 @@ export default function Dashboard() {
     const totalValue = activeContracts.reduce((sum, contract) => sum + (contract.valor_contrato || 0), 0);
     const totalBilled = activeContracts.reduce((sum, contract) => sum + (contract.valor_faturado || 0), 0);
 
+    let minDate = null;
+    let maxDate = null;
+
+    activeContracts.forEach(contract => {
+      if (contract.data_inicio) {
+        const start = parseISO(contract.data_inicio);
+        if (isValid(start)) {
+          if (!minDate || start < minDate) minDate = start;
+        }
+      }
+      if (contract.data_fim_efetividade) {
+        const end = parseISO(contract.data_fim_efetividade);
+        if (isValid(end)) {
+          if (!maxDate || end > maxDate) maxDate = end;
+        }
+      }
+    });
+
+    const dateRange = (minDate && maxDate) 
+      ? `(${format(minDate, 'MM/yyyy')} - ${format(maxDate, 'MM/yyyy')})`
+      : "";
+
     return {
       total: filteredContracts.length,
       active: activeContracts.length,
       expired: expiredContracts.length,
       expiring: expiringContracts.length,
       totalValue,
-      totalBilled
+      totalBilled,
+      dateRange
     };
   };
 
@@ -121,6 +144,7 @@ export default function Dashboard() {
     const currentYear = new Date().getFullYear();
     return filteredContracts.filter(contract => {
       if (!contract.data_fim_efetividade) return false;
+      if (contract.status !== "Ativo") return false;
       const date = parseISO(contract.data_fim_efetividade);
       return isValid(date) && date.getFullYear() === currentYear && date.getMonth() === selectedMonth;
     }).sort((a, b) => new Date(a.data_fim_efetividade) - new Date(b.data_fim_efetividade));
@@ -188,6 +212,7 @@ export default function Dashboard() {
           color="purple"
           isLoading={isLoading}
           progress={billingProgress} // Only relevant if billing data exists
+          dateRange={stats.dateRange}
         />
       </div>
 

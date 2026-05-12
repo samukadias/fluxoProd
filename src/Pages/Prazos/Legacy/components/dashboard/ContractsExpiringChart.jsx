@@ -17,7 +17,10 @@ export default function ContractsExpiringChart({ contracts, isLoading, onMonthCl
             count: 0
         }));
 
-        contracts.forEach(contract => {
+        // Only count active contracts
+        const activeContracts = contracts.filter(c => c.status === "Ativo");
+
+        activeContracts.forEach(contract => {
             if (contract.data_fim_efetividade) {
                 const date = parseISO(contract.data_fim_efetividade);
                 if (isValid(date) && date.getFullYear() === currentYear) {

@@ -97,6 +97,7 @@ const SidebarContent = ({ isCollapsed, setIsCollapsed, user, setOpen, onLogout }
                     )}
 
                     <div className={cn("space-y-1 mt-1 border-l border-slate-800/40 relative", isCollapsed ? "pl-0 ml-0 border-none" : "pl-1 ml-6")}>
+                        <SidebarItem icon={List} label="Visão Consolidada" to="/financeiro/consolidado" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
                         <SidebarItem icon={FileText} label="Contratos CVAC" to="/financeiro/contratos" onClick={() => setOpen(false)} isCollapsed={isCollapsed} />
                     </div>
                 </>

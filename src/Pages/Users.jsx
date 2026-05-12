@@ -147,7 +147,7 @@ export default function UserManagement({ isEmbedded = false }) {
         setFormData({
             name: user.name,
             email: user.email,
-            password: user.password || '',
+            password: '', // Always start blank so we don't show or resend the hash
             role: user.role,
             department: user.department || 'CDPC',
             allowed_modules: user.allowed_modules || []
@@ -162,10 +162,16 @@ export default function UserManagement({ isEmbedded = false }) {
             return;
         }
 
+        const submitData = { ...formData };
+        if (editingUser && !submitData.password) {
+            // If editing and password is left blank, remove it so we don't overwrite with NULL
+            delete submitData.password;
+        }
+
         if (editingUser) {
-            updateMutation.mutate({ id: editingUser.id, data: formData });
+            updateMutation.mutate({ id: editingUser.id, data: submitData });
         } else {
-            createMutation.mutate(formData);
+            createMutation.mutate(submitData);
         }
     };
 

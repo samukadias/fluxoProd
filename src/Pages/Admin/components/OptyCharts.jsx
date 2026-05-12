@@ -12,7 +12,7 @@ import {
     Tooltip,
     Legend
 } from 'recharts';
-import { X, Info, Clock, AlertCircle, BarChart2, PieChart as PieChartIcon, TrendingUp } from 'lucide-react';
+import { X, Info, Clock, AlertCircle, BarChart2, PieChart as PieChartIcon, TrendingUp, Layers } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const PREVENT_RENDER_BORDERS = { stroke: 'none' };
@@ -52,7 +52,7 @@ export default function OptyCharts({ data, loading }) {
         const counts = data.reduce((acc, curr) => {
             if (relevantStatuses.includes(curr.status)) {
                 acc[curr.status] = (acc[curr.status] || 0) + 1;
-            } else if (!['ENTREGUE', 'CANCELADA'].includes(curr.status)) {
+            } else if (!['ENTREGUE', 'CANCELADA', 'CONGELADA', 'TRIAGEM NÃO ELEGÍVEL'].includes(curr.status)) {
                 acc['OUTROS'] = (acc['OUTROS'] || 0) + 1;
             }
             return acc;
@@ -62,7 +62,7 @@ export default function OptyCharts({ data, loading }) {
 
     const responsibleData = useMemo(() => {
         const counts = data.reduce((acc, curr) => {
-            if (['ENTREGUE', 'CANCELADA'].includes(curr.status)) return acc;
+            if (['ENTREGUE', 'CANCELADA', 'CONGELADA', 'TRIAGEM NÃO ELEGÍVEL'].includes(curr.status)) return acc;
             const firstName = curr.responsible.split(' ')[0];
             acc[firstName] = (acc[firstName] || 0) + 1;
             return acc;
@@ -74,7 +74,7 @@ export default function OptyCharts({ data, loading }) {
     }, [data]);
 
     const priorityData = useMemo(() => {
-        const activeData = data.filter(d => !['ENTREGUE', 'CANCELADA'].includes(d.status));
+        const activeData = data.filter(d => !['ENTREGUE', 'CANCELADA', 'CONGELADA', 'TRIAGEM NÃO ELEGÍVEL'].includes(d.status));
         const priorities = [
             { label: 'P0 - Estratégico', weight: 0, color: '#EF4444' },
             { label: 'P1 - Muito Alta', weight: 1, color: '#F97316' },
@@ -88,18 +88,25 @@ export default function OptyCharts({ data, loading }) {
         }));
     }, [data]);
 
-    const delayData = useMemo(() => {
-        return data
-            .filter(d => d.delay > 0 && !['ENTREGUE', 'CANCELADA'].includes(d.status))
-            .sort((a, b) => b.delay - a.delay)
-            .slice(0, 15)
-            .map(d => ({ 
-                id: d.demand_number || (typeof d.id === 'string' ? d.id.slice(-4) : d.id), 
-                title: d.title,
-                status: d.status,
-                observations: d.observation || d.pendency || 'Nenhuma observação pendente.',
-                days: d.delay 
-            }));
+    const stageData = useMemo(() => {
+        const activeData = data.filter(d => !['ENTREGUE', 'CANCELADA', 'CONGELADA', 'TRIAGEM NÃO ELEGÍVEL'].includes(d.status));
+        const stagesMap = {
+            'Triagem': 0,
+            'Qualificação': 0,
+            'PO': 0,
+            'OO': 0,
+            'RT': 0,
+            'ESP': 0
+        };
+        
+        activeData.forEach(d => {
+            if (d.stage && stagesMap[d.stage] !== undefined) {
+                stagesMap[d.stage]++;
+            }
+        });
+
+        // Retorna o array na ordem de fluxo
+        return Object.entries(stagesMap).map(([name, value]) => ({ name, value }));
     }, [data]);
 
     return (
@@ -136,7 +143,7 @@ export default function OptyCharts({ data, loading }) {
                         </ResponsiveContainer>
                         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                             <span className="text-[10px] font-black text-slate-400 uppercase">Ativos</span>
-                            <span className="text-3xl font-black text-slate-800">{data.filter(d => !['ENTREGUE', 'CANCELADA'].includes(d.status)).length}</span>
+                            <span className="text-3xl font-black text-slate-800">{data.filter(d => !['ENTREGUE', 'CANCELADA', 'CONGELADA', 'TRIAGEM NÃO ELEGÍVEL'].includes(d.status)).length}</span>
                         </div>
                     </div>
                 </motion.div>
@@ -208,7 +215,7 @@ export default function OptyCharts({ data, loading }) {
                 </motion.div>
             </div>
 
-            {/* Dias de Atraso por Opty - Premium Timeline Bar */}
+            {/* Oportunidades por Fluxo de Etapas */}
             <motion.div 
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -217,16 +224,16 @@ export default function OptyCharts({ data, loading }) {
                 <div className="flex justify-between items-start mb-10">
                     <div>
                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                             <Clock className="w-4 h-4 text-rose-500" /> Diagnóstico de Latência (Inflow)
+                             <Layers className="w-4 h-4 text-indigo-500" /> Relação Volume x Etapa de Fluxo
                         </h3>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Principais pontos de retenção no cronograma</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Demandas agrupadas pela etapa atual</p>
                     </div>
                     {selectedOpty && (
                         <motion.button 
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             onClick={() => setSelectedOpty(null)}
-                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 px-5 py-2.5 rounded-2xl transition-all flex items-center gap-2 text-[10px] font-black uppercase border border-rose-100"
+                            className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-5 py-2.5 rounded-2xl transition-all flex items-center gap-2 text-[10px] font-black uppercase border border-indigo-100"
                         >
                             <X className="w-4 h-4" /> Resetar Visualização
                         </motion.button>
@@ -236,11 +243,11 @@ export default function OptyCharts({ data, loading }) {
                 <div className="grid grid-cols-1 xl:grid-cols-4 gap-12">
                     <div className="xl:col-span-3 h-80">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={delayData} margin={{ top: 0, right: 0, left: -25, bottom: 0 }}>
+                            <BarChart data={stageData} margin={{ top: 0, right: 0, left: -25, bottom: 0 }}>
                                 <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="#F1F5F9" />
                                 <XAxis 
-                                    dataKey="id" 
-                                    tick={{ fontSize: 9, fontWeight: 900, fill: '#94A3B8' }}
+                                    dataKey="name" 
+                                    tick={{ fontSize: 10, fontWeight: 900, fill: '#94A3B8' }}
                                     axisLine={false}
                                     tickLine={false}
                                     dy={10}
@@ -252,19 +259,19 @@ export default function OptyCharts({ data, loading }) {
                                 />
                                 <Tooltip cursor={{ fill: '#F8FAFC', radius: 12 }} content={<CustomTooltip />} />
                                 <Bar 
-                                    dataKey="days" 
+                                    dataKey="value" 
                                     radius={[12, 12, 4, 4]} 
-                                    barSize={28}
-                                    onClick={(data) => setSelectedOpty(data)}
+                                    barSize={40}
+                                    onClick={(data) => setSelectedOpty(data.name)}
                                     className="cursor-pointer"
-                                    animationDuration={1500}
+                                    animationDuration={1000}
                                 >
-                                    {delayData.map((entry, index) => (
+                                    {stageData.map((entry, index) => (
                                         <Cell 
                                             key={`cell-${index}`} 
-                                            fill={selectedOpty?.id === entry.id ? '#4F46E5' : (entry.days > 30 ? '#EF4444' : entry.days > 15 ? '#F59E0B' : '#6366F1')} 
+                                            fill={selectedOpty === entry.name ? '#4F46E5' : '#818CF8'} 
                                             className="transition-all duration-500 hover:opacity-80"
-                                            fillOpacity={selectedOpty && selectedOpty.id !== entry.id ? 0.2 : 0.9}
+                                            fillOpacity={selectedOpty && selectedOpty !== entry.name ? 0.2 : 1}
                                         />
                                     ))}
                                 </Bar>
@@ -277,7 +284,7 @@ export default function OptyCharts({ data, loading }) {
                         <AnimatePresence mode="wait">
                             {selectedOpty ? (
                                 <motion.div 
-                                    key={selectedOpty.id}
+                                    key={selectedOpty}
                                     initial={{ opacity: 0, x: 20 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     exit={{ opacity: 0, x: -20 }}
@@ -285,40 +292,38 @@ export default function OptyCharts({ data, loading }) {
                                 >
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-600/20 blur-[60px] rounded-full pointer-events-none" />
                                     
-                                    <div className="flex items-center gap-3 mb-6">
+                                    <div className="flex items-center gap-3 mb-4">
                                         <div className="bg-indigo-600 text-[10px] font-black px-3 py-1.5 rounded-xl uppercase tracking-widest">
-                                            #{selectedOpty.id}
-                                        </div>
-                                        <div className="flex items-center gap-2 text-rose-400 text-[9px] font-black uppercase bg-rose-500/10 px-3 py-1.5 rounded-xl border border-rose-500/20">
-                                            <AlertCircle className="w-3 h-3" /> {selectedOpty.days}D Atraso
+                                            Etapa: {selectedOpty}
                                         </div>
                                     </div>
 
-                                    <h4 className="text-lg font-black leading-tight mb-4 uppercase tracking-tight">
-                                        {selectedOpty.title}
+                                    <h4 className="text-[10px] font-black leading-tight mb-2 uppercase tracking-widest text-slate-400">
+                                        Demandas nesta etapa:
                                     </h4>
 
-                                    <div className="mt-auto space-y-4">
-                                        <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                                                <Info className="w-3 h-3 text-indigo-400" /> Histórico de Bloqueio
-                                            </p>
-                                            <p className="text-[11px] font-medium text-slate-300 italic leading-relaxed line-clamp-4">
-                                                "{selectedOpty.observations}"
-                                            </p>
-                                        </div>
-                                        <button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-indigo-600/20">
-                                            Analisar Opty
-                                        </button>
+                                    <div className="mt-2 space-y-2 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                                        {data.filter(d => !['ENTREGUE', 'CANCELADA', 'CONGELADA', 'TRIAGEM NÃO ELEGÍVEL'].includes(d.status) && d.stage === selectedOpty)
+                                            .map((opty, idx) => (
+                                                <div key={idx} className="bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 hover:bg-white/10 transition-colors">
+                                                    <p className="text-[10px] font-black text-indigo-400 mb-0.5">#{opty.demand_number || opty.id.slice(-4)}</p>
+                                                    <p className="text-[11px] font-medium text-slate-200 line-clamp-2">{opty.title}</p>
+                                                    <p className="text-[9px] text-slate-400 mt-1 uppercase">{opty.responsible}</p>
+                                                </div>
+                                            ))
+                                        }
+                                        {data.filter(d => !['ENTREGUE', 'CANCELADA', 'CONGELADA', 'TRIAGEM NÃO ELEGÍVEL'].includes(d.status) && d.stage === selectedOpty).length === 0 && (
+                                            <div className="text-center py-4 text-xs font-medium text-slate-500 uppercase tracking-widest">Nenhuma demanda ativa</div>
+                                        )}
                                     </div>
                                 </motion.div>
                             ) : (
                                 <div className="h-full bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center p-8 text-center">
                                     <div className="bg-white p-4 rounded-3xl shadow-sm mb-4 border border-slate-100">
-                                        <Clock className="w-8 h-8 text-indigo-300" />
+                                        <Layers className="w-8 h-8 text-indigo-300" />
                                     </div>
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-relaxed">
-                                        Selecione uma barra no histograma para mergulhar nos detalhes da pendência
+                                        Selecione uma barra para ver as demandas dessa etapa
                                     </p>
                                 </div>
                             )}

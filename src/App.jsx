@@ -16,6 +16,7 @@ const Login = lazy(() => import("./pages/Login"));
 const FinanceiroHome = lazy(() => import("./pages/Financeiro"));
 const Contracts = lazy(() => import("./pages/Financeiro/Contracts"));
 const AttestationHistory = lazy(() => import("./pages/Financeiro/AttestationHistory"));
+const CvacConsolidatedView = lazy(() => import("./pages/Financeiro/CvacConsolidatedView"));
 
 const PrazosDashboard = lazy(() => import("./pages/Prazos/Dashboard"));
 const NewContractLegacy = lazy(() => import("./pages/Prazos/Legacy/pages/NewContract"));
@@ -128,6 +129,7 @@ function AppRoutes() {
                     <Route path="financeiro">
                         <Route index element={<FinanceiroHome />} />
                         <Route path="dashboard" element={<FinanceiroHome />} />
+                        <Route path="consolidado" element={<CvacConsolidatedView />} />
                         <Route path="contratos" element={<Contracts />} />
                         <Route path="contratos/:contractId/atestacoes" element={<AttestationHistory />} />
                     </Route>

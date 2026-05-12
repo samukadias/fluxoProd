@@ -127,6 +127,7 @@ export const fluxoApi = {
         Analyst: createCrud('analysts'),
         TermoConfirmacao: createCrud('termos_confirmacao'),
         StageHistory: createCrud('stage_history'),
+        DemandService: createCrud('demand_services'),
     },
     demands: {
         getActiveRoles: () => fluxClient.get('/demands/metadata/active-roles').then(res => res.data),
@@ -158,6 +159,7 @@ export const fluxoApi = {
     metrics: {
         cdpc: (params) => fluxClient.get('/metrics/cdpc', { params }).then(res => res.data),
         cocr: () => fluxClient.get('/metrics/cocr').then(res => res.data),
+        weekly: (params) => fluxClient.get('/metrics/weekly', { params }).then(res => res.data),
     }
 };
 

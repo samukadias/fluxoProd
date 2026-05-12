@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { fluxoApi } from '@/api/fluxoClient';
+import { fluxoApi, fluxClient } from '@/api/fluxoClient';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -136,6 +136,12 @@ export default function DemandDetailContent({ demandId, onBack, isModal = false 
     const { data: cycles = [] } = useQuery({
         queryKey: ['cycles'],
         queryFn: () => fluxoApi.entities.Cycle.list(),
+        staleTime: 15 * 60 * 1000,
+    });
+
+    const { data: bottleneckOptions = [] } = useQuery({
+        queryKey: ['bottleneck-options'],
+        queryFn: async () => { const res = await fluxClient.get('/bottleneck-options/all'); return res.data; },
         staleTime: 15 * 60 * 1000,
     });
 
@@ -535,6 +541,19 @@ export default function DemandDetailContent({ demandId, onBack, isModal = false 
                             </div>
 
                             {/* Removido o campo fixo de observação - agora via Mural de Anotações abaixo */}
+
+                            {demand.bottleneck_id && (() => {
+                                const opt = bottleneckOptions.find(o => o.id === demand.bottleneck_id);
+                                return opt ? (
+                                    <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                                        <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                                        <div className="min-w-0">
+                                            <p className="text-[11px] font-medium text-amber-600 uppercase tracking-wider mb-0.5">Gargalo</p>
+                                            <p className="font-semibold text-amber-800 text-sm leading-snug">{opt.label}</p>
+                                        </div>
+                                    </div>
+                                ) : null;
+                            })()}
                         </CardContent>
                     </Card>
 
