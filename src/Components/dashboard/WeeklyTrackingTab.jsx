@@ -72,7 +72,8 @@ function computeWeekMetrics(demands, demandIds, histByDemand, stageHistByDemand,
         const ref = d.qualification_date || d.created_date;
         if (ref) { const dt=new Date(ref); if (dt>=weekStart&&dt<=weekEnd) entradas.add(d.id); }
     });
-    (Object.entries(histByDemand)).forEach(([id, evts]) => {
+    (Object.entries(histByDemand)).forEach(([strId, evts]) => {
+        const id = Number(strId);
         if (!demandIds.has(id)) return;
         evts.forEach(h => {
             const at = h.changed_at && new Date(h.changed_at);
@@ -88,7 +89,8 @@ function computeWeekMetrics(demands, demandIds, histByDemand, stageHistByDemand,
     const stageIdx = s => STAGE_ORDER.indexOf(s);
     const moved=new Set(), evol=new Set(), regr=new Set();
     const weekStages = {};
-    Object.entries(stageHistByDemand).forEach(([id, entries]) => {
+    Object.entries(stageHistByDemand).forEach(([strId, entries]) => {
+        const id = Number(strId);
         if (!demandIds.has(id)) return;
         entries.forEach(sh => {
             const at = sh.entered_at && new Date(sh.entered_at);
@@ -98,7 +100,8 @@ function computeWeekMetrics(demands, demandIds, histByDemand, stageHistByDemand,
             moved.add(id);
         });
     });
-    Object.entries(weekStages).forEach(([id, arr]) => {
+    Object.entries(weekStages).forEach(([strId, arr]) => {
+        const id = Number(strId);
         arr.sort((a,b)=>a.at-b.at);
         const diff = stageIdx(arr[arr.length-1].stage) - stageIdx(arr[0].stage);
         if (diff>0) evol.add(id); else if (diff<0) regr.add(id);

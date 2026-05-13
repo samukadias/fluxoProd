@@ -615,6 +615,95 @@ const initDb = async () => {
         }
 
         // ========================================
+        // DB TRIGGERS: Auto-Sync CVAC to COCR (Billed Amount)
+        // ========================================
+        try {
+            await db.query(`
+                CREATE OR REPLACE FUNCTION sync_cvac_to_cocr_billed_amount()
+                RETURNS TRIGGER AS $$
+                DECLARE
+                    v_pd_number VARCHAR(50);
+                    v_total_faturado DECIMAL(15, 2);
+                BEGIN
+                    -- Determine which pd_number to use (handle INSERT/UPDATE/DELETE)
+                    IF TG_OP = 'DELETE' THEN
+                        v_pd_number := OLD.pd_number;
+                    ELSE
+                        v_pd_number := NEW.pd_number;
+                    END IF;
+
+                    IF v_pd_number IS NOT NULL AND v_pd_number != '' THEN
+                        -- Calculate the sum of all attestations for this PD
+                        SELECT COALESCE(SUM(billed_amount), 0) INTO v_total_faturado
+                        FROM monthly_attestations
+                        WHERE pd_number = v_pd_number;
+
+                        -- Update the COCR base contracts table
+                        UPDATE contracts 
+                        SET valor_faturado = v_total_faturado
+                        WHERE pd_number = v_pd_number 
+                           OR contrato = v_pd_number 
+                           OR contrato_cliente = v_pd_number;
+                           
+                        -- Also update the deadline_contracts (Legacy/Active view)
+                        UPDATE deadline_contracts 
+                        SET valor_faturado = v_total_faturado
+                        WHERE contrato = v_pd_number 
+                           OR contrato_cliente = v_pd_number;
+                    END IF;
+
+                    RETURN NULL; -- AFTER trigger
+                END;
+                $$ LANGUAGE plpgsql;
+            `);
+
+            await db.query(`DROP TRIGGER IF EXISTS trg_sync_cvac_to_cocr ON monthly_attestations`);
+            await db.query(`
+                CREATE TRIGGER trg_sync_cvac_to_cocr
+                AFTER INSERT OR UPDATE OF billed_amount, pd_number OR DELETE
+                ON monthly_attestations
+                FOR EACH ROW
+                EXECUTE FUNCTION sync_cvac_to_cocr_billed_amount();
+            `);
+            
+            // ONE-TIME SYNC: Force sync all existing attestations to ensure historical accuracy
+            await db.query(`
+                UPDATE contracts c
+                SET valor_faturado = (
+                    SELECT COALESCE(SUM(ma.billed_amount), 0)
+                    FROM monthly_attestations ma
+                    WHERE ma.pd_number = c.pd_number 
+                       OR ma.pd_number = c.contrato 
+                       OR ma.pd_number = c.contrato_cliente
+                )
+                WHERE EXISTS (
+                    SELECT 1 FROM monthly_attestations ma 
+                    WHERE ma.pd_number = c.pd_number 
+                       OR ma.pd_number = c.contrato 
+                       OR ma.pd_number = c.contrato_cliente
+                );
+            `);
+            
+            await db.query(`
+                UPDATE deadline_contracts dc
+                SET valor_faturado = (
+                    SELECT COALESCE(SUM(ma.billed_amount), 0)
+                    FROM monthly_attestations ma
+                    WHERE ma.pd_number = dc.contrato 
+                       OR ma.pd_number = dc.contrato_cliente
+                )
+                WHERE EXISTS (
+                    SELECT 1 FROM monthly_attestations ma 
+                    WHERE ma.pd_number = dc.contrato 
+                       OR ma.pd_number = dc.contrato_cliente
+                );
+            `);
+            console.log('🔗 Trigger CVAC -> COCR (valor_faturado) configurada com sucesso.');
+        } catch (trgErr) {
+            console.error('⚠️ Erro ao configurar Trigger CVAC -> COCR:', trgErr.message);
+        }
+
+        // ========================================
         // PERFORMANCE INDEXES
         // ========================================
         // demands - columns most used in WHERE and ORDER BY clauses
