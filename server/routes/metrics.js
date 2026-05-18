@@ -69,9 +69,19 @@ router.get('/cdpc', async (req, res) => {
             ? `EXTRACT(YEAR FROM delivery_date) = ${currentYear} AND EXTRACT(MONTH FROM delivery_date) = ${currentMonth}`
             : `EXTRACT(YEAR FROM delivery_date) = ${currentYear}`;
 
-        const cancelledDateFilter = currentMonth
-            ? `EXTRACT(YEAR FROM COALESCE(delivery_date, created_date)) = ${currentYear} AND EXTRACT(MONTH FROM COALESCE(delivery_date, created_date)) = ${currentMonth}`
-            : `EXTRACT(YEAR FROM COALESCE(delivery_date, created_date)) = ${currentYear}`;
+        const getCancelledDateFilter = (alias = '') => {
+            const prefix = alias ? `${alias}.` : 'demands.';
+            const cancelDateExpr = `COALESCE((SELECT MAX(changed_at) FROM status_history sh WHERE sh.demand_id = ${prefix}id AND sh.to_status = 'CANCELADA'), ${prefix}delivery_date, ${prefix}created_date)`;
+            return currentMonth
+                ? `EXTRACT(YEAR FROM ${cancelDateExpr}) = ${currentYear} AND EXTRACT(MONTH FROM ${cancelDateExpr}) = ${currentMonth}`
+                : `EXTRACT(YEAR FROM ${cancelDateExpr}) = ${currentYear}`;
+        };
+
+        const getCancelledYearFilter = (alias = '') => {
+            const prefix = alias ? `${alias}.` : 'demands.';
+            const cancelDateExpr = `COALESCE((SELECT MAX(changed_at) FROM status_history sh WHERE sh.demand_id = ${prefix}id AND sh.to_status = 'CANCELADA'), ${prefix}delivery_date, ${prefix}created_date)`;
+            return `EXTRACT(YEAR FROM ${cancelDateExpr}) = ${currentYear}`;
+        };
 
         const queries = {
             // Existing ones + Em Tratativa
@@ -123,8 +133,8 @@ router.get('/cdpc', async (req, res) => {
             `,
 
             // Cancellations in the period
-            cancelledThisMonth: `SELECT COUNT(*) FROM demands WHERE status = 'CANCELADA' AND ${cancelledDateFilter} AND ${baseWhere}`,
-            cancelledThisYear: `SELECT COUNT(*) FROM demands WHERE status = 'CANCELADA' AND EXTRACT(YEAR FROM COALESCE(delivery_date, created_date)) = ${currentYear} AND ${baseWhere}`,
+            cancelledThisMonth: `SELECT COUNT(*) FROM demands WHERE status = 'CANCELADA' AND ${getCancelledDateFilter()} AND ${baseWhere}`,
+            cancelledThisYear: `SELECT COUNT(*) FROM demands WHERE status = 'CANCELADA' AND ${getCancelledYearFilter()} AND ${baseWhere}`,
 
             // Yearly Delivery Total (Qty, Value, SLA)
             deliveredThisYear: `
@@ -166,7 +176,7 @@ router.get('/cdpc', async (req, res) => {
                 FROM demands d
                 LEFT JOIN users u ON d.requester_id = u.id
                 WHERE d.status = 'CANCELADA'
-                AND ${cancelledDateFilter.replace(/delivery_date/g, 'd.delivery_date').replace(/created_date/g, 'd.created_date')}
+                AND ${getCancelledDateFilter('d')}
                 AND ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
                 GROUP BY u.id, u.name
                 ORDER BY count DESC
