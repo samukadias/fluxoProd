@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Contract } from '@/Entities/Contract';
-import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, TrendingUp, Calendar, DollarSign, List, FilterX } from "lucide-react";
-import StatsCard from '@/Components/dashboard/StatsCard'; // Reusing existing component if compatible, or I'll inline a simple one. 
+import StatsCard from '@/components/dashboard/StatsCard'; // Reusing existing component if compatible, or I'll inline a simple one. 
 // Checking StatsCard usage in Legacy: it accepts title, value, icon, color, onClick.
 import { formatCurrency, formatCompactCurrency } from "@/utils/legacy";
 import { differenceInDays, parseISO, format } from "date-fns";
-import { Button } from "@/Components/ui/button";
+import { Button } from "@/components/ui/button";
 
 export default function ClientDashboard() {
     const { user } = useAuth();

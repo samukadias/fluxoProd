@@ -11,8 +11,26 @@ export default function StatsCard({
     trend,
     trendUp,
     onClick,
-    tooltip
+    tooltip,
+    isLoading
 }) {
+    if (isLoading) {
+        return (
+            <Card className="border border-slate-100 bg-white shadow-md overflow-hidden h-full">
+                <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                        <div className="space-y-3 w-full">
+                            <div className="h-4 bg-slate-200/80 rounded animate-pulse w-3/4" />
+                            <div className="h-8 bg-slate-200/80 rounded animate-pulse w-1/2" />
+                        </div>
+                        <div className="p-3 bg-slate-100 rounded-xl animate-pulse">
+                            <div className="w-6 h-6 bg-slate-200/80 rounded" />
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
     const getStyles = () => {
         switch (type) {
             case 'danger':

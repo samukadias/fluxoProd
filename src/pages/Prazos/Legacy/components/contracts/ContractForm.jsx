@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CurrencyInput from "@/components/ui/currency-input";
 import { fluxoApi } from "@/api/fluxoClient";
-import EspManager from "@/Pages/Financeiro/components/EspManager";
+import EspManager from "@/pages/Financeiro/components/EspManager";
 
 export default function ContractForm({
   initialData = {},

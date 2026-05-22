@@ -141,7 +141,7 @@ app.use((err, req, res, next) => {
 // Rate Limiting: prevent brute-force attacks on the login endpoint
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // Max 5 failed attempts per IP per window (reduced from 20)
+    max: 100, // Aumentado temporariamente para evitar bloqueio de IP corporativo (NAT)
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' },

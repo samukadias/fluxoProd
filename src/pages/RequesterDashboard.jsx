@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { fluxoApi } from '@/api/fluxoClient';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Clock, AlertTriangle, CheckCircle2, List } from "lucide-react";
-import StatsCard from '@/Components/dashboard/StatsCard';
+import StatsCard from '@/components/dashboard/StatsCard';
 import { isAfter, parseISO, format } from 'date-fns';
-import { Button } from "@/Components/ui/button";
+import { Button } from "@/components/ui/button";
 
 const ACTIVE_STATUSES = [
     "PENDENTE TRIAGEM",

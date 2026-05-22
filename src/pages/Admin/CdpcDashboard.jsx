@@ -32,7 +32,7 @@ import { fluxoApi } from '@/api/fluxoClient';
 import OptyKpis from './components/OptyKpis';
 import OptyCharts from './components/OptyCharts';
 import OptyCard from './components/OptyCard';
-import DemandDetailModal from '@/Components/demands/DemandDetailModal';
+import DemandDetailModal from '@/components/demands/DemandDetailModal';
 import * as XLSX from 'xlsx';
 
 export default function CdpcDashboard() {

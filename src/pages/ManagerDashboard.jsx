@@ -22,6 +22,19 @@ import { isAfter, parseISO, format, getYear, subMonths, isSameMonth } from 'date
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import WeeklyTrackingTab from '@/components/dashboard/WeeklyTrackingTab';
 import ResumoTab from '@/components/dashboard/ResumoTab';
+import FlowEfficiencyTab from '@/components/dashboard/FlowEfficiencyTab';
+import {
+    ChartCardSkeleton,
+    NextLastDeliveriesSkeleton,
+    SlaSectionSkeleton,
+    StageSlaSkeleton,
+    DoubleChartSkeleton,
+    ManagerAdditionalChartsSkeleton,
+    WeeklyTrackingSkeleton,
+    ResumoTabSkeleton,
+    FlowEfficiencySkeleton,
+    RequesterOpenDemandsSkeleton
+} from '@/components/dashboard/DashboardSkeletons';
 
 const ACTIVE_STATUSES = [
     "PENDENTE TRIAGEM",
@@ -65,22 +78,22 @@ export default function ManagerDashboard() {
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
 
-    const { data: demands = [] } = useQuery({
+    const { data: demands = [], isLoading: isLoadingDemands } = useQuery({
         queryKey: ['demands'],
         queryFn: () => fluxoApi.entities.Demand.list()
     });
 
-    const { data: history = [] } = useQuery({
+    const { data: history = [], isLoading: isLoadingHistory } = useQuery({
         queryKey: ['all-history'],
         queryFn: () => fluxoApi.entities.StatusHistory.list()
     });
 
-    const { data: stageHistory = [] } = useQuery({
+    const { data: stageHistory = [], isLoading: isLoadingStageHistory } = useQuery({
         queryKey: ['stage-history'],
         queryFn: () => fluxoApi.entities.StageHistory.list()
     });
 
-    const { data: users = [] } = useQuery({
+    const { data: users = [], isLoading: isLoadingUsers } = useQuery({
         queryKey: ['users'],
         queryFn: () => fluxoApi.entities.User.list()
     });
@@ -92,25 +105,28 @@ export default function ManagerDashboard() {
         );
     }, [users]);
 
-    const { data: requesters = [] } = useQuery({
+    const { data: requesters = [], isLoading: isLoadingRequesters } = useQuery({
         queryKey: ['requesters'],
         queryFn: () => fluxoApi.entities.Requester.list()
     });
 
-    const { data: holidays = [] } = useQuery({
+    const { data: holidays = [], isLoading: isLoadingHolidays } = useQuery({
         queryKey: ['holidays'],
         queryFn: () => fluxoApi.entities.Holiday.list()
     });
 
-    const { data: clients = [] } = useQuery({
+    const { data: clients = [], isLoading: isLoadingClients } = useQuery({
         queryKey: ['clients'],
         queryFn: () => fluxoApi.entities.Client.list()
     });
 
-    const { data: cdpcMetrics = {} } = useQuery({
+    const { data: cdpcMetrics = {}, isLoading: isLoadingMetrics } = useQuery({
         queryKey: ['cdpc-metrics', selectedYear],
         queryFn: () => fluxoApi.metrics.cdpc({ year: selectedYear })
     });
+
+    const isDashboardLoading = isLoadingDemands || isLoadingHistory || isLoadingStageHistory || isLoadingUsers || isLoadingHolidays || isLoadingMetrics || isLoadingClients || isLoadingRequesters;
+
 
     const currentAnalyst = useMemo(() => {
         if (!user || (user.role !== 'analyst' && user.perfil !== 'ANALISTA')) return null;
@@ -572,7 +588,7 @@ export default function ManagerDashboard() {
                     <div className="flex flex-wrap justify-center items-end gap-x-5 gap-y-6">
                         <div className="flex flex-col gap-1" title="Filtra todas as métricas do dashboard pelo ano em que a demanda deu entrada (criação ou qualificação).">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-help">Ano (Safra)</span>
-                            <Select value={selectedYear} onValueChange={setSelectedYear}>
+                            <Select value={selectedYear} onValueChange={setSelectedYear} disabled={isDashboardLoading}>
                                 <SelectTrigger className="w-24 bg-white">
                                     <SelectValue placeholder="Ano" />
                                 </SelectTrigger>
@@ -586,7 +602,7 @@ export default function ManagerDashboard() {
 
                         <div className="flex flex-col gap-1" title="Filtra as métricas pelo mês em que a demanda entrou na esteira (data de qualificação ou criação).">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-help">Mês Entrada (Safra)</span>
-                            <Select value={selectedEntryMonth} onValueChange={setSelectedEntryMonth}>
+                            <Select value={selectedEntryMonth} onValueChange={setSelectedEntryMonth} disabled={isDashboardLoading}>
                                 <SelectTrigger className="w-36 bg-white">
                                     <SelectValue placeholder="Mês (Entrada)" />
                                 </SelectTrigger>
@@ -610,7 +626,7 @@ export default function ManagerDashboard() {
 
                         <div className="flex flex-col gap-1" title="Filtra as métricas pelo mês em que a demanda foi efetivamente entregue (data de entrega real).">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-help">Mês Entrega</span>
-                            <Select value={selectedDeliveryMonth} onValueChange={setSelectedDeliveryMonth}>
+                            <Select value={selectedDeliveryMonth} onValueChange={setSelectedDeliveryMonth} disabled={isDashboardLoading}>
                                 <SelectTrigger className="w-36 bg-white">
                                     <SelectValue placeholder="Mês (Entrega)" />
                                 </SelectTrigger>
@@ -635,7 +651,7 @@ export default function ManagerDashboard() {
                         {isManager && (
                             <div className="flex flex-col gap-1" title="Filtra o dashboard para exibir apenas as demandas atribuídas ao analista selecionado.">
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-help">Responsável (Analista)</span>
-                                <Select value={selectedAnalyst} onValueChange={setSelectedAnalyst}>
+                                <Select value={selectedAnalyst} onValueChange={setSelectedAnalyst} disabled={isDashboardLoading}>
                                     <SelectTrigger className="w-52 bg-white">
                                         <SelectValue placeholder="Responsável" />
                                     </SelectTrigger>
@@ -655,7 +671,8 @@ export default function ManagerDashboard() {
                         <div className="flex justify-center">
                             <button
                                 onClick={() => { setSelectedEntryMonth('all'); setSelectedDeliveryMonth('all'); setSelectedAnalyst('all'); }}
-                                className="text-xs text-indigo-600 font-semibold border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 rounded-lg px-3 py-1.5 transition-colors"
+                                disabled={isDashboardLoading}
+                                className="text-xs text-indigo-600 font-semibold border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Clique para limpar todos os filtros e voltar à visão completa."
                             >
                                 × Limpar filtros
@@ -696,29 +713,67 @@ export default function ManagerDashboard() {
                     >
                         Resumo
                     </button>
+                    <button
+                        onClick={() => setActiveTab('efficiency')}
+                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                            activeTab === 'efficiency'
+                                ? 'bg-white text-indigo-700 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        Eficiência e Fluxo
+                    </button>
                 </div>
 
                 {/* ── Aba: Acompanhamento Semanal ── */}
                 {activeTab === 'weekly' && (
-                    <WeeklyTrackingTab
-                        analystId={selectedAnalyst}
-                        demands={demands}
-                        history={history}
-                        stageHistory={stageHistory}
-                    />
+                    isDashboardLoading ? (
+                        <WeeklyTrackingSkeleton />
+                    ) : (
+                        <WeeklyTrackingTab
+                            analystId={selectedAnalyst}
+                            demands={demands}
+                            history={history}
+                            stageHistory={stageHistory}
+                        />
+                    )
                 )}
 
                 {/* ── Aba: Resumo ── */}
                 {activeTab === 'resumo' && (
-                    <ResumoTab
-                        analystId={selectedAnalyst}
-                        demands={demands}
-                        analysts={analysts}
-                        usersMap={usersMap}
-                        selectedYear={selectedYear}
-                        selectedEntryMonth={selectedEntryMonth}
-                        selectedDeliveryMonth={selectedDeliveryMonth}
-                    />
+                    isDashboardLoading ? (
+                        <ResumoTabSkeleton />
+                    ) : (
+                        <ResumoTab
+                            analystId={selectedAnalyst}
+                            demands={demands}
+                            analysts={analysts}
+                            usersMap={usersMap}
+                            selectedYear={selectedYear}
+                            selectedEntryMonth={selectedEntryMonth}
+                            selectedDeliveryMonth={selectedDeliveryMonth}
+                        />
+                    )
+                )}
+
+                {/* ── Aba: Eficiência e Fluxo ── */}
+                {activeTab === 'efficiency' && (
+                    isDashboardLoading ? (
+                        <FlowEfficiencySkeleton />
+                    ) : (
+                        <FlowEfficiencyTab
+                            demands={demands}
+                            history={history}
+                            stageHistory={stageHistory}
+                            usersMap={usersMap}
+                            analysts={analysts}
+                            holidays={holidays}
+                            selectedYear={selectedYear}
+                            selectedEntryMonth={selectedEntryMonth}
+                            selectedDeliveryMonth={selectedDeliveryMonth}
+                            analystId={selectedAnalyst}
+                        />
+                    )
                 )}
 
                 {/* ── Aba: Visão Geral ── */}
@@ -731,6 +786,7 @@ export default function ManagerDashboard() {
                         icon={FileText}
                         type="default"
                         onClick={() => setSelectedFilter(selectedFilter === 'total' ? null : 'total')}
+                        isLoading={isDashboardLoading}
                     />
                     {/* Hide Backlog for Analyst CDPC */}
                     {!isAnalystCDPC && (
@@ -741,6 +797,7 @@ export default function ManagerDashboard() {
                             icon={Layers}
                             type="info"
                             onClick={() => setSelectedFilter(selectedFilter === 'backlog' ? null : 'backlog')}
+                            isLoading={isDashboardLoading}
                         />
                     )}
                     <StatsCard
@@ -750,6 +807,7 @@ export default function ManagerDashboard() {
                         icon={Briefcase}
                         type="purple"
                         onClick={() => setSelectedFilter(selectedFilter === 'tratativa' ? null : 'tratativa')}
+                        isLoading={isDashboardLoading}
                     />
                     <StatsCard
                         title="Em Aberto"
@@ -758,6 +816,7 @@ export default function ManagerDashboard() {
                         icon={Clock}
                         type="warning"
                         onClick={() => setSelectedFilter(selectedFilter === 'open' ? null : 'open')}
+                        isLoading={isDashboardLoading}
                     />
                     <StatsCard
                         title="Atrasadas"
@@ -766,6 +825,7 @@ export default function ManagerDashboard() {
                         icon={AlertTriangle}
                         type="danger"
                         onClick={() => setSelectedFilter(selectedFilter === 'overdue' ? null : 'overdue')}
+                        isLoading={isDashboardLoading}
                     />
                     <StatsCard
                         title="Entregues"
@@ -774,25 +834,64 @@ export default function ManagerDashboard() {
                         icon={CheckCircle2}
                         type="success"
                         onClick={() => setSelectedFilter(selectedFilter === 'delivered' ? null : 'delivered')}
+                        isLoading={isDashboardLoading}
                     />
                 </div>
 
                 {/* ── Próximas Entregas & Últimas Entregues (Widget) ── */}
                 {!isRequester && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        {/* Próximas Entregas */}
-                        <Card className="border-indigo-100/50 shadow-md">
-                            <CardHeader className="bg-indigo-50/30 pb-3 border-b border-indigo-50">
-                                <CardTitle title="Lista das próximas demandas ativas com prazo de entrega mais próximo e urgente." className="text-sm font-bold text-slate-700 flex items-center gap-2 cursor-help">
-                                    <CalendarClock className="w-5 h-5 text-indigo-500" />
-                                    Próximas Entregas
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
-                                    {nextDeliveries.length > 0 ? nextDeliveries.map(d => {
-                                        const isOverdue = d.expected_delivery_date && isAfter(new Date(), parseISO(d.expected_delivery_date));
-                                        return (
+                    isDashboardLoading ? (
+                        <NextLastDeliveriesSkeleton />
+                    ) : (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            {/* Próximas Entregas */}
+                            <Card className="border-indigo-100/50 shadow-md">
+                                <CardHeader className="bg-indigo-50/30 pb-3 border-b border-indigo-50">
+                                    <CardTitle title="Lista das próximas demandas ativas com prazo de entrega mais próximo e urgente." className="text-sm font-bold text-slate-700 flex items-center gap-2 cursor-help">
+                                        <CalendarClock className="w-5 h-5 text-indigo-500" />
+                                        Próximas Entregas
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
+                                        {nextDeliveries.length > 0 ? nextDeliveries.map(d => {
+                                            const isOverdue = d.expected_delivery_date && isAfter(new Date(), parseISO(d.expected_delivery_date));
+                                            return (
+                                                <div key={d.id} className="py-3 px-4 hover:bg-slate-50 transition-colors flex items-center justify-between">
+                                                    <div className="flex flex-col overflow-hidden mr-4">
+                                                        <span className="text-sm font-semibold text-slate-800 truncate" title={d.product || 'Sem Produto'}>
+                                                            {d.product || 'Sem Produto'}
+                                                        </span>
+                                                        <span className="text-xs text-slate-500 truncate" title={d.title || d.project_name || '-'}>
+                                                            #{d.demand_number || d.id} • {usersMap[d.analyst_id] || 'Sem Analista'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex flex-col items-end shrink-0">
+                                                        <span className={`text-xs font-mono font-medium ${isOverdue ? 'text-red-600 font-bold' : 'text-slate-600'}`}>
+                                                            {d.expected_delivery_date ? format(parseISO(d.expected_delivery_date), 'dd/MM/yyyy') : 'Sem Prazo'}
+                                                        </span>
+                                                        {isOverdue && <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded uppercase font-bold mt-1">Atrasada</span>}
+                                                    </div>
+                                                </div>
+                                            );
+                                        }) : (
+                                            <div className="p-6 text-center text-sm text-slate-400">Nenhuma demanda ativa no momento.</div>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Últimas Entregues */}
+                            <Card className="border-emerald-100/50 shadow-md">
+                                <CardHeader className="bg-emerald-50/30 pb-3 border-b border-emerald-50">
+                                    <CardTitle title="Lista das últimas demandas que foram marcadas como ENTREGUE." className="text-sm font-bold text-slate-700 flex items-center gap-2 cursor-help">
+                                        <PackageCheck className="w-5 h-5 text-emerald-500" />
+                                        Últimas Entregues
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
+                                        {lastDeliveries.length > 0 ? lastDeliveries.map(d => (
                                             <div key={d.id} className="py-3 px-4 hover:bg-slate-50 transition-colors flex items-center justify-between">
                                                 <div className="flex flex-col overflow-hidden mr-4">
                                                     <span className="text-sm font-semibold text-slate-800 truncate" title={d.product || 'Sem Produto'}>
@@ -803,54 +902,20 @@ export default function ManagerDashboard() {
                                                     </span>
                                                 </div>
                                                 <div className="flex flex-col items-end shrink-0">
-                                                    <span className={`text-xs font-mono font-medium ${isOverdue ? 'text-red-600 font-bold' : 'text-slate-600'}`}>
-                                                        {d.expected_delivery_date ? format(parseISO(d.expected_delivery_date), 'dd/MM/yyyy') : 'Sem Prazo'}
+                                                    <span className="text-xs font-mono font-medium text-emerald-700">
+                                                        {d.delivery_date ? format(parseISO(d.delivery_date), 'dd/MM/yyyy') : '-'}
                                                     </span>
-                                                    {isOverdue && <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded uppercase font-bold mt-1">Atrasada</span>}
+                                                    <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded uppercase font-bold mt-1">Entregue</span>
                                                 </div>
                                             </div>
-                                        );
-                                    }) : (
-                                        <div className="p-6 text-center text-sm text-slate-400">Nenhuma demanda ativa no momento.</div>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Últimas Entregues */}
-                        <Card className="border-emerald-100/50 shadow-md">
-                            <CardHeader className="bg-emerald-50/30 pb-3 border-b border-emerald-50">
-                                <CardTitle title="Lista das últimas demandas que foram marcadas como ENTREGUE." className="text-sm font-bold text-slate-700 flex items-center gap-2 cursor-help">
-                                    <PackageCheck className="w-5 h-5 text-emerald-500" />
-                                    Últimas Entregues
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
-                                    {lastDeliveries.length > 0 ? lastDeliveries.map(d => (
-                                        <div key={d.id} className="py-3 px-4 hover:bg-slate-50 transition-colors flex items-center justify-between">
-                                            <div className="flex flex-col overflow-hidden mr-4">
-                                                <span className="text-sm font-semibold text-slate-800 truncate" title={d.product || 'Sem Produto'}>
-                                                    {d.product || 'Sem Produto'}
-                                                </span>
-                                                <span className="text-xs text-slate-500 truncate" title={d.title || d.project_name || '-'}>
-                                                    #{d.demand_number || d.id} • {usersMap[d.analyst_id] || 'Sem Analista'}
-                                                </span>
-                                            </div>
-                                            <div className="flex flex-col items-end shrink-0">
-                                                <span className="text-xs font-mono font-medium text-emerald-700">
-                                                    {d.delivery_date ? format(parseISO(d.delivery_date), 'dd/MM/yyyy') : '-'}
-                                                </span>
-                                                <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded uppercase font-bold mt-1">Entregue</span>
-                                            </div>
-                                        </div>
-                                    )) : (
-                                        <div className="p-6 text-center text-sm text-slate-400">Nenhuma demanda entregue no período.</div>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
+                                        )) : (
+                                            <div className="p-6 text-center text-sm text-slate-400">Nenhuma demanda entregue no período.</div>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )
                 )}
 
                 {/* Filtered Demands List (Drill Down) */}
@@ -929,106 +994,110 @@ export default function ManagerDashboard() {
 
                 {/* SLA Section - Visible to all (non-requesters) */}
                 {!isRequester && (
-                    <Card className="mb-8">
-                        <CardHeader>
-                            <CardTitle className="text-lg flex items-center gap-2">
-                                <Timer className="w-5 h-5 text-indigo-600" />
-                                Análise de SLA
-                            </CardTitle>
-                            <p className="text-sm text-slate-500">
-                                Tempo médio em cada status e tempo médio de entrega
-                            </p>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* SLA Geral Avançado */}
-                                <div className={`relative overflow-hidden rounded-xl p-6 text-white shadow-md border group ${slaData.avgDeliveryDays <= 10 ? 'bg-gradient-to-br from-emerald-500 to-emerald-700 border-emerald-400/20' :
-                                    slaData.avgDeliveryDays <= 15 ? 'bg-gradient-to-br from-amber-500 to-amber-600 border-amber-400/20' :
-                                        'bg-gradient-to-br from-red-500 to-red-700 border-red-400/20'
-                                    }`}>
-                                    {/* Sparkline Translúcido (Fundo) */}
-                                    <div className="absolute inset-0 opacity-20 pointer-events-none translate-y-4">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <LineChart data={slaData.historicalTrend}>
-                                                <Line
-                                                    type="monotone"
-                                                    dataKey="uv"
-                                                    stroke="#ffffff"
-                                                    strokeWidth={4}
-                                                    dot={false}
-                                                    isAnimationActive={true}
-                                                />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                    </div>
-
-                                    <div className="relative z-10 flex flex-col h-full justify-between">
-                                        <div>
-                                            <p className="text-sm font-medium opacity-90 flex items-center justify-between">
-                                                SLA Geral (Média de Entrega)
-                                                {slaData.trendPercentage !== 0 && (
-                                                    <span className={`text-xs px-2 py-0.5 rounded-full ${slaData.trendPercentage < 0 ? 'bg-white/20 text-white' : 'bg-black/20 text-white'}`} title="Comparado ao mês passado">
-                                                        {slaData.trendPercentage > 0 ? '↑' : '↓'} {Math.abs(slaData.trendPercentage)}%
-                                                    </span>
-                                                )}
-                                            </p>
-                                            <div className="flex items-baseline gap-2 mt-1">
-                                                <p className="text-5xl font-extrabold tracking-tight">
-                                                    {slaData.avgDeliveryDays}
-                                                </p>
-                                                <span className="text-lg font-medium opacity-80">dias úteis</span>
-                                            </div>
-                                            <p className="text-xs opacity-75 mt-1">
-                                                Baseado em {slaData.deliveredCount} demandas entregues
-                                            </p>
+                    isDashboardLoading ? (
+                        <SlaSectionSkeleton />
+                    ) : (
+                        <Card className="mb-8">
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center gap-2">
+                                    <Timer className="w-5 h-5 text-indigo-600" />
+                                    Análise de SLA
+                                </CardTitle>
+                                <p className="text-sm text-slate-500">
+                                    Tempo médio em cada status e tempo médio de entrega
+                                </p>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    {/* SLA Geral Avançado */}
+                                    <div className={`relative overflow-hidden rounded-xl p-6 text-white shadow-md border group ${slaData.avgDeliveryDays <= 10 ? 'bg-gradient-to-br from-emerald-500 to-emerald-700 border-emerald-400/20' :
+                                        slaData.avgDeliveryDays <= 15 ? 'bg-gradient-to-br from-amber-500 to-amber-600 border-amber-400/20' :
+                                            'bg-gradient-to-br from-red-500 to-red-700 border-red-400/20'
+                                        }`}>
+                                        {/* Sparkline Translúcido (Fundo) */}
+                                        <div className="absolute inset-0 opacity-20 pointer-events-none translate-y-4">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <LineChart data={slaData.historicalTrend}>
+                                                    <Line
+                                                        type="monotone"
+                                                        dataKey="uv"
+                                                        stroke="#ffffff"
+                                                        strokeWidth={4}
+                                                        dot={false}
+                                                        isAnimationActive={true}
+                                                    />
+                                                </LineChart>
+                                            </ResponsiveContainer>
                                         </div>
 
-                                        <div className="mt-6 pt-4 border-t border-white/20 grid grid-cols-2 gap-4">
+                                        <div className="relative z-10 flex flex-col h-full justify-between">
                                             <div>
-                                                <p className="text-xs font-semibold opacity-70 uppercase tracking-wider">Compliance Geral</p>
-                                                <p className="text-lg font-bold mt-0.5 flex items-center gap-1.5 opacity-90">
-                                                    <CheckCircle2 className="w-4 h-4 text-white" />
-                                                    {slaData.complianceRate}% no prazo
+                                                <p className="text-sm font-medium opacity-90 flex items-center justify-between">
+                                                    SLA Geral (Média de Entrega)
+                                                    {slaData.trendPercentage !== 0 && (
+                                                        <span className={`text-xs px-2 py-0.5 rounded-full ${slaData.trendPercentage < 0 ? 'bg-white/20 text-white' : 'bg-black/20 text-white'}`} title="Comparado ao mês passado">
+                                                            {slaData.trendPercentage > 0 ? '↑' : '↓'} {Math.abs(slaData.trendPercentage)}%
+                                                        </span>
+                                                    )}
+                                                </p>
+                                                <div className="flex items-baseline gap-2 mt-1">
+                                                    <p className="text-5xl font-extrabold tracking-tight">
+                                                        {slaData.avgDeliveryDays}
+                                                    </p>
+                                                    <span className="text-lg font-medium opacity-80">dias úteis</span>
+                                                </div>
+                                                <p className="text-xs opacity-75 mt-1">
+                                                    Baseado em {slaData.deliveredCount} demandas entregues
                                                 </p>
                                             </div>
-                                            <div>
-                                                <p className="text-xs font-semibold opacity-70 uppercase tracking-wider">Limites de Tempo</p>
-                                                <div className="text-sm font-medium mt-0.5 flex flex-col gap-0.5 opacity-90">
-                                                    <span className="flex items-center gap-1"><span title="Mais rápida">🏃</span> {slaData.minTime}d</span>
-                                                    <span className="flex items-center gap-1"><span title="Mais demorada">🐢</span> {slaData.maxTime}d</span>
+
+                                            <div className="mt-6 pt-4 border-t border-white/20 grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <p className="text-xs font-semibold opacity-70 uppercase tracking-wider">Compliance Geral</p>
+                                                    <p className="text-lg font-bold mt-0.5 flex items-center gap-1.5 opacity-90">
+                                                        <CheckCircle2 className="w-4 h-4 text-white" />
+                                                        {slaData.complianceRate}% no prazo
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-semibold opacity-70 uppercase tracking-wider">Limites de Tempo</p>
+                                                    <div className="text-sm font-medium mt-0.5 flex flex-col gap-0.5 opacity-90">
+                                                        <span className="flex items-center gap-1"><span title="Mais rápida">🏃</span> {slaData.minTime}d</span>
+                                                        <span className="flex items-center gap-1"><span title="Mais demorada">🐢</span> {slaData.maxTime}d</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* SLA por Status */}
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead className="text-xs text-slate-600 uppercase bg-slate-100">
-                                            <tr>
-                                                <th className="px-3 py-2 text-left">Status</th>
-                                                <th className="px-3 py-2 text-right">Tempo Médio</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {Object.entries(slaData.statusAvg)
-                                                .sort((a, b) => b[1] - a[1])
-                                                .slice(0, 8)
-                                                .map(([status, minutes]) => (
-                                                    <tr key={status} className="border-b hover:bg-slate-50">
-                                                        <td className="px-3 py-2 font-medium text-slate-700">{status}</td>
-                                                        <td className="px-3 py-2 text-right text-slate-500">
-                                                            {(minutes / 1440).toFixed(1)} dias
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                        </tbody>
-                                    </table>
+                                    {/* SLA por Status */}
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead className="text-xs text-slate-600 uppercase bg-slate-100">
+                                                <tr>
+                                                    <th className="px-3 py-2 text-left">Status</th>
+                                                    <th className="px-3 py-2 text-right">Tempo Médio</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {Object.entries(slaData.statusAvg)
+                                                    .sort((a, b) => b[1] - a[1])
+                                                    .slice(0, 8)
+                                                    .map(([status, minutes]) => (
+                                                        <tr key={status} className="border-b hover:bg-slate-50">
+                                                            <td className="px-3 py-2 font-medium text-slate-700">{status}</td>
+                                                            <td className="px-3 py-2 text-right text-slate-500">
+                                                                {(minutes / 1440).toFixed(1)} dias
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
+                    )
                 )}
 
                 {/* CDPC Stage SLA */}
