@@ -6,6 +6,7 @@ import {
     Flame,
     TrendingDown,
     CheckCircle2,
+    RefreshCw,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -30,7 +31,7 @@ export default function CdpcTab({
             </div>
 
             {/* Cards Superiores - Primeira Linha */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 relative overflow-hidden group hover:shadow-md transition-all hover:-translate-y-1">
                     <div className="absolute top-0 right-0 p-4 opacity-5 text-blue-600 group-hover:scale-110 transition-transform"><Cuboid className="w-20 h-20" /></div>
                     <p className="text-sm font-medium text-slate-500 mb-1">Backlog Total</p>
@@ -47,9 +48,16 @@ export default function CdpcTab({
 
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 relative overflow-hidden group hover:shadow-md transition-all hover:-translate-y-1">
                     <div className="absolute top-0 right-0 p-4 opacity-5 text-indigo-600 group-hover:scale-110 transition-transform"><ArrowDownToLine className="w-20 h-20" /></div>
-                    <p className="text-sm font-medium text-slate-500 mb-1">Entradas Mês</p>
+                    <p className="text-sm font-medium text-slate-500 mb-1">Novas Mês</p>
                     <p className="text-3xl font-bold text-slate-800">{loading ? '...' : metrics.entriesThisMonth}</p>
                     <p className="text-[10px] text-indigo-600 mt-2 font-bold bg-indigo-50 w-fit px-2 py-1 rounded">{metrics.entriesThisYear} no ano</p>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 relative overflow-hidden group hover:shadow-md transition-all hover:-translate-y-1">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 text-violet-600 group-hover:scale-110 transition-transform"><RefreshCw className="w-20 h-20" /></div>
+                    <p className="text-sm font-medium text-slate-500 mb-1">Reaberturas Mês</p>
+                    <p className="text-3xl font-bold text-slate-800">{loading ? '...' : metrics.reopenedThisMonth}</p>
+                    <p className="text-[10px] text-violet-600 mt-2 font-bold bg-violet-50 w-fit px-2 py-1 rounded">{metrics.reopenedThisYear} no ano</p>
                 </div>
 
                 <div className="rounded-2xl shadow-sm border p-4 relative overflow-hidden bg-gradient-to-br from-white to-emerald-50 border-emerald-100 group hover:shadow-md transition-all hover:-translate-y-1 col-span-1 md:col-span-2">

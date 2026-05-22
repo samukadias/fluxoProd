@@ -12,6 +12,7 @@ const metricsCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
  * Supports Query Params: month, year, cycle_ids, artifact
  */
 router.get('/cdpc', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     // Generate a unique cache key based on the query parameters so different filters don't mix
     const cacheKey = `cdpc_${JSON.stringify(req.query)}`;
     const cachedData = metricsCache.get(cacheKey);
@@ -93,6 +94,24 @@ router.get('/cdpc', async (req, res) => {
 
             // Yearly Input
             entriesThisYear: `SELECT COUNT(*) FROM demands WHERE EXTRACT(YEAR FROM COALESCE(qualification_date, created_date)) = ${currentYear} AND ${baseWhere}`,
+
+            // Reopenings in Month/Period
+            reopenedThisMonth: `
+                SELECT COUNT(*) FROM demand_reopenings dr 
+                JOIN demands d ON dr.demand_id = d.id 
+                WHERE (${currentMonth 
+                    ? `EXTRACT(YEAR FROM dr.reopened_at) = ${currentYear} AND EXTRACT(MONTH FROM dr.reopened_at) = ${currentMonth}`
+                    : `EXTRACT(YEAR FROM dr.reopened_at) = ${currentYear}`})
+                AND ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
+            `,
+
+            // Reopenings in Year
+            reopenedThisYear: `
+                SELECT COUNT(*) FROM demand_reopenings dr 
+                JOIN demands d ON dr.demand_id = d.id 
+                WHERE EXTRACT(YEAR FROM dr.reopened_at) = ${currentYear}
+                AND ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
+            `,
 
             // Monthly/Period Delivery (Qty, Value, SLA)
             deliveredThisMonth: `
@@ -197,6 +216,7 @@ router.get('/cdpc', async (req, res) => {
 
         const [
             backlogRes, emTratativaRes, entriesMonthRes, entriesYearRes,
+            reopenedMonthRes, reopenedYearRes,
             deliveredMonthRes, prioritizedMonthRes, topPrioritizedClientsRes,
             cancelledMonthRes, cancelledYearRes, deliveredYearRes, topClientsRes, 
             reopenedRes, cancelledByExecutiveRes, reopeningsByReasonRes
@@ -205,6 +225,8 @@ router.get('/cdpc', async (req, res) => {
             client.query(queries.emTratativa, values),
             client.query(queries.entriesThisMonth, values),
             client.query(queries.entriesThisYear, values),
+            client.query(queries.reopenedThisMonth, values),
+            client.query(queries.reopenedThisYear, values),
             client.query(queries.deliveredThisMonth, values),
             client.query(queries.prioritizedThisMonth, values),
             client.query(queries.topPrioritizedClientsThisMonth, values),
@@ -225,6 +247,10 @@ router.get('/cdpc', async (req, res) => {
             // Entries
             entriesThisMonth: parseInt(entriesMonthRes.rows[0].count),
             entriesThisYear: parseInt(entriesYearRes.rows[0].count),
+
+            // Reopenings
+            reopenedThisMonth: parseInt(reopenedMonthRes.rows[0].count),
+            reopenedThisYear: parseInt(reopenedYearRes.rows[0].count),
 
             // Deliveries in Month
             deliveredThisMonth: parseInt(deliveredMonthRes.rows[0].count),
@@ -269,6 +295,7 @@ router.get('/cdpc', async (req, res) => {
  * High-performance aggregation for COCR Dashboard
  */
 router.get('/cocr', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const cacheKey = `cocr_${JSON.stringify(req.query)}`;
     const cachedData = metricsCache.get(cacheKey);
 
@@ -390,6 +417,7 @@ router.get('/cocr', async (req, res) => {
  * Supports optional ?analyst_id= filter.
  */
 router.get('/weekly', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const { analyst_id } = req.query;
     const cacheKey = `weekly_${analyst_id || 'all'}`;
     const cached = metricsCache.get(cacheKey);

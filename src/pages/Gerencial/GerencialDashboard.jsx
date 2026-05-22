@@ -49,7 +49,8 @@ export default function GerencialDashboard() {
         data: cdpcMetrics = {
             backlog: 0, entriesThisMonth: 0, deliveredThisMonth: 0, highPriorityThisMonth: 0,
             deliveredThisYear: 0, valueThisMonth: 0, valueThisYear: 0, valuedDemandsCount: 0,
-            emTratativa: 0, entriesThisYear: 0, slaThisMonth: 0, slaThisYear: 0,
+            emTratativa: 0, entriesThisYear: 0, reopenedThisMonth: 0, reopenedThisYear: 0,
+            slaThisMonth: 0, slaThisYear: 0,
             cancelledThisMonth: 0, cancelledThisYear: 0, topPrioritizedClientsThisMonth: [],
             topClients: [], currentlyReopened: [],
         },
