@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Cuboid,
     ArrowDownToLine,
@@ -7,8 +7,18 @@ import {
     TrendingDown,
     CheckCircle2,
     RefreshCw,
+    Settings,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+
+const gridColsMap = {
+    1: 'md:grid-cols-1',
+    2: 'md:grid-cols-2',
+    3: 'md:grid-cols-3',
+    4: 'md:grid-cols-4',
+    5: 'md:grid-cols-5',
+    6: 'md:grid-cols-6',
+};
 
 /**
  * CdpcTab — conteúdo completo da aba CDPC na Visão Executiva.
@@ -20,65 +30,184 @@ export default function CdpcTab({
     loading,
     formatCurrency,
 }) {
+    const [visibleCards, setVisibleCards] = useState(() => {
+        try {
+            const saved = localStorage.getItem('fluxo_visible_cdpc_cards');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    return parsed;
+                }
+            }
+        } catch (e) {
+            console.error('Error parsing visible cards from localStorage:', e);
+        }
+        return ['backlog', 'emTratativa', 'novasMes', 'reaberturasMes', 'entregasPeriodo'];
+    });
+
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef(null);
+
+    // Salvar no localStorage sempre que mudar
+    useEffect(() => {
+        localStorage.setItem('fluxo_visible_cdpc_cards', JSON.stringify(visibleCards));
+    }, [visibleCards]);
+
+    // Fechar ao clicar fora
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setIsMenuOpen(false);
+            }
+        }
+        if (isMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isMenuOpen]);
+
+    const toggleCard = (cardId) => {
+        setVisibleCards(prev => {
+            if (prev.includes(cardId)) {
+                // Não permitir remover o último cartão
+                if (prev.length === 1) return prev;
+                return prev.filter(id => id !== cardId);
+            } else {
+                return [...prev, cardId];
+            }
+        });
+    };
+
+    const totalSpans = visibleCards.reduce((acc, cardId) => {
+        if (cardId === 'entregasPeriodo') return acc + 2;
+        return acc + 1;
+    }, 0);
+
+    const gridColsClass = gridColsMap[totalSpans] || 'md:grid-cols-6';
+
     return (
         <main className="max-w-7xl mx-auto space-y-6">
             {/* Header da seção + Filtros */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-2">
-                <div>
-                    <h2 className="text-lg font-bold text-slate-800">Volume &amp; Capacidade</h2>
-                    <p className="text-sm text-slate-500">Métricas de fluxo e entrega de propostas</p>
+                <div className="flex items-start gap-4">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-lg font-bold text-slate-800">Volume &amp; Capacidade</h2>
+                            <div className="relative" ref={menuRef}>
+                                <button
+                                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                    className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-all flex items-center justify-center focus:outline-none"
+                                    title="Personalizar visualização"
+                                    aria-label="Personalizar visualização"
+                                >
+                                    <Settings className={`w-4 h-4 transition-transform duration-300 ${isMenuOpen ? 'rotate-45' : ''}`} />
+                                </button>
+
+                                {isMenuOpen && (
+                                    <div className="absolute left-0 mt-2 w-64 bg-white/95 backdrop-blur-sm border border-slate-200/80 rounded-2xl shadow-xl z-50 p-4 animate-in fade-in slide-in-from-top-1 duration-150">
+                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Cartões Visíveis</h3>
+                                        <div className="space-y-2.5">
+                                            {[
+                                                { id: 'backlog', label: 'Backlog Total' },
+                                                { id: 'emTratativa', label: 'Em Tratativa' },
+                                                { id: 'novasMes', label: 'Novas Mês' },
+                                                { id: 'reaberturasMes', label: 'Reaberturas Mês' },
+                                                { id: 'entregasPeriodo', label: 'Entregas do Período' }
+                                            ].map(card => {
+                                                const isChecked = visibleCards.includes(card.id);
+                                                const isDisableToggle = isChecked && visibleCards.length === 1;
+                                                return (
+                                                    <label
+                                                        key={card.id}
+                                                        className={`flex items-center justify-between p-2 rounded-xl border text-sm font-medium cursor-pointer transition-all ${
+                                                            isChecked 
+                                                                ? 'bg-indigo-50/50 border-indigo-100 text-indigo-950 hover:bg-indigo-50' 
+                                                                : 'bg-slate-50/50 border-slate-100 text-slate-500 hover:bg-slate-50'
+                                                        } ${isDisableToggle ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    >
+                                                        <span>{card.label}</span>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isChecked}
+                                                            disabled={isDisableToggle}
+                                                            onChange={() => toggleCard(card.id)}
+                                                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer disabled:cursor-not-allowed"
+                                                        />
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 mt-3 text-center">As preferências são salvas automaticamente.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <p className="text-sm text-slate-500">Métricas de fluxo e entrega de propostas</p>
+                    </div>
                 </div>
             </div>
 
             {/* Cards Superiores - Primeira Linha */}
-            <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 relative overflow-hidden group hover:shadow-md transition-all hover:-translate-y-1">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 text-blue-600 group-hover:scale-110 transition-transform"><Cuboid className="w-20 h-20" /></div>
-                    <p className="text-sm font-medium text-slate-500 mb-1">Backlog Total</p>
-                    <p className="text-3xl font-bold text-slate-800">{loading ? '...' : metrics.backlog}</p>
-                    <p className="text-[10px] text-blue-600 mt-2 font-bold bg-blue-50 w-fit px-2 py-1 rounded">demandas ativas</p>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 relative overflow-hidden group hover:shadow-md transition-all hover:-translate-y-1 col-span-1 border-l-4 border-l-amber-400">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 text-amber-600 group-hover:scale-110 transition-transform"><CheckCircle2 className="w-20 h-20" /></div>
-                    <p className="text-sm font-medium text-slate-500 mb-1">Em Tratativa</p>
-                    <p className="text-3xl font-bold text-slate-800">{loading ? '...' : metrics.emTratativa}</p>
-                    <p className="text-[10px] text-amber-600 mt-2 font-bold bg-amber-50 w-fit px-2 py-1 rounded">ativas, além da triagem</p>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 relative overflow-hidden group hover:shadow-md transition-all hover:-translate-y-1">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 text-indigo-600 group-hover:scale-110 transition-transform"><ArrowDownToLine className="w-20 h-20" /></div>
-                    <p className="text-sm font-medium text-slate-500 mb-1">Novas Mês</p>
-                    <p className="text-3xl font-bold text-slate-800">{loading ? '...' : metrics.entriesThisMonth}</p>
-                    <p className="text-[10px] text-indigo-600 mt-2 font-bold bg-indigo-50 w-fit px-2 py-1 rounded">{metrics.entriesThisYear} no ano</p>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 relative overflow-hidden group hover:shadow-md transition-all hover:-translate-y-1">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 text-violet-600 group-hover:scale-110 transition-transform"><RefreshCw className="w-20 h-20" /></div>
-                    <p className="text-sm font-medium text-slate-500 mb-1">Reaberturas Mês</p>
-                    <p className="text-3xl font-bold text-slate-800">{loading ? '...' : metrics.reopenedThisMonth}</p>
-                    <p className="text-[10px] text-violet-600 mt-2 font-bold bg-violet-50 w-fit px-2 py-1 rounded">{metrics.reopenedThisYear} no ano</p>
-                </div>
-
-                <div className="rounded-2xl shadow-sm border p-4 relative overflow-hidden bg-gradient-to-br from-white to-emerald-50 border-emerald-100 group hover:shadow-md transition-all hover:-translate-y-1 col-span-1 md:col-span-2">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 text-emerald-600 group-hover:scale-110 transition-transform"><CheckSquare className="w-20 h-20" /></div>
-                    <p className="text-sm font-medium text-slate-500 mb-1">Entregas do Período</p>
-                    <div className="flex items-end gap-4 mt-1">
-                        <p className="text-4xl font-black text-emerald-600">{loading ? '...' : metrics.deliveredThisMonth}</p>
-                        <div className="pb-1">
-                            <p className="text-sm font-bold text-slate-700">{formatCurrency(metrics.valueThisMonth)}</p>
-                            <p className="text-xs text-slate-500">SLA Médio: {loading ? '...' : Number(metrics.slaThisMonth).toFixed(1)} dias</p>
-                        </div>
+            <div className={`grid grid-cols-1 ${gridColsClass} gap-6`}>
+                {visibleCards.includes('backlog') && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 relative overflow-hidden group hover:shadow-md transition-all hover:-translate-y-1">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 text-blue-600 group-hover:scale-110 transition-transform"><Cuboid className="w-20 h-20" /></div>
+                        <p className="text-sm font-medium text-slate-500 mb-1">Backlog Total</p>
+                        <p className="text-3xl font-bold text-slate-800">{loading ? '...' : metrics.backlog}</p>
+                        <p className="text-[10px] text-blue-600 mt-2 font-bold bg-blue-50 w-fit px-2 py-1 rounded">demandas ativas</p>
                     </div>
-                    {!loading && metrics.entriesThisMonth > 0 && (
-                        <div className="w-full bg-slate-200 h-1.5 rounded-full mt-3">
-                            <div
-                                className="bg-emerald-500 h-1.5 rounded-full"
-                                style={{ width: `${Math.min(100, Math.round((metrics.deliveredThisMonth / metrics.entriesThisMonth) * 100))}%` }}
-                            />
+                )}
+
+                {visibleCards.includes('emTratativa') && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 relative overflow-hidden group hover:shadow-md transition-all hover:-translate-y-1 col-span-1 border-l-4 border-l-amber-400">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 text-amber-600 group-hover:scale-110 transition-transform"><CheckCircle2 className="w-20 h-20" /></div>
+                        <p className="text-sm font-medium text-slate-500 mb-1">Em Tratativa</p>
+                        <p className="text-3xl font-bold text-slate-800">{loading ? '...' : metrics.emTratativa}</p>
+                        <p className="text-[10px] text-amber-600 mt-2 font-bold bg-amber-50 w-fit px-2 py-1 rounded">ativas, além da triagem</p>
+                    </div>
+                )}
+
+                {visibleCards.includes('novasMes') && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 relative overflow-hidden group hover:shadow-md transition-all hover:-translate-y-1">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 text-indigo-600 group-hover:scale-110 transition-transform"><ArrowDownToLine className="w-20 h-20" /></div>
+                        <p className="text-sm font-medium text-slate-500 mb-1">Novas Mês</p>
+                        <p className="text-3xl font-bold text-slate-800">{loading ? '...' : metrics.entriesThisMonth}</p>
+                        <p className="text-[10px] text-indigo-600 mt-2 font-bold bg-indigo-50 w-fit px-2 py-1 rounded">{metrics.entriesThisYear} no ano</p>
+                    </div>
+                )}
+
+                {visibleCards.includes('reaberturasMes') && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 relative overflow-hidden group hover:shadow-md transition-all hover:-translate-y-1">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 text-violet-600 group-hover:scale-110 transition-transform"><RefreshCw className="w-20 h-20" /></div>
+                        <p className="text-sm font-medium text-slate-500 mb-1">Reaberturas Mês</p>
+                        <p className="text-3xl font-bold text-slate-800">{loading ? '...' : metrics.reopenedThisMonth}</p>
+                        <p className="text-[10px] text-violet-600 mt-2 font-bold bg-violet-50 w-fit px-2 py-1 rounded">{metrics.reopenedThisYear} no ano</p>
+                    </div>
+                )}
+
+                {visibleCards.includes('entregasPeriodo') && (
+                    <div className="rounded-2xl shadow-sm border p-4 relative overflow-hidden bg-gradient-to-br from-white to-emerald-50 border-emerald-100 group hover:shadow-md transition-all hover:-translate-y-1 col-span-1 md:col-span-2">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 text-emerald-600 group-hover:scale-110 transition-transform"><CheckSquare className="w-20 h-20" /></div>
+                        <p className="text-sm font-medium text-slate-500 mb-1">Entregas do Período</p>
+                        <div className="flex items-end gap-4 mt-1">
+                            <p className="text-4xl font-black text-emerald-600">{loading ? '...' : metrics.deliveredThisMonth}</p>
+                            <div className="pb-1">
+                                <p className="text-sm font-bold text-slate-700">{formatCurrency(metrics.valueThisMonth)}</p>
+                                <p className="text-xs text-slate-500">SLA Médio: {loading ? '...' : Number(metrics.slaThisMonth).toFixed(1)} dias</p>
+                            </div>
                         </div>
-                    )}
-                </div>
+                        {!loading && metrics.entriesThisMonth > 0 && (
+                            <div className="w-full bg-slate-200 h-1.5 rounded-full mt-3">
+                                <div
+                                    className="bg-emerald-500 h-1.5 rounded-full"
+                                    style={{ width: `${Math.min(100, Math.round((metrics.deliveredThisMonth / metrics.entriesThisMonth) * 100))}%` }}
+                                />
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Linha do Meio (Priorização e Top Clientes Priorizados) */}
