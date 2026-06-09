@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
     Plus, Search, Building2, ChevronRight,
     Edit, History, Loader2, FolderOpen, Trash2,
-    FileSpreadsheet, LayoutGrid, List, Home
+    FileSpreadsheet, LayoutGrid, List, Home, Download
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +65,7 @@ export default function Contracts() {
     const [showForm, setShowForm] = useState(false);
     const [showImportExport, setShowImportExport] = useState(false);
     const [showBaseCvacImport, setShowBaseCvacImport] = useState(false);
+    const [isExportingFull, setIsExportingFull] = useState(false);
     const [editingContract, setEditingContract] = useState(null);
     const [selectedClient, setSelectedClient] = useState(null);
     const [selectedAnalyst, setSelectedAnalyst] = useState(''); // Filter state
@@ -168,6 +169,83 @@ export default function Contracts() {
         }
     };
 
+    // ── Exportação Completa CVAC ─────────────────────────────────
+    const exportFullCvac = async () => {
+        setIsExportingFull(true);
+        try {
+            const XLSX = await import('xlsx');
+
+            // Busca tudo em paralelo
+            const [contracts, attestations] = await Promise.all([
+                fluxoApi.entities.FinanceContract.list(),
+                fluxoApi.entities.MonthlyAttestation.list(),
+            ]);
+
+            // ── Aba 1: Contratos ────────────────────────────────
+            const contractRows = contracts.map(c => ({
+                'ID':                   c.id,
+                'Cliente':              c.client_name || '',
+                'Nº Contrato (PD)':     c.pd_number || '',
+                'Analista Responsável': c.responsible_analyst || '',
+                'Processo SEI':         c.sei_process_number || '',
+                'ESPs':                 (() => {
+                    try {
+                        const esps = Array.isArray(c.esps) ? c.esps
+                            : (typeof c.esps === 'string' ? JSON.parse(c.esps || '[]') : []);
+                        return esps.map(e => (typeof e === 'object' ? e.number || e.esp_number || JSON.stringify(e) : e)).join(', ');
+                    } catch { return ''; }
+                })(),
+                'Criado em':            c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : '',
+                'Atualizado em':        c.updated_at ? new Date(c.updated_at).toLocaleDateString('pt-BR') : '',
+            }));
+
+            // ── Aba 2: Faturamento (Atestações) ─────────────────
+            const attRows = attestations.map(a => ({
+                'ID Atestação':             a.id,
+                'ID Contrato':              a.contract_id,
+                'Cliente':                  a.client_name || '',
+                'Nº Contrato (PD)':         a.pd_number || '',
+                'Analista Responsável':     a.responsible_analyst || '',
+                'ESP':                      a.esp_number || '',
+                'Mês Referência':           a.reference_month || '',
+                'Valor Medição':            a.measurement_value ?? '',
+                'Valor Faturado':           a.billed_amount ?? '',
+                'Valor Pago':               a.paid_amount ?? '',
+                'Status':                   a.status || '',
+                'Nº NF':                    a.invoice_number || '',
+                'Data Emissão NF':          a.nfe_issue_date ? new Date(a.nfe_issue_date).toLocaleDateString('pt-BR') : '',
+                'Data NF SharePoint':       a.nfe_sharepoint_date ? new Date(a.nfe_sharepoint_date).toLocaleDateString('pt-BR') : '',
+                'Data Envio Relatório':     a.report_send_date ? new Date(a.report_send_date).toLocaleDateString('pt-BR') : '',
+                'Data Retorno Atestação':   a.attestation_return_date ? new Date(a.attestation_return_date).toLocaleDateString('pt-BR') : '',
+                'Data Envio NF ao Cliente': a.invoice_send_to_client_date ? new Date(a.invoice_send_to_client_date).toLocaleDateString('pt-BR') : '',
+                'Data Envio Fatura':        a.invoice_send_date ? new Date(a.invoice_send_date).toLocaleDateString('pt-BR') : '',
+                'Nº Processo SEI':          a.sei_process_number || '',
+                'Área SEI Envio':           a.sei_send_area || '',
+                'E-mail Gestor':            a.gestor_email || '',
+                'Observações':              a.observations || '',
+                'Notas':                    a.notes || '',
+                'Criado em':                a.created_at ? new Date(a.created_at).toLocaleDateString('pt-BR') : '',
+            }));
+
+            const wb = XLSX.utils.book_new();
+
+            const wsContracts = XLSX.utils.json_to_sheet(contractRows);
+            XLSX.utils.book_append_sheet(wb, wsContracts, 'Contratos');
+
+            const wsAtt = XLSX.utils.json_to_sheet(attRows);
+            XLSX.utils.book_append_sheet(wb, wsAtt, 'Faturamento');
+
+            const today = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(wb, `exportacao_completa_cvac_${today}.xlsx`);
+
+            toast.success(`Exportação concluída! ${contracts.length} contratos e ${attestations.length} registros de faturamento.`);
+        } catch (err) {
+            console.error('[Export CVAC]', err);
+            toast.error('Erro ao exportar dados CVAC.');
+        }
+        setIsExportingFull(false);
+    };
+
     // Agrupar contratos por cliente (ou por PD se não tiver cliente)
     const clientGroups = React.useMemo(() => {
         return contracts.reduce((groups, contract) => {
@@ -214,6 +292,19 @@ export default function Contracts() {
                         <p className="text-slate-600 mt-1">Gerencie os contratos da empresa</p>
                     </div>
                     <div className="flex gap-2">
+                        {!selectedClient && (
+                            <Button
+                                variant="outline"
+                                onClick={exportFullCvac}
+                                disabled={isExportingFull || isLoading}
+                                className="border-violet-200 text-violet-700 hover:bg-violet-50"
+                            >
+                                {isExportingFull
+                                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Exportando...</>
+                                    : <><Download className="w-4 h-4 mr-2" />Exportar Completo CVAC</>
+                                }
+                            </Button>
+                        )}
                         {!selectedClient && (
                             <Button
                                 variant="outline"

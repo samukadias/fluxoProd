@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { fluxoApi } from '@/api/fluxoClient';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -23,6 +24,7 @@ import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import WeeklyTrackingTab from '@/components/dashboard/WeeklyTrackingTab';
 import ResumoTab from '@/components/dashboard/ResumoTab';
 import FlowEfficiencyTab from '@/components/dashboard/FlowEfficiencyTab';
+import PresidencialTab from '@/components/dashboard/PresidencialTab';
 import {
     ChartCardSkeleton,
     NextLastDeliveriesSkeleton,
@@ -76,7 +78,8 @@ export default function ManagerDashboard() {
     const [selectedHeatmapStatus, setSelectedHeatmapStatus] = useState(null);
     const [selectedExec, setSelectedExec] = useState(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState('overview');
+    const location = useLocation();
+    const [activeTab, setActiveTab] = useState(location.state?.tab || 'overview');
 
     const { data: demands = [], isLoading: isLoadingDemands } = useQuery({
         queryKey: ['demands'],
@@ -125,7 +128,12 @@ export default function ManagerDashboard() {
         queryFn: () => fluxoApi.metrics.cdpc({ year: selectedYear })
     });
 
-    const isDashboardLoading = isLoadingDemands || isLoadingHistory || isLoadingStageHistory || isLoadingUsers || isLoadingHolidays || isLoadingMetrics || isLoadingClients || isLoadingRequesters;
+    const { data: cycles = [], isLoading: isLoadingCycles } = useQuery({
+        queryKey: ['cycles'],
+        queryFn: () => fluxoApi.entities.Cycle.list()
+    });
+
+    const isDashboardLoading = isLoadingDemands || isLoadingHistory || isLoadingStageHistory || isLoadingUsers || isLoadingHolidays || isLoadingMetrics || isLoadingClients || isLoadingRequesters || isLoadingCycles;
 
 
     const currentAnalyst = useMemo(() => {
@@ -170,11 +178,13 @@ export default function ManagerDashboard() {
             const delivDate = d.delivery_date;
 
             // Filtro por Safra (Ano)
-            if (refDate) {
-                const demandYear = String(getYear(parseISO(refDate)));
-                if (demandYear !== selectedYear) return false;
-            } else if (selectedYear !== 'all') {
-                return false;
+            if (selectedYear !== 'all') {
+                if (refDate) {
+                    const demandYear = String(getYear(parseISO(refDate)));
+                    if (demandYear !== selectedYear) return false;
+                } else {
+                    return false;
+                }
             }
 
             // Filtro por Mês (Entrada/Safra)
@@ -229,7 +239,8 @@ export default function ManagerDashboard() {
                 ? (d.requester_id === null || d.requester_id === "" || d.requester_id === 0)
                 : String(d.requester_id) === String(selectedExec.id);
 
-            return matchesExec && d.status === 'CANCELADA' && demandYear === selectedYear;
+            const matchesYear = selectedYear === 'all' || demandYear === selectedYear;
+            return matchesExec && d.status === 'CANCELADA' && matchesYear;
         });
     }, [selectedExec, demands, selectedYear]);
 
@@ -593,6 +604,7 @@ export default function ManagerDashboard() {
                                     <SelectValue placeholder="Ano" />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="all">Todos os anos</SelectItem>
                                     {years.map(y => (
                                         <SelectItem key={y} value={y}>{y}</SelectItem>
                                     ))}
@@ -723,6 +735,16 @@ export default function ManagerDashboard() {
                     >
                         Eficiência e Fluxo
                     </button>
+                    <button
+                        onClick={() => setActiveTab('presidencial')}
+                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                            activeTab === 'presidencial'
+                                ? 'bg-white text-indigo-700 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        Visão Presidencial
+                    </button>
                 </div>
 
                 {/* ── Aba: Acompanhamento Semanal ── */}
@@ -774,6 +796,17 @@ export default function ManagerDashboard() {
                             analystId={selectedAnalyst}
                         />
                     )
+                )}
+
+                {/* ── Aba: Visão Presidencial ── */}
+                {activeTab === 'presidencial' && (
+                    <PresidencialTab
+                        demands={filteredDemands}
+                        users={users}
+                        clients={clients}
+                        cycles={cycles}
+                        isLoading={isDashboardLoading}
+                    />
                 )}
 
                 {/* ── Aba: Visão Geral ── */}

@@ -186,7 +186,7 @@ const SidebarContent = ({ isCollapsed, setIsCollapsed, user, setOpen, onLogout }
                 "w-full flex flex-col pb-2 gap-1",
                 isCollapsed ? "items-center" : "px-2"
             )}>
-                {(user?.role === 'admin') && (
+                {user && (
                     <div className="flex-1">
                         <NotificationCenter isCollapsed={isCollapsed} />
                     </div>
@@ -266,7 +266,7 @@ export default function Layout({ onLogout, user }) {
                     <img src={logo} alt="GOR Logo" className="w-8 h-8" />
                     <span className="font-bold text-white">GOR</span>
                 </div>
-                {user?.role === 'admin' && (
+                {user && (
                     <div className="flex items-center gap-2">
                         <NotificationCenter />
                     </div>

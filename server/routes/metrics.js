@@ -26,11 +26,12 @@ router.get('/cdpc', async (req, res) => {
     try {
         const { month, year, cycle_ids, artifact } = req.query;
 
+        const isAllYears = year === 'all';
         // Validate and parse year/month to prevent SQL injection via interpolation
-        const rawYear = year ? parseInt(year, 10) : new Date().getFullYear();
+        const rawYear = (year && !isAllYears) ? parseInt(year, 10) : new Date().getFullYear();
         const rawMonth = month ? parseInt(month, 10) : null;
 
-        if (isNaN(rawYear) || rawYear < 2000 || rawYear > 2100) {
+        if (year && !isAllYears && (isNaN(rawYear) || rawYear < 2000 || rawYear > 2100)) {
             return res.status(400).json({ error: 'Invalid year parameter.' });
         }
         if (rawMonth !== null && (isNaN(rawMonth) || rawMonth < 1 || rawMonth > 12)) {
@@ -62,23 +63,33 @@ router.get('/cdpc', async (req, res) => {
         }
 
         // Handle optional month filtering
-        const expectedDateFilter = currentMonth
-            ? `EXTRACT(YEAR FROM COALESCE(qualification_date, created_date)) = ${currentYear} AND EXTRACT(MONTH FROM COALESCE(qualification_date, created_date)) = ${currentMonth}`
-            : `EXTRACT(YEAR FROM COALESCE(qualification_date, created_date)) = ${currentYear}`;
+        const expectedDateFilter = isAllYears
+            ? (currentMonth ? `EXTRACT(MONTH FROM COALESCE(qualification_date, created_date)) = ${currentMonth}` : '1=1')
+            : (currentMonth
+                ? `EXTRACT(YEAR FROM COALESCE(qualification_date, created_date)) = ${currentYear} AND EXTRACT(MONTH FROM COALESCE(qualification_date, created_date)) = ${currentMonth}`
+                : `EXTRACT(YEAR FROM COALESCE(qualification_date, created_date)) = ${currentYear}`);
 
-        const deliveryDateFilter = currentMonth
-            ? `EXTRACT(YEAR FROM delivery_date) = ${currentYear} AND EXTRACT(MONTH FROM delivery_date) = ${currentMonth}`
-            : `EXTRACT(YEAR FROM delivery_date) = ${currentYear}`;
+        const deliveryDateFilter = isAllYears
+            ? (currentMonth ? `EXTRACT(MONTH FROM delivery_date) = ${currentMonth}` : '1=1')
+            : (currentMonth
+                ? `EXTRACT(YEAR FROM delivery_date) = ${currentYear} AND EXTRACT(MONTH FROM delivery_date) = ${currentMonth}`
+                : `EXTRACT(YEAR FROM delivery_date) = ${currentYear}`);
 
         const getCancelledDateFilter = (alias = '') => {
             const prefix = alias ? `${alias}.` : 'demands.';
             const cancelDateExpr = `COALESCE((SELECT MAX(changed_at) FROM status_history sh WHERE sh.demand_id = ${prefix}id AND sh.to_status = 'CANCELADA'), ${prefix}delivery_date, ${prefix}created_date)`;
+            if (isAllYears) {
+                return currentMonth
+                    ? `EXTRACT(MONTH FROM ${cancelDateExpr}) = ${currentMonth}`
+                    : '1=1';
+            }
             return currentMonth
                 ? `EXTRACT(YEAR FROM ${cancelDateExpr}) = ${currentYear} AND EXTRACT(MONTH FROM ${cancelDateExpr}) = ${currentMonth}`
                 : `EXTRACT(YEAR FROM ${cancelDateExpr}) = ${currentYear}`;
         };
 
         const getCancelledYearFilter = (alias = '') => {
+            if (isAllYears) return '1=1';
             const prefix = alias ? `${alias}.` : 'demands.';
             const cancelDateExpr = `COALESCE((SELECT MAX(changed_at) FROM status_history sh WHERE sh.demand_id = ${prefix}id AND sh.to_status = 'CANCELADA'), ${prefix}delivery_date, ${prefix}created_date)`;
             return `EXTRACT(YEAR FROM ${cancelDateExpr}) = ${currentYear}`;
@@ -93,15 +104,19 @@ router.get('/cdpc', async (req, res) => {
             entriesThisMonth: `SELECT COUNT(*) FROM demands WHERE ${expectedDateFilter} AND ${baseWhere}`,
 
             // Yearly Input
-            entriesThisYear: `SELECT COUNT(*) FROM demands WHERE EXTRACT(YEAR FROM COALESCE(qualification_date, created_date)) = ${currentYear} AND ${baseWhere}`,
+            entriesThisYear: isAllYears 
+                ? `SELECT COUNT(*) FROM demands WHERE 1=1 AND ${baseWhere}`
+                : `SELECT COUNT(*) FROM demands WHERE EXTRACT(YEAR FROM COALESCE(qualification_date, created_date)) = ${currentYear} AND ${baseWhere}`,
 
             // Reopenings in Month/Period
             reopenedThisMonth: `
                 SELECT COUNT(*) FROM demand_reopenings dr 
                 JOIN demands d ON dr.demand_id = d.id 
-                WHERE (${currentMonth 
-                    ? `EXTRACT(YEAR FROM dr.reopened_at) = ${currentYear} AND EXTRACT(MONTH FROM dr.reopened_at) = ${currentMonth}`
-                    : `EXTRACT(YEAR FROM dr.reopened_at) = ${currentYear}`})
+                WHERE (${isAllYears
+                    ? (currentMonth ? `EXTRACT(MONTH FROM dr.reopened_at) = ${currentMonth}` : '1=1')
+                    : (currentMonth 
+                        ? `EXTRACT(YEAR FROM dr.reopened_at) = ${currentYear} AND EXTRACT(MONTH FROM dr.reopened_at) = ${currentMonth}`
+                        : `EXTRACT(YEAR FROM dr.reopened_at) = ${currentYear}`)})
                 AND ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
             `,
 
@@ -109,7 +124,7 @@ router.get('/cdpc', async (req, res) => {
             reopenedThisYear: `
                 SELECT COUNT(*) FROM demand_reopenings dr 
                 JOIN demands d ON dr.demand_id = d.id 
-                WHERE EXTRACT(YEAR FROM dr.reopened_at) = ${currentYear}
+                WHERE ${isAllYears ? '1=1' : `EXTRACT(YEAR FROM dr.reopened_at) = ${currentYear}`}
                 AND ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
             `,
 
@@ -166,7 +181,7 @@ router.get('/cdpc', async (req, res) => {
                     COUNT(NULLIF(value::numeric, 0)) as valued_count
                 FROM demands 
                 WHERE status = 'ENTREGUE' 
-                AND EXTRACT(YEAR FROM delivery_date) = ${currentYear}
+                AND ${isAllYears ? '1=1' : `EXTRACT(YEAR FROM delivery_date) = ${currentYear}`}
                 AND ${baseWhere}
             `,
 
@@ -205,9 +220,11 @@ router.get('/cdpc', async (req, res) => {
                 SELECT dr.reason_label as name, COUNT(dr.id) as count
                 FROM demand_reopenings dr
                 JOIN demands d ON dr.demand_id = d.id
-                WHERE (${currentMonth 
-                    ? `EXTRACT(YEAR FROM dr.reopened_at) = ${currentYear} AND EXTRACT(MONTH FROM dr.reopened_at) = ${currentMonth}`
-                    : `EXTRACT(YEAR FROM dr.reopened_at) = ${currentYear}`})
+                WHERE (${isAllYears
+                    ? (currentMonth ? `EXTRACT(MONTH FROM dr.reopened_at) = ${currentMonth}` : '1=1')
+                    : (currentMonth 
+                        ? `EXTRACT(YEAR FROM dr.reopened_at) = ${currentYear} AND EXTRACT(MONTH FROM dr.reopened_at) = ${currentMonth}`
+                        : `EXTRACT(YEAR FROM dr.reopened_at) = ${currentYear}`)})
                 AND ${baseWhere.replace(/cycle_id/g, 'd.cycle_id').replace(/artifact/g, 'd.artifact')}
                 GROUP BY dr.reason_label
                 ORDER BY count DESC

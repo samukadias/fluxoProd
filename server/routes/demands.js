@@ -220,7 +220,9 @@ router.get('/:id/annotations', async (req, res) => {
 
 /**
  * POST /demands/:id/annotations
- * Add a new annotation
+ * Add a new annotation and notify any @mentioned users.
+ *
+ * Mention format in text: @[Nome Completo](userId)
  */
 router.post('/:id/annotations', async (req, res) => {
     const { text } = req.body;
@@ -228,28 +230,69 @@ router.post('/:id/annotations', async (req, res) => {
         return res.status(400).json({ error: 'Text is required' });
     }
 
+    const client = await db.connect();
     try {
+        await client.query('BEGIN');
+
         const userId = req.user?.id;
         let userName = req.user?.name || req.user?.full_name;
 
         // Se o nome não estiver no token, busca no banco para garantir a identificação correta
         if (!userName && userId) {
-            const userRes = await db.query('SELECT name FROM users WHERE id = $1', [userId]);
+            const userRes = await client.query('SELECT name FROM users WHERE id = $1', [userId]);
             if (userRes.rows.length > 0) {
                 userName = userRes.rows[0].name;
             }
         }
-        
+
         if (!userName) userName = req.user?.email || 'Usuário';
 
-        const result = await db.query(
+        // Fetch demand number for notification message
+        const demandRes = await client.query(
+            'SELECT demand_number FROM demands WHERE id = $1',
+            [req.params.id]
+        );
+        const demandNumber = demandRes.rows[0]?.demand_number || req.params.id;
+
+        // Insert annotation
+        const result = await client.query(
             `INSERT INTO demand_annotations (demand_id, user_id, user_name, text)
              VALUES ($1, $2, $3, $4) RETURNING *`,
             [req.params.id, userId, userName, text]
         );
+
+        // Parse @[Name](id) mentions and create notifications
+        const MENTION_REGEX = /@\[([^\]]+)\]\((\d+)\)/g;
+        const mentionedUserIds = new Set();
+        let match;
+        while ((match = MENTION_REGEX.exec(text)) !== null) {
+            const mentionedId = parseInt(match[2], 10);
+            // Do not notify the author about themselves
+            if (mentionedId && mentionedId !== userId) {
+                mentionedUserIds.add(mentionedId);
+            }
+        }
+
+        for (const mentionedId of mentionedUserIds) {
+            await client.query(
+                `INSERT INTO notifications (user_id, type, title, message, entity_type, entity_id)
+                 VALUES ($1, 'mention_annotation', $2, $3, 'demand', $4)`,
+                [
+                    mentionedId,
+                    `${userName} mencionou você em uma anotação`,
+                    `Na demanda #${demandNumber}: "${text.slice(0, 120)}${text.length > 120 ? '...' : ''}"`,
+                    req.params.id
+                ]
+            );
+        }
+
+        await client.query('COMMIT');
         res.status(201).json(result.rows[0]);
     } catch (err) {
+        await client.query('ROLLBACK');
         handleError(err, res, 'Add annotation');
+    } finally {
+        client.release();
     }
 });
 

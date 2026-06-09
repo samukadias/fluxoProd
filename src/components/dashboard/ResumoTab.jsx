@@ -103,7 +103,7 @@ export default function ResumoTab({
             const refEntry = d.qualification_date || d.created_date;
 
             // Ano
-            if (selectedYear && refEntry) {
+            if (selectedYear && selectedYear !== 'all' && refEntry) {
                 const y = new Date(refEntry).getFullYear();
                 if (String(y) !== String(selectedYear)) return false;
             }

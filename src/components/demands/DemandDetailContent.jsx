@@ -19,6 +19,7 @@ import { format, parseISO, isAfter, differenceInCalendarDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import MentionTextarea, { renderAnnotationText } from './MentionTextarea';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -572,10 +573,11 @@ export default function DemandDetailContent({ demandId, onBack, isModal = false 
                             {/* Input para nova anotação */}
                             {user?.role !== 'viewer' && (
                                 <div className="space-y-3">
-                                    <textarea
+                                <MentionTextarea
                                         value={newAnnotation}
-                                        onChange={(e) => setNewAnnotation(e.target.value)}
-                                        placeholder="Adicione um comentário ou anotação importante..."
+                                        onChange={setNewAnnotation}
+                                        users={users}
+                                        placeholder="Adicione um comentário ou anotação importante... Use @ para mencionar alguém."
                                         rows={3}
                                         className="w-full rounded-xl border border-slate-200 p-4 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none shadow-sm placeholder:text-slate-400"
                                     />
@@ -638,7 +640,7 @@ export default function DemandDetailContent({ demandId, onBack, isModal = false 
                                                 )}
                                             </div>
                                             <div className="text-sm text-slate-600 leading-relaxed pl-9">
-                                                {ann.text}
+                                                {renderAnnotationText(ann.text)}
                                             </div>
                                         </div>
                                     ))
