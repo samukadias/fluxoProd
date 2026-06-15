@@ -13,6 +13,8 @@ const statusStyles = {
     "PENDÊNCIA COMERCIAL": "bg-rose-50 text-rose-700 border-rose-200",
     "PENDÊNCIA SUPRIMENTOS": "bg-teal-50 text-teal-700 border-teal-200",
     "PENDÊNCIA FORNECEDOR": "bg-red-50 text-red-700 border-red-200",
+    "PENDÊNCIA FINANCEIRO": "bg-sky-50 text-sky-700 border-sky-200",
+    "PENDÊNCIA PRODUTOS": "bg-lime-50 text-lime-700 border-lime-200",
     "CONGELADA": "bg-cyan-50 text-cyan-700 border-cyan-200",
     "ENTREGUE": "bg-emerald-50 text-emerald-700 border-emerald-200",
     "REABERTA": "bg-amber-100 text-amber-800 border-amber-300",

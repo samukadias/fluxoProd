@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,12 +6,12 @@ import { Users, Building2, Layers, Calendar, UserCog, Database, X, ShieldCheck, 
 import { cn } from "@/lib/utils";
 
 // Components
-import UserManagement from './Users';
-import ClientsTab from './Settings/tabs/ClientsTab';
-import CyclesTab from './Settings/tabs/CyclesTab';
-import HolidaysTab from './Settings/tabs/HolidaysTab';
-import ImportExportTab from './Settings/tabs/ImportExportTab';
-import DemandServicesTab from './Settings/tabs/DemandServicesTab';
+const UserManagement = lazy(() => import('./Users'));
+const ClientsTab = lazy(() => import('./Settings/tabs/ClientsTab'));
+const CyclesTab = lazy(() => import('./Settings/tabs/CyclesTab'));
+const HolidaysTab = lazy(() => import('./Settings/tabs/HolidaysTab'));
+const ImportExportTab = lazy(() => import('./Settings/tabs/ImportExportTab'));
+const DemandServicesTab = lazy(() => import('./Settings/tabs/DemandServicesTab'));
 
 import { useAuth } from '@/context/AuthContext';
 
@@ -106,7 +106,9 @@ export default function SettingsPage() {
                         <TabsContent value="users" className="mt-0 focus-visible:outline-none">
                             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden">
                                 <CardContent className="p-0">
-                                    <UserManagement isEmbedded={true} />
+                                    <Suspense fallback={<div className="p-10 text-center text-sm text-slate-400 animate-pulse">Carregando usuários...</div>}>
+                                        <UserManagement isEmbedded={true} />
+                                    </Suspense>
                                 </CardContent>
                             </Card>
                         </TabsContent>
@@ -118,7 +120,9 @@ export default function SettingsPage() {
                                     <CardDescription>Cadastre e edite as empresas clientes do sistema.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-6">
-                                    <ClientsTab />
+                                    <Suspense fallback={<div className="p-10 text-center text-sm text-slate-400 animate-pulse">Carregando clientes...</div>}>
+                                        <ClientsTab />
+                                    </Suspense>
                                 </CardContent>
                             </Card>
                         </TabsContent>
@@ -130,7 +134,9 @@ export default function SettingsPage() {
                                     <CardDescription>Configure os períodos de avaliação de desempenho.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-6">
-                                    <CyclesTab />
+                                    <Suspense fallback={<div className="p-10 text-center text-sm text-slate-400 animate-pulse">Carregando ciclos...</div>}>
+                                        <CyclesTab />
+                                    </Suspense>
                                 </CardContent>
                             </Card>
                         </TabsContent>
@@ -142,7 +148,9 @@ export default function SettingsPage() {
                                     <CardDescription>Defina os dias não úteis para cálculo de prazos e SLAs.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-6">
-                                    <HolidaysTab />
+                                    <Suspense fallback={<div className="p-10 text-center text-sm text-slate-400 animate-pulse">Carregando feriados...</div>}>
+                                        <HolidaysTab />
+                                    </Suspense>
                                 </CardContent>
                             </Card>
                         </TabsContent>
@@ -154,7 +162,9 @@ export default function SettingsPage() {
                                     <CardDescription>Cadastre e gerencie os tipos de serviços e seus responsáveis de delivery correspondentes.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-6">
-                                    <DemandServicesTab />
+                                    <Suspense fallback={<div className="p-10 text-center text-sm text-slate-400 animate-pulse">Carregando serviços...</div>}>
+                                        <DemandServicesTab />
+                                    </Suspense>
                                 </CardContent>
                             </Card>
                         </TabsContent>
@@ -166,7 +176,9 @@ export default function SettingsPage() {
                                     <CardDescription>Ferramentas para backup, restauração e limpeza de dados.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-6">
-                                    <ImportExportTab />
+                                    <Suspense fallback={<div className="p-10 text-center text-sm text-slate-400 animate-pulse">Carregando ferramentas de manutenção...</div>}>
+                                        <ImportExportTab />
+                                    </Suspense>
                                 </CardContent>
                             </Card>
                         </TabsContent>

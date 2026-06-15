@@ -19,7 +19,9 @@ const ACTIVE_STATUSES = [
     "PENDÊNCIA DOP E DDS",
     "PENDÊNCIA COMERCIAL",
     "PENDÊNCIA SUPRIMENTOS",
-    "PENDÊNCIA FORNECEDOR"
+    "PENDÊNCIA FORNECEDOR",
+    "PENDÊNCIA FINANCEIRO",
+    "PENDÊNCIA PRODUTOS"
 ];
 
 const DemandCard = ({ demand, analyst, client, onDelete, onDuplicate, viewMode = 'grid' }) => {
@@ -28,6 +30,15 @@ const DemandCard = ({ demand, analyst, client, onDelete, onDuplicate, viewMode =
         isAfter(new Date(), parseISO(demand.expected_delivery_date));
 
     const isDelivered = demand.status === 'ENTREGUE';
+
+    // Aging: demand open for more than 30 days
+    const daysOpen = React.useMemo(() => {
+        if (!ACTIVE_STATUSES.includes(demand.status)) return 0;
+        const startDate = new Date(demand.qualification_date || demand.created_date);
+        if (isNaN(startDate.getTime())) return 0;
+        return Math.floor((new Date() - startDate) / (1000 * 60 * 60 * 24));
+    }, [demand.status, demand.qualification_date, demand.created_date]);
+    const isAging = daysOpen > 30;
 
     const displayObservation = React.useMemo(() => {
         if (!demand.observation) return null;
@@ -45,6 +56,7 @@ const DemandCard = ({ demand, analyst, client, onDelete, onDuplicate, viewMode =
                 <div className={cn(
                     "bg-white rounded-xl border px-4 py-3 hover:shadow-md transition-all duration-200 cursor-pointer group",
                     isOverdue ? "border-red-300 bg-red-50/30" :
+                        isAging ? "border-orange-300 bg-orange-50/20 hover:border-orange-400" :
                         isDelivered ? "border-emerald-200 bg-emerald-50/40 hover:border-emerald-300" :
                             "border-slate-200 hover:border-indigo-200"
                 )}>
@@ -60,6 +72,12 @@ const DemandCard = ({ demand, analyst, client, onDelete, onDuplicate, viewMode =
                                     <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 bg-red-100 px-1.5 py-0.5 rounded shrink-0">
                                         <AlertTriangle className="w-3 h-3" />
                                         ATRASADA
+                                    </span>
+                                )}
+                                {isAging && !isOverdue && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-700 bg-orange-100 border border-orange-200 px-1.5 py-0.5 rounded shrink-0" title={`Demanda em aberto há ${daysOpen} dias`}>
+                                        <Clock className="w-3 h-3" />
+                                        {daysOpen}d em aberto
                                     </span>
                                 )}
                                 <StatusBadge status={demand.status} size="sm" />
@@ -160,8 +178,9 @@ const DemandCard = ({ demand, analyst, client, onDelete, onDuplicate, viewMode =
             <div className={cn(
                 "bg-white rounded-xl border p-4 hover:shadow-md transition-all duration-200 cursor-pointer group flex flex-col h-full",
                 isOverdue ? "border-red-300 bg-red-50/30" :
-                    isDelivered ? "border-emerald-200 bg-emerald-50/40 hover:border-emerald-300 hover:shadow-emerald-100" :
-                        "border-slate-200 hover:border-indigo-200"
+                    isAging ? "border-orange-300 bg-orange-50/20 hover:border-orange-400" :
+                        isDelivered ? "border-emerald-200 bg-emerald-50/40 hover:border-emerald-300 hover:shadow-emerald-100" :
+                            "border-slate-200 hover:border-indigo-200"
             )}>
                 <div className="flex items-start justify-between gap-2 mb-3 flex-wrap">
                     <div className="flex-1 min-w-0">
@@ -173,6 +192,12 @@ const DemandCard = ({ demand, analyst, client, onDelete, onDuplicate, viewMode =
                                 <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 bg-red-100 px-1.5 py-0.5 rounded shrink-0">
                                     <AlertTriangle className="w-3 h-3" />
                                     ATRASADA
+                                </span>
+                            )}
+                            {isAging && !isOverdue && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-700 bg-orange-100 border border-orange-200 px-1.5 py-0.5 rounded shrink-0" title={`Demanda em aberto há ${daysOpen} dias`}>
+                                    <Clock className="w-3 h-3" />
+                                    {daysOpen}d em aberto
                                 </span>
                             )}
                             {demand.value != null && (

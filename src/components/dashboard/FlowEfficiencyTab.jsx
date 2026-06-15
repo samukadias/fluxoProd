@@ -19,7 +19,9 @@ const TRATATIVA_STATUSES = [
     "PENDÊNCIA FORNECEDOR",
     "PENDÊNCIA DDS",
     "PENDÊNCIA DOP",
-    "PENDÊNCIA DOP E DDS"
+    "PENDÊNCIA DOP E DDS",
+    "PENDÊNCIA FINANCEIRO",
+    "PENDÊNCIA PRODUTOS"
 ];
 
 const ACTIVE_WORK_STATUSES = ["EM QUALIFICAÇÃO", "EM ANDAMENTO", "CORREÇÃO"];
@@ -32,7 +34,9 @@ const QUEUE_WAIT_STATUSES = [
     "PENDÊNCIA FORNECEDOR",
     "PENDÊNCIA DDS",
     "PENDÊNCIA DOP",
-    "PENDÊNCIA DOP E DDS"
+    "PENDÊNCIA DOP E DDS",
+    "PENDÊNCIA FINANCEIRO",
+    "PENDÊNCIA PRODUTOS"
 ];
 
 const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];

@@ -8,6 +8,7 @@ const NOTIFICATION_ICONS = {
     contract_expiring_60: <AlertTriangle className="w-4 h-4 text-amber-500" />,
     contract_expiring_90: <Clock className="w-4 h-4 text-yellow-500" />,
     demand_overdue: <Clock className="w-4 h-4 text-red-500" />,
+    demand_aging: <Clock className="w-4 h-4 text-orange-500" />,
     mention_annotation: <AtSign className="w-4 h-4 text-indigo-500" />,
     default: <FileText className="w-4 h-4 text-slate-400" />,
 };

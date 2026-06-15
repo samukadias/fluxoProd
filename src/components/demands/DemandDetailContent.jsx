@@ -43,6 +43,8 @@ const ACTIVE_STATUSES = [
     "PENDÊNCIA COMERCIAL",
     "PENDÊNCIA SUPRIMENTOS",
     "PENDÊNCIA FORNECEDOR",
+    "PENDÊNCIA FINANCEIRO",
+    "PENDÊNCIA PRODUTOS",
     "REABERTA",
     "ASSINADA"
 ];
@@ -60,6 +62,8 @@ const STATUS_LIST = [
     "PENDÊNCIA COMERCIAL",
     "PENDÊNCIA SUPRIMENTOS",
     "PENDÊNCIA FORNECEDOR",
+    "PENDÊNCIA FINANCEIRO",
+    "PENDÊNCIA PRODUTOS",
     "CONGELADA",
     "ENTREGUE",
     "CANCELADA"
@@ -539,6 +543,15 @@ export default function DemandDetailContent({ demandId, onBack, isModal = false 
                                         </div>
                                     </div>
                                 )}
+                                {demand.contract_expiration_date && (
+                                    <div className="flex items-start gap-3 bg-slate-50 rounded-xl px-4 py-3">
+                                        <CalendarIcon className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />
+                                        <div className="min-w-0">
+                                            <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-0.5">Expiração de Contrato</p>
+                                            <p className="font-semibold text-slate-800 text-sm leading-snug truncate">{format(parseISO(demand.contract_expiration_date), 'dd/MM/yyyy')}</p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Removido o campo fixo de observação - agora via Mural de Anotações abaixo */}
@@ -555,6 +568,16 @@ export default function DemandDetailContent({ demandId, onBack, isModal = false 
                                     </div>
                                 ) : null;
                             })()}
+                            
+                            {demand.delay_reason && (
+                                <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                                    <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                                    <div className="min-w-0">
+                                        <p className="text-[11px] font-medium text-red-600 uppercase tracking-wider mb-0.5">Motivos de Atraso (&gt;30 dias)</p>
+                                        <p className="text-slate-800 text-sm leading-snug whitespace-pre-wrap">{demand.delay_reason}</p>
+                                    </div>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 
@@ -639,7 +662,7 @@ export default function DemandDetailContent({ demandId, onBack, isModal = false 
                                                     </Button>
                                                 )}
                                             </div>
-                                            <div className="text-sm text-slate-600 leading-relaxed pl-9">
+                                            <div className="text-sm text-slate-600 leading-relaxed pl-9 whitespace-pre-wrap">
                                                 {renderAnnotationText(ann.text)}
                                             </div>
                                         </div>

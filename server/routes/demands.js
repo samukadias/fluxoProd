@@ -36,14 +36,14 @@ router.get('/metadata/active-roles', async (req, res) => {
  * PUT /demands/:id
  * Custom update route that tracks stage and status history changes.
  */
-// Allowed fields for update (prevents SQL injection and crashes from unknown fields)
 const UPDATABLE_FIELDS = [
     'demand_number', 'product', 'artifact', 'value', 'weight',
     'margem_bruta', 'margem_liquida',
     'qualification_date', 'expected_delivery_date', 'delivery_date',
     'status', 'client_id', 'cycle_id', 'stage',
     'analyst_id', 'requester_id', 'support_analyst_id',
-    'architect_support_analyst_id', 'product_type', 'demand_types'
+    'architect_support_analyst_id', 'product_type', 'demand_types',
+    'contract_expiration_date', 'delay_reason'
 ];
 
 router.put('/:id', async (req, res) => {

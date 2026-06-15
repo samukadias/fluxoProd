@@ -39,6 +39,8 @@ const STATUS_LIST = [
     "PENDÊNCIA COMERCIAL",
     "PENDÊNCIA SUPRIMENTOS",
     "PENDÊNCIA FORNECEDOR",
+    "PENDÊNCIA FINANCEIRO",
+    "PENDÊNCIA PRODUTOS",
     "CONGELADA",
     "ENTREGUE",
     "CANCELADA"
@@ -79,7 +81,9 @@ export default function DemandForm({
         requester_id: demand?.requester_id || '',
         support_analyst_id: demand?.support_analyst_id || '',
         architect_support_analyst_id: demand?.architect_support_analyst_id || '',
-        bottleneck_id: demand?.bottleneck_id || ''
+        bottleneck_id: demand?.bottleneck_id || '',
+        contract_expiration_date: demand?.contract_expiration_date || '',
+        delay_reason: demand?.delay_reason || ''
     });
 
     const isGestor = ['admin', 'manager', 'general_manager'].includes(userRole);
@@ -142,6 +146,8 @@ export default function DemandForm({
             support_analyst_id: formData.support_analyst_id === "" ? null : formData.support_analyst_id,
             architect_support_analyst_id: formData.architect_support_analyst_id === "" ? null : formData.architect_support_analyst_id,
             bottleneck_id: formData.bottleneck_id === "" ? null : Number(formData.bottleneck_id) || null,
+            contract_expiration_date: formData.contract_expiration_date === "" ? null : formData.contract_expiration_date,
+            delay_reason: formData.delay_reason
         };
 
         onSave(cleanedData);
@@ -175,6 +181,19 @@ export default function DemandForm({
             </Popover>
         </div>
     );
+
+    const selectedCycle = formData.cycle_id ? cycles.find(c => String(c.id) === String(formData.cycle_id)) : null;
+    const isRenovacao = selectedCycle && (selectedCycle.name === 'RENOVAÇÃO' || selectedCycle.name === 'RENOVAÇÃO COM MUDANÇA');
+
+    const isOpenDemand = !['ENTREGUE', 'CANCELADA', 'CONGELADA', 'TRIAGEM NÃO ELEGÍVEL'].includes(formData.status);
+    const getDaysOpen = () => {
+        if (!isOpenDemand) return 0;
+        const startDate = new Date(formData.qualification_date || demand?.created_date || new Date());
+        if (isNaN(startDate.getTime())) return 0;
+        const now = new Date();
+        return Math.floor((now - startDate) / (1000 * 60 * 60 * 24));
+    };
+    const isOlderThan30DaysAndOpen = getDaysOpen() > 30;
 
     return (
         <form onSubmit={submitForm} className="space-y-6" noValidate>
@@ -450,6 +469,15 @@ export default function DemandForm({
                     </Select>
                 </div>
 
+                {isRenovacao && (
+                    <DatePicker
+                        label="Data de Expiração do Contrato"
+                        value={formData.contract_expiration_date}
+                        onChange={(date) => setFormData({ ...formData, contract_expiration_date: date })}
+                        disabled={!isGestor && userRole !== 'analyst'}
+                    />
+                )}
+
                 <div className="space-y-2">
                     <Label className="text-sm text-slate-600">Responsável</Label>
                     <Select
@@ -615,6 +643,20 @@ export default function DemandForm({
                         </SelectContent>
                     </Select>
                 </div>
+
+                {isOlderThan30DaysAndOpen && (
+                    <div className="space-y-2 lg:col-span-3">
+                        <Label className="text-sm text-red-600 font-semibold">
+                            Motivos ofensores de atraso (Demanda aberta há mais de 30 dias)
+                        </Label>
+                        <Textarea
+                            value={formData.delay_reason}
+                            onChange={(e) => setFormData({ ...formData, delay_reason: e.target.value })}
+                            placeholder="Descreva os motivos que estão causando o atraso desta demanda..."
+                            className="min-h-[80px] border-red-300 focus:border-red-500"
+                        />
+                    </div>
+                )}
 
                 <div className="space-y-2">
                     <Label className="text-sm text-slate-600">Gargalo</Label>

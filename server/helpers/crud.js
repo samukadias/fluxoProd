@@ -43,7 +43,7 @@ const ALLOWED_FILTER_COLUMNS = {
 
 // Whitelist of allowed write columns per table (Mass Assignment Protection)
 const ALLOWED_WRITE_COLUMNS = {
-    demands: ['product', 'demand_number', 'status', 'artifact', 'complexity', 'weight', 'client_id', 'analyst_id', 'cycle_id', 'requester_id', 'created_date', 'qualification_date', 'expected_delivery_date', 'delivery_date', 'observation', 'frozen_time_minutes', 'last_frozen_at', 'support_analyst_id', 'delivery_date_change_reason', 'contract_id', 'stage', 'value', 'architect_support_analyst_id', 'margem_bruta', 'margem_liquida', 'bottleneck_id'],
+    demands: ['product', 'demand_number', 'status', 'artifact', 'complexity', 'weight', 'client_id', 'analyst_id', 'cycle_id', 'requester_id', 'created_date', 'qualification_date', 'expected_delivery_date', 'delivery_date', 'observation', 'frozen_time_minutes', 'last_frozen_at', 'support_analyst_id', 'delivery_date_change_reason', 'contract_id', 'stage', 'value', 'architect_support_analyst_id', 'margem_bruta', 'margem_liquida', 'bottleneck_id', 'contract_expiration_date', 'delay_reason'],
     clients: ['name', 'sigla', 'active'],
     analysts: ['name', 'email'],
     users: ['name', 'email', 'password', 'role', 'department', 'profile_type', 'allowed_modules', 'must_change_password'],

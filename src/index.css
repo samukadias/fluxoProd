@@ -83,3 +83,485 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ============================================================
+   🇧🇷 TEMA COPA DO MUNDO BRASIL 2026
+   Ativo de: 10/06/2026 até 19/07/2026
+   Após essa data, remove a classe .brazil-theme do body e
+   o layout volta automaticamente ao padrão.
+   ============================================================ */
+
+/* ---- Keyframe Animations ---- */
+@keyframes copa-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes copa-pulse-glow {
+  0%, 100% { box-shadow: 0 0 6px 1px rgba(255, 223, 0, 0.25), 0 0 20px 2px rgba(0, 156, 59, 0.12); }
+  50%       { box-shadow: 0 0 14px 4px rgba(255, 223, 0, 0.50), 0 0 36px 6px rgba(0, 156, 59, 0.25); }
+}
+
+@keyframes copa-star-float {
+  0%   { transform: translateY(0px) rotate(0deg) scale(1);   opacity: 0.5; }
+  50%  { transform: translateY(-8px) rotate(180deg) scale(1.2); opacity: 1; }
+  100% { transform: translateY(0px) rotate(360deg) scale(1); opacity: 0.5; }
+}
+
+@keyframes copa-ball-bounce {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25%       { transform: translateY(-4px) rotate(15deg); }
+  75%       { transform: translateY(-2px) rotate(-10deg); }
+}
+
+@keyframes copa-banner-slide {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes copa-gold-wave {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes copa-flicker {
+  0%, 100% { opacity: 1; }
+  92%       { opacity: 1; }
+  93%       { opacity: 0.8; }
+  94%       { opacity: 1; }
+  96%       { opacity: 0.9; }
+  97%       { opacity: 1; }
+}
+
+/* ---- Root wrapper ---- */
+body.brazil-theme {
+  background: #f0f9f4;
+}
+
+/* ---- Sidebar principal ---- */
+.brazil-theme .copa-sidebar {
+  background: linear-gradient(180deg,
+    #003D17 0%,
+    #004d1f 35%,
+    #003015 70%,
+    #001a0b 100%
+  ) !important;
+  border-right: 1px solid rgba(255, 223, 0, 0.15) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Brilho de fundo na sidebar — efeito diamante da bandeira */
+.brazil-theme .copa-sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 40% at 50% 20%, rgba(255, 223, 0, 0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 60% at 10% 80%, rgba(0, 39, 118, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Linha brilhante animada no topo da sidebar */
+.brazil-theme .copa-sidebar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #009C3B 20%,
+    #FFDF00 50%,
+    #009C3B 80%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: copa-shimmer 3s linear infinite;
+}
+
+/* ---- Logo / Header da sidebar ---- */
+.brazil-theme .copa-sidebar-header {
+  border-bottom: 1px solid rgba(255, 223, 0, 0.12) !important;
+  position: relative;
+  z-index: 1;
+}
+
+.brazil-theme .copa-logo-ring {
+  outline: 2px solid rgba(255, 223, 0, 0.6);
+  outline-offset: 2px;
+  border-radius: 8px;
+  animation: copa-pulse-glow 2.5s ease-in-out infinite;
+}
+
+.brazil-theme .copa-title {
+  background: linear-gradient(
+    90deg,
+    #FFFFFF 0%,
+    #FFDF00 40%,
+    #FFFFFF 60%,
+    #FFDF00 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: copa-shimmer 4s linear infinite;
+}
+
+/* ---- Nav items ---- */
+.brazil-theme .copa-sidebar .copa-nav-area {
+  position: relative;
+  z-index: 1;
+}
+
+/* Item ativo */
+.brazil-theme .copa-nav-active {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 223, 0, 0.18) 0%,
+    rgba(255, 223, 0, 0.05) 100%
+  ) !important;
+  color: #FFDF00 !important;
+  border-left-color: #FFDF00 !important;
+  text-shadow: 0 0 8px rgba(255, 223, 0, 0.4);
+}
+
+/* Ícone ativo */
+.brazil-theme .copa-nav-active svg {
+  color: #FFDF00 !important;
+  filter: drop-shadow(0 0 4px rgba(255, 223, 0, 0.5));
+}
+
+/* Hover nos itens */
+.brazil-theme .copa-sidebar a:not(.copa-nav-active):hover {
+  background: rgba(0, 39, 118, 0.35) !important;
+  color: #e2f5ea !important;
+}
+
+/* ---- Botão de colapsar sidebar ---- */
+.brazil-theme .copa-sidebar .copa-collapse-btn {
+  border-color: rgba(255, 223, 0, 0.3) !important;
+  background: rgba(0, 39, 118, 0.5) !important;
+  color: #FFDF00 !important;
+}
+.brazil-theme .copa-sidebar .copa-collapse-btn:hover {
+  background: rgba(0, 39, 118, 0.8) !important;
+  border-color: #FFDF00 !important;
+}
+
+/* ---- Card do usuário ---- */
+.brazil-theme .copa-user-card {
+  background: rgba(0, 39, 118, 0.4) !important;
+  border: 1px solid rgba(255, 223, 0, 0.20) !important;
+}
+
+.brazil-theme .copa-user-greeting {
+  color: #FFDF00 !important;
+}
+
+.brazil-theme .copa-user-name {
+  color: #ffffff !important;
+}
+
+.brazil-theme .copa-user-email {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* ---- Avatar colapsado ---- */
+.brazil-theme .copa-avatar {
+  background: linear-gradient(135deg, rgba(255, 223, 0, 0.25), rgba(0, 39, 118, 0.40)) !important;
+  border-color: rgba(255, 223, 0, 0.35) !important;
+  color: #FFDF00 !important;
+}
+
+/* ---- Botão Sair ---- */
+.brazil-theme .copa-sidebar .copa-logout-btn {
+  color: #fca5a5 !important;
+}
+.brazil-theme .copa-sidebar .copa-logout-btn:hover {
+  background: rgba(127, 0, 0, 0.25) !important;
+}
+
+/* ---- Versão footer ---- */
+.brazil-theme .copa-footer-version {
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+.brazil-theme .copa-footer-version span {
+  color: #FFDF00 !important;
+  text-shadow: 0 0 6px rgba(255, 223, 0, 0.4);
+}
+
+/* ---- Divider lines ---- */
+.brazil-theme .copa-sidebar .border-slate-800\/40 {
+  border-color: rgba(255, 223, 0, 0.08) !important;
+}
+
+/* ---- Banner Copa do Mundo ---- */
+.copa-banner {
+  animation: copa-banner-slide 0.5s ease-out forwards;
+  position: relative;
+  z-index: 1;
+  margin: 0 12px 8px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 39, 118, 0.7) 0%,
+    rgba(0, 61, 23, 0.8) 50%,
+    rgba(0, 39, 118, 0.7) 100%
+  );
+  border: 1px solid rgba(255, 223, 0, 0.30);
+  padding: 10px 12px;
+}
+
+/* Linha verde/amarela no topo do banner */
+.copa-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #009C3B, #FFDF00, #009C3B);
+  background-size: 200% 100%;
+  animation: copa-shimmer 2s linear infinite;
+}
+
+.copa-banner-ball {
+  display: inline-block;
+  animation: copa-ball-bounce 1.5s ease-in-out infinite;
+}
+
+.copa-banner-title {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: linear-gradient(90deg, #FFDF00, #fff, #FFDF00);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: copa-shimmer 3s linear infinite;
+}
+
+.copa-banner-date {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.65);
+  margin-top: 1px;
+}
+
+.copa-banner-stars {
+  display: flex;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.copa-banner-star {
+  font-size: 8px;
+  animation: copa-star-float 2s ease-in-out infinite;
+  display: inline-block;
+}
+.copa-banner-star:nth-child(2) { animation-delay: 0.3s; }
+.copa-banner-star:nth-child(3) { animation-delay: 0.6s; }
+.copa-banner-star:nth-child(4) { animation-delay: 0.9s; }
+.copa-banner-star:nth-child(5) { animation-delay: 1.2s; }
+
+/* ---- Mobile header ---- */
+.brazil-theme .copa-mobile-header {
+  background: linear-gradient(90deg, #003D17, #004d1f) !important;
+  border-bottom: 1px solid rgba(255, 223, 0, 0.20) !important;
+}
+
+/* ---- Scrollbar da sidebar ---- */
+.brazil-theme .copa-sidebar ::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 223, 0, 0.2);
+}
+.brazil-theme .copa-sidebar ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 223, 0, 0.4);
+}
+
+/* ---- Tooltip da sidebar ---- */
+.brazil-theme .copa-sidebar-tooltip {
+  background: #002776 !important;
+  border-color: rgba(255, 223, 0, 0.3) !important;
+  color: #fff !important;
+}
+
+/* ---- Separadores de bordas das seções ---- */
+.brazil-theme .copa-section-divider {
+  border-color: rgba(255, 223, 0, 0.08) !important;
+}
+
+/* ══════════════════════════════════════════════
+   COPA SCORE TICKER — letreiro de placares
+   ══════════════════════════════════════════════ */
+
+@keyframes ticker-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes live-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.copa-ticker-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  height: 36px;
+  display: flex;
+  align-items: stretch;
+  background: linear-gradient(90deg, #002776 0%, #003D17 60%, #002776 100%);
+  border-top: 1.5px solid rgba(255, 223, 0, 0.35);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.copa-ticker-label {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 12px;
+  background: linear-gradient(135deg, #FFDF00, #f0c800);
+  color: #002776;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  border-right: 1.5px solid rgba(255, 223, 0, 0.4);
+  white-space: nowrap;
+}
+
+.copa-ticker-track-wrapper {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  mask-image: linear-gradient(to right, transparent 0%, black 2%, black 98%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 2%, black 98%, transparent 100%);
+}
+
+.copa-ticker-track {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  white-space: nowrap;
+  animation: ticker-scroll 60s linear infinite;
+  will-change: transform;
+}
+
+.copa-ticker-track:hover {
+  animation-play-state: paused;
+}
+
+.copa-ticker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 18px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  height: 36px;
+  cursor: default;
+  transition: background 0.2s;
+}
+
+.copa-ticker-chip:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.copa-ticker-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 8.5px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 5px 1px 4px;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+
+.copa-ticker-live-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fff;
+  animation: live-blink 1s ease-in-out infinite;
+}
+
+.copa-ticker-flag {
+  width: 20px;
+  height: 14px;
+  object-fit: cover;
+  border-radius: 2px;
+  border: 1px solid rgba(255,255,255,0.15);
+  flex-shrink: 0;
+}
+
+.copa-ticker-abbr {
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.85);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.copa-ticker-score {
+  font-size: 13px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.02em;
+  min-width: 40px;
+  text-align: center;
+}
+
+.copa-ticker-score-live {
+  color: #FFDF00;
+  text-shadow: 0 0 8px rgba(255, 223, 0, 0.5);
+}
+
+.copa-ticker-score-sep {
+  color: rgba(255,255,255,0.45);
+  font-weight: 400;
+  margin: 0 2px;
+}
+
+.copa-ticker-vs {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+}
+
+.copa-ticker-status {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: rgba(255,255,255,0.07);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* Empurra o conteúdo main para cima quando o ticker está visível */
+.copa-ticker-spacer {
+  height: 36px;
+}

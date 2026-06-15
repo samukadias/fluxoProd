@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { 
     Download, 
     ArrowUpDown, 
@@ -8,6 +7,7 @@ import {
     Settings,
     Check
 } from 'lucide-react';
+import DemandDetailModal from '@/components/demands/DemandDetailModal';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
@@ -32,6 +32,8 @@ const STATUS_BADGES = {
     'PENDÊNCIA COMERCIAL': 'bg-orange-50 text-orange-700 border-orange-200',
     'PENDÊNCIA SUPRIMENTOS': 'bg-amber-50 text-amber-700 border-amber-200',
     'PENDÊNCIA FORNECEDOR': 'bg-yellow-50 text-yellow-700 border-yellow-200',
+    'PENDÊNCIA FINANCEIRO': 'bg-sky-50 text-sky-700 border-sky-200',
+    'PENDÊNCIA PRODUTOS': 'bg-lime-50 text-lime-700 border-lime-200',
     'CONGELADA': 'bg-slate-100 text-slate-600 border-slate-300',
     'ENTREGUE': 'bg-emerald-50 text-emerald-700 border-emerald-200',
     'CANCELADA': 'bg-slate-50 text-slate-500 border-slate-200',
@@ -98,6 +100,8 @@ const STATUS_KEYS = [
     'PENDÊNCIA COMERCIAL',
     'PENDÊNCIA SUPRIMENTOS',
     'PENDÊNCIA FORNECEDOR',
+    'PENDÊNCIA FINANCEIRO',
+    'PENDÊNCIA PRODUTOS',
     'CONGELADA',
     'ENTREGUE',
     'CANCELADA',
@@ -118,6 +122,8 @@ const DEFAULT_STATUS_COLORS = {
     'PENDÊNCIA COMERCIAL': '#2563eb',
     'PENDÊNCIA SUPRIMENTOS': '#eab308',
     'PENDÊNCIA FORNECEDOR': '#78350f',
+    'PENDÊNCIA FINANCEIRO': '#0284c7',
+    'PENDÊNCIA PRODUTOS': '#65a30d',
     'CONGELADA': '#64748b',
     'ENTREGUE': '#10b981',
     'CANCELADA': '#94a3b8',
@@ -163,6 +169,8 @@ const COLUMN_DEFINITIONS = [
     { id: 'status_PENDÊNCIA COMERCIAL', label: 'Dias em PENDÊNCIA COMERCIAL', category: 'Status (Dias)' },
     { id: 'status_PENDÊNCIA SUPRIMENTOS', label: 'Dias em PENDÊNCIA SUPRIMENTOS', category: 'Status (Dias)' },
     { id: 'status_PENDÊNCIA FORNECEDOR', label: 'Dias em PENDÊNCIA FORNECEDOR', category: 'Status (Dias)' },
+    { id: 'status_PENDÊNCIA FINANCEIRO', label: 'Dias em PENDÊNCIA FINANCEIRO', category: 'Status (Dias)' },
+    { id: 'status_PENDÊNCIA PRODUTOS', label: 'Dias em PENDÊNCIA PRODUTOS', category: 'Status (Dias)' },
     { id: 'status_CONGELADA', label: 'Dias em CONGELADA', category: 'Status (Dias)' },
     { id: 'status_ENTREGUE', label: 'Dias em ENTREGUE', category: 'Status (Dias)' },
     { id: 'status_CANCELADA', label: 'Dias em CANCELADA', category: 'Status (Dias)' },
@@ -208,6 +216,8 @@ const DEFAULT_COLUMNS = {
     'status_PENDÊNCIA COMERCIAL': false,
     'status_PENDÊNCIA SUPRIMENTOS': false,
     'status_PENDÊNCIA FORNECEDOR': false,
+    'status_PENDÊNCIA FINANCEIRO': false,
+    'status_PENDÊNCIA PRODUTOS': false,
     'status_CONGELADA': false,
     'status_ENTREGUE': false,
     'status_CANCELADA': false,
@@ -234,7 +244,14 @@ export default function PresidencialTab({
     cycles = [],
     isLoading = false
 }) {
-    const navigate = useNavigate();
+    // ---- Modal de detalhe da demanda ----
+    const [selectedDemandId, setSelectedDemandId] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const handleDemandClick = (demandId) => {
+        setSelectedDemandId(String(demandId));
+        setIsModalOpen(true);
+    };
     // Exact same filters state as the demands page
     const [filters, setFilters] = useState({
         search: '',
@@ -589,6 +606,8 @@ export default function PresidencialTab({
                 "PENDÊNCIA COMERCIAL",
                 "PENDÊNCIA SUPRIMENTOS",
                 "PENDÊNCIA FORNECEDOR",
+                "PENDÊNCIA FINANCEIRO",
+                "PENDÊNCIA PRODUTOS",
                 "REABERTA",
                 "ASSINADA"
             ];
@@ -811,8 +830,8 @@ export default function PresidencialTab({
                     aVal = a.lastReopenTime;
                     bVal = b.lastReopenTime;
                 } else if (sortConfig.key === 'value') {
-                    aVal = a.value ?? 0;
-                    bVal = b.value ?? 0;
+                    aVal = parseFloat(a.value) || 0;
+                    bVal = parseFloat(b.value) || 0;
                 } else if (sortConfig.key === 'age') {
                     aVal = a.ageDays ?? 0;
                     bVal = b.ageDays ?? 0;
@@ -1366,8 +1385,8 @@ export default function PresidencialTab({
                                 <tr
                                     key={d.id}
                                     className="hover:bg-indigo-50/60 transition-colors cursor-pointer group"
-                                    onClick={() => navigate(`/demand-detail?id=${d.id}`, { state: { from: 'presidencial' } })}
-                                    title={`Abrir demanda ${d.demand_number || d.id}`}
+                                    onClick={() => handleDemandClick(d.id)}
+                                    title={`Ver detalhes da demanda ${d.demand_number || d.id}`}
                                 >
                                     {activeHeaders.map(col => {
                                         const cellWidth = columnWidths[col.id] ? `${columnWidths[col.id]}px` : undefined;
@@ -1541,6 +1560,13 @@ export default function PresidencialTab({
                 <span>Total de Registros: {sortedDemands.length}</span>
                 {filters.search && <span>(Filtrado de {demands.length} demandas)</span>}
             </div>
+
+            {/* Modal de detalhes da demanda — abre ao clicar em qualquer linha da tabela */}
+            <DemandDetailModal
+                demandId={selectedDemandId}
+                isOpen={isModalOpen}
+                onOpenChange={setIsModalOpen}
+            />
         </div>
     );
 }

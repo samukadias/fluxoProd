@@ -39,21 +39,32 @@ export default function Contracts() {
   // Calcula o status de vencimento dinamicamente a partir da data_fim_efetividade
   // pois o campo status_vencimento no banco está vazio na maioria dos registros
   const calcStatusVencimento = (contract) => {
-    if (!contract.data_fim_efetividade) return 'Normal';
-    // Contratos não-Ativos e não-Expirados não têm status de vencimento relevante
+    // Contratos não-Ativos, não-Expirados e não-Vencidos não têm status de vencimento relevante
     if (contract.status && contract.status !== 'Ativo' && contract.status !== 'Expirado' && contract.status !== 'Vencido') return null;
 
-    const today = startOfDay(new Date());
-    const endDate = startOfDay(new Date(contract.data_fim_efetividade));
+    let status = contract.status_vencimento;
+    const days = contract.daysUntilExpiry;
 
-    if (isBefore(endDate, today)) return 'Vencido';
-
-    const days60 = addMonths(today, 2);  // ~60 dias => Urgente
-    const days120 = addMonths(today, 4); // ~120 dias => Atenção
-
-    if (isBefore(endDate, days60)) return 'Urgente';
-    if (isBefore(endDate, days120)) return 'Atenção';
-    return 'Normal';
+    if (!status) {
+      if (!contract.data_fim_efetividade) return 'Normal';
+      if (days !== null && days !== undefined && !isNaN(days)) {
+        if (days < 0) status = "Vencido";
+        else if (days <= 30) status = "Urgente";
+        else if (days <= 60) status = "Atenção";
+        else status = "Normal";
+      } else {
+        // Fallback cálculo direto caso daysUntilExpiry não esteja calculado
+        const today = startOfDay(new Date());
+        const endDate = startOfDay(new Date(contract.data_fim_efetividade));
+        const diffTime = endDate - today;
+        const calcDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (calcDays < 0) status = 'Vencido';
+        else if (calcDays <= 30) status = 'Urgente';
+        else if (calcDays <= 60) status = 'Atenção';
+        else status = 'Normal';
+      }
+    }
+    return status || 'Normal';
   };
 
   // Filter logic

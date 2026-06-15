@@ -11,9 +11,9 @@ const PRIORITY_LABELS = { 0:'P0 — Estratégico', 1:'P1 — Muito Alta', 2:'P2 
 // Tooltip descriptions for each metric
 const METRIC_TOOLTIPS = {
     total: 'Quantidade total de demandas ativas (em aberto) ao final da semana.',
-    entradas: 'Novas demandas que entraram (criadas ou qualificadas) durante a semana.',
+    entradas: 'Novas demandas que entraram ou foram reativadas (ex: descongeladas) na semana.',
     reaberturas: 'Demandas que retornaram do status ENTREGUE para um status ativo.',
-    cancelamentos: 'Demandas que foram canceladas durante a semana.',
+    cancelamentos: 'Demandas canceladas, congeladas ou não elegíveis durante a semana.',
     entregues: 'Demandas que foram concluídas e entregues durante a semana.',
     comEvolucao: 'Demandas que avançaram de etapa no pipeline (ex: Triagem → PO).',
     semEvolucao: 'Demandas ativas que permaneceram na mesma etapa durante toda a semana.',
@@ -44,8 +44,8 @@ function computeWeekMetrics(demands, demandIds, histByDemand, stageHistByDemand,
         if (!ref || new Date(ref) > weekEnd) return false;
         if (!CLOSED.has(d.status)) return true;
         if (d.status === 'ENTREGUE' && d.delivery_date) return new Date(d.delivery_date) > weekEnd;
-        if (d.status === 'CANCELADA') {
-            const ev = (histByDemand[d.id] || []).filter(h => h.to_status === 'CANCELADA').sort((a,b) => new Date(b.changed_at)-new Date(a.changed_at));
+        if (CLOSED.has(d.status)) {
+            const ev = (histByDemand[d.id] || []).filter(h => CLOSED.has(h.to_status)).sort((a,b) => new Date(b.changed_at)-new Date(a.changed_at));
             return ev.length > 0 && new Date(ev[0].changed_at) > weekEnd;
         }
         return false;
@@ -78,10 +78,23 @@ function computeWeekMetrics(demands, demandIds, histByDemand, stageHistByDemand,
         evts.forEach(h => {
             const at = h.changed_at && new Date(h.changed_at);
             if (!at || at < weekStart || at > weekEnd) return;
-            if (!h.from_status && h.to_status && !CLOSED.has(h.to_status)) entradas.add(id);
-            if (h.from_status==='ENTREGUE' && !CLOSED.has(h.to_status)) reaberturas.add(id);
-            if (h.to_status==='CANCELADA') cancelamentos.add(id);
-            if (h.to_status==='ENTREGUE') entregues.add(id);
+            
+            const wasClosed = h.from_status ? CLOSED.has(h.from_status) : false;
+            const isClosed = CLOSED.has(h.to_status);
+            
+            // Became active
+            if (wasClosed && !isClosed) {
+                if (h.from_status === 'ENTREGUE') reaberturas.add(id);
+                else entradas.add(id);
+            } else if (!h.from_status && !isClosed) {
+                entradas.add(id);
+            }
+            
+            // Became closed
+            if (!wasClosed && isClosed) {
+                if (h.to_status === 'ENTREGUE') entregues.add(id);
+                else cancelamentos.add(id);
+            }
         });
     });
 

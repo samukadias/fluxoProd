@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS demands (
     expected_delivery_date TIMESTAMP,
     delivery_date TIMESTAMP,
     observation TEXT,
+    contract_expiration_date TIMESTAMP,
+    delay_reason TEXT,
     frozen_time_minutes INTEGER DEFAULT 0,
     last_frozen_at TIMESTAMP,
     support_analyst_id INTEGER -- contract_id added later if needed or in definition if strictly ordered, but index.js has it inside CREATE.

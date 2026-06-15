@@ -3,6 +3,15 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { isBrazilThemeActive } from "./utils/brazilTheme";
+
+// Aplicar tema Copa do Mundo no body se estiver no período ativo
+// ⚠️ Reversal automático: após 19/07/2026, isBrazilThemeActive() retorna false e a classe não é aplicada
+if (isBrazilThemeActive()) {
+    document.body.classList.add("brazil-theme");
+} else {
+    document.body.classList.remove("brazil-theme");
+}
 
 // Context
 import { AuthProvider, useAuth } from "./context/AuthContext";

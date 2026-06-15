@@ -33,7 +33,6 @@ import OptyKpis from './components/OptyKpis';
 import OptyCharts from './components/OptyCharts';
 import OptyCard from './components/OptyCard';
 import DemandDetailModal from '@/components/demands/DemandDetailModal';
-import * as XLSX from 'xlsx';
 
 export default function CdpcDashboard() {
     const [viewMode, setViewMode] = useState('geral');
@@ -61,6 +60,7 @@ export default function CdpcDashboard() {
     const handleFullExport = async () => {
         setIsFullExporting(true);
         try {
+            const XLSX = await import('xlsx');
             const [demands, users, clients, cycles, demandServices] = await Promise.all([
                 fluxoApi.entities.Demand.list(),
                 fluxoApi.entities.User.list(),
@@ -179,35 +179,41 @@ export default function CdpcDashboard() {
         }
     };
 
-    const exportToExcel = () => {
-        const rows = filteredOptys.map(o => ({
-            'Nº Demanda': o.demand_number || '',
-            'Título': o.title,
-            'Tipo Produto': o.product_type || '',
-            'Tipos Demanda': o.demand_types ? o.demand_types.map(dt => dt.name).join(', ') : '',
-            'Status': o.status,
-            'Prioridade': o.priority,
-            'Responsável': o.responsible,
-            'Cliente': o.client,
-            'Artefato': o.artifact,
-            'Previsão Entrega': o.forecast,
-            'Atraso (dias)': o.delay || 0,
-            'Última Observação': o.observation || '',
-            'Autor da Obs.': o.last_annotation_author || '',
-            'Data da Obs.': o.last_annotation_date 
-                ? new Date(o.last_annotation_date).toLocaleString('pt-BR')
-                : '',
-        }));
+    const exportToExcel = async () => {
+        try {
+            const XLSX = await import('xlsx');
+            const rows = filteredOptys.map(o => ({
+                'Nº Demanda': o.demand_number || '',
+                'Título': o.title,
+                'Tipo Produto': o.product_type || '',
+                'Tipos Demanda': o.demand_types ? o.demand_types.map(dt => dt.name).join(', ') : '',
+                'Status': o.status,
+                'Prioridade': o.priority,
+                'Responsável': o.responsible,
+                'Cliente': o.client,
+                'Artefato': o.artifact,
+                'Previsão Entrega': o.forecast,
+                'Atraso (dias)': o.delay || 0,
+                'Última Observação': o.observation || '',
+                'Autor da Obs.': o.last_annotation_author || '',
+                'Data da Obs.': o.last_annotation_date 
+                    ? new Date(o.last_annotation_date).toLocaleString('pt-BR')
+                    : '',
+            }));
 
-        const ws = XLSX.utils.json_to_sheet(rows);
-        // Auto-width
-        const colWidths = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length, 20) }));
-        ws['!cols'] = colWidths;
+            const ws = XLSX.utils.json_to_sheet(rows);
+            // Auto-width
+            const colWidths = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length, 20) }));
+            ws['!cols'] = colWidths;
 
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Demandas CDPC');
-        const dateStr = new Date().toISOString().slice(0, 10);
-        XLSX.writeFile(wb, `CDPC_Demandas_${dateStr}.xlsx`);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Demandas CDPC');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            XLSX.writeFile(wb, `CDPC_Demandas_${dateStr}.xlsx`);
+        } catch (err) {
+            console.error('Export error:', err);
+            toast.error("Erro ao realizar exportação");
+        }
     };
 
     // --- Data Fetching ---
@@ -362,12 +368,18 @@ export default function CdpcDashboard() {
         'Todos',
         'PENDENTE TRIAGEM', 
         'DESIGNADA', 
-        'QUALIFICAÇÃO', // Added 'QUALIFICAÇÃO'
+        'QUALIFICAÇÃO',
         'EM QUALIFICAÇÃO', 
         'EM ANDAMENTO', 
         'CORREÇÃO', 
         'PENDÊNCIA DDS', 
-        'PENDÊNCIA DOP', 
+        'PENDÊNCIA DOP',
+        'PENDÊNCIA DOP E DDS',
+        'PENDÊNCIA COMERCIAL',
+        'PENDÊNCIA SUPRIMENTOS',
+        'PENDÊNCIA FORNECEDOR',
+        'PENDÊNCIA FINANCEIRO',
+        'PENDÊNCIA PRODUTOS',
         'CONGELADA', 
         'ENTREGUE', 
         'CANCELADA'

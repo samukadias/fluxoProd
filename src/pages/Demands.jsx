@@ -6,7 +6,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Plus, LayoutGrid, List, Settings, Download, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import * as XLSX from 'xlsx';
 import DemandFilters from '@/components/demands/DemandFilters';
 import DemandCard from '@/components/demands/DemandCard';
 import DemandForm from '@/components/demands/DemandForm';
@@ -218,6 +217,7 @@ export default function DemandsPage() {
     const exportToExcel = async () => {
         setIsExporting(true);
         try {
+            const XLSX = await import('xlsx');
             const sortMap = {
                 'date_asc': 'created_date',
                 'date_desc': '-created_date',

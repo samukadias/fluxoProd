@@ -61,7 +61,7 @@ const authRoutes = require('./routes/auth');
 const demandRoutes = require('./routes/demands');
 const reopeningRoutes = require('./routes/reopenings');
 const bottleneckRoutes = require('./routes/bottlenecks');
-const { router: notificationRoutes, generateExpiringContractNotifications } = require('./routes/notifications');
+const { router: notificationRoutes, generateExpiringContractNotifications, generateStaleDemandNotifications } = require('./routes/notifications');
 const activityRoutes = require('./routes/activity');
 const metricsRoutes = require('./routes/metrics');
 const adminRoutes = require('./routes/admin');
@@ -622,6 +622,12 @@ const start = async () => {
     cron.schedule('0 8 * * *', async () => {
         console.log('[CRON] Generating expiring contract notifications...');
         await generateExpiringContractNotifications();
+    });
+
+    // Daily cron: notify about stale demands (open >30 days) at 8:30am
+    cron.schedule('30 8 * * *', async () => {
+        console.log('[CRON-AGING] Checking for stale demands (>30 days open)...');
+        await generateStaleDemandNotifications();
     });
 
     // Backup service: runs at 13:00, 18:00, 23:00 daily (local + network)

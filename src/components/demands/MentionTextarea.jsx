@@ -184,6 +184,15 @@ export function renderAnnotationText(text) {
                 </span>
             );
         }
-        return <span key={i}>{part}</span>;
+        return (
+            <span key={i}>
+                {part.split('\n').map((line, j, arr) => (
+                    <React.Fragment key={j}>
+                        {line}
+                        {j < arr.length - 1 && <br />}
+                    </React.Fragment>
+                ))}
+            </span>
+        );
     });
 }

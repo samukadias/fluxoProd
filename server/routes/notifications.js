@@ -197,5 +197,80 @@ const generateExpiringContractNotifications = async () => {
     }
 };
 
-module.exports = { router, generateExpiringContractNotifications };
+/**
+ * generateStaleDemandNotifications
+ * Notifies analysts and CDPC managers about demands that have been open for more than 30 days.
+ * Deduplicates: only 1 notification per demand/user every 7 days.
+ */
+const generateStaleDemandNotifications = async () => {
+    try {
+        // Fetch active demands open for more than 30 days, joined with the responsible analyst user
+        const staleResult = await db.query(`
+            SELECT 
+                d.id as demand_id,
+                d.product,
+                d.demand_number,
+                d.qualification_date,
+                d.created_date,
+                COALESCE(d.qualification_date, d.created_date) as start_date,
+                EXTRACT(EPOCH FROM (NOW() - COALESCE(d.qualification_date, d.created_date))) / 86400 AS days_open,
+                u.id as analyst_user_id
+            FROM demands d
+            LEFT JOIN analysts a ON d.analyst_id = a.id
+            LEFT JOIN users u ON LOWER(u.email) = LOWER(a.email)
+            WHERE d.status NOT IN ('ENTREGUE', 'CANCELADA', 'CONGELADA', 'TRIAGEM NÃO ELEGÍVEL')
+            AND COALESCE(d.qualification_date, d.created_date) < NOW() - INTERVAL '30 days'
+        `);
 
+        if (staleResult.rows.length === 0) {
+            console.log('[CRON-AGING] Nenhuma demanda com +30 dias encontrada.');
+            return;
+        }
+
+        // Get CDPC managers
+        const cdpcManagers = await db.query(
+            "SELECT id FROM users WHERE role IN ('manager', 'admin', 'general_manager') AND (department = 'CDPC' OR department IS NULL)"
+        );
+
+        for (const row of staleResult.rows) {
+            const daysOpen = Math.floor(parseFloat(row.days_open));
+            const demandLabel = row.demand_number ? `#${row.demand_number}` : `ID ${row.demand_id}`;
+
+            // Build recipient set: analyst (if found) + all managers
+            const recipientIds = new Set();
+            if (row.analyst_user_id) recipientIds.add(row.analyst_user_id);
+            cdpcManagers.rows.forEach(m => recipientIds.add(m.id));
+
+            for (const recipientId of recipientIds) {
+                // Dedup: don't send same notification for the same demand/user within 7 days
+                const existing = await db.query(
+                    `SELECT id FROM notifications 
+                     WHERE user_id = $1 AND entity_type = 'demand' AND entity_id = $2 
+                     AND type = 'demand_aging'
+                     AND created_at > NOW() - INTERVAL '7 days'`,
+                    [recipientId, row.demand_id]
+                );
+                if (existing.rows.length === 0) {
+                    await db.query(
+                        `INSERT INTO notifications (user_id, type, title, message, entity_type, entity_id)
+                         VALUES ($1, $2, $3, $4, $5, $6)`,
+                        [
+                            recipientId,
+                            'demand_aging',
+                            `⏰ Demanda ${demandLabel} em aberto há ${daysOpen} dias`,
+                            `A demanda "${row.product}" está em aberto há ${daysOpen} dias sem resolução. Verifique o andamento e registre os motivos de atraso se necessário.`,
+                            'demand',
+                            row.demand_id
+                        ]
+                    );
+                }
+            }
+        }
+
+        console.log(`[CRON-AGING] ${staleResult.rows.length} demandas com +30 dias verificadas.`);
+    } catch (err) {
+        console.error('[NOTIFICATION AGING CRON ERROR]:', err.message);
+    }
+};
+
+module.exports = { router, generateExpiringContractNotifications, generateStaleDemandNotifications };
