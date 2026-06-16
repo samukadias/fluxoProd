@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, CheckCheck, Clock, AlertTriangle, FileText, X, AtSign } from 'lucide-react';
+import { Bell, CheckCheck, Clock, AlertTriangle, FileText, X, AtSign, RefreshCw } from 'lucide-react';
 import { fluxoApi } from '@/api/fluxoClient';
 import { useAuth } from '@/context/AuthContext';
 
@@ -19,7 +19,11 @@ const NotificationCenter = () => {
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [generating, setGenerating] = useState(false);
     const panelRef = useRef(null);
+
+    const isManager = user?.role && ['manager', 'admin', 'general_manager'].includes(user.role);
 
     // Fetch unread count periodically
     useEffect(() => {
@@ -42,13 +46,21 @@ const NotificationCenter = () => {
     // Fetch full list when panel opens
     useEffect(() => {
         if (isOpen && user) {
-            setLoading(true);
-            fluxoApi.notifications.list({ limit: 20 })
-                .then(data => setNotifications(data))
-                .catch(() => { })
-                .finally(() => setLoading(false));
+            loadNotifications();
         }
     }, [isOpen, user]);
+
+    const loadNotifications = () => {
+        setLoading(true);
+        setError(null);
+        fluxoApi.notifications.list({ limit: 20 })
+            .then(data => setNotifications(data))
+            .catch((err) => {
+                console.error('[NotificationCenter] Failed to load notifications:', err);
+                setError('Não foi possível carregar as notificações.');
+            })
+            .finally(() => setLoading(false));
+    };
 
     // Close on outside click
     useEffect(() => {
@@ -78,6 +90,23 @@ const NotificationCenter = () => {
             setUnreadCount(0);
         } catch (err) {
             console.error('Failed to mark all as read:', err);
+        }
+    };
+
+    const handleGenerateNotifications = async () => {
+        setGenerating(true);
+        setError(null);
+        try {
+        await fluxoApi.notifications.generate();
+            // Reload after generation
+            loadNotifications();
+            const countResult = await fluxoApi.notifications.unreadCount();
+            setUnreadCount(countResult.count);
+        } catch (err) {
+            console.error('Failed to generate notifications:', err);
+            setError('Erro ao gerar notificações. Tente novamente.');
+        } finally {
+            setGenerating(false);
         }
     };
 
@@ -119,7 +148,8 @@ const NotificationCenter = () => {
 
             {/* Notification Panel */}
             {isOpen && (
-                <div className="fixed left-64 bottom-16 w-96 max-h-[480px] bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-[100]"
+                <div
+                    className="fixed left-64 bottom-16 w-96 max-h-[480px] bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-[100]"
                     style={{ animation: 'fadeInDown 0.2s ease-out' }}
                 >
                     {/* Header */}
@@ -135,7 +165,17 @@ const NotificationCenter = () => {
                                     Marcar todas como lidas
                                 </button>
                             )}
-                            <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white">
+                            <button
+                                onClick={loadNotifications}
+                                className="text-slate-400 hover:text-white"
+                                title="Atualizar lista"
+                            >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                className="text-slate-400 hover:text-white"
+                            >
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
@@ -144,18 +184,46 @@ const NotificationCenter = () => {
                     {/* Notifications List */}
                     <div className="overflow-y-auto max-h-[400px]">
                         {loading ? (
-                            <div className="p-8 text-center text-slate-400 text-sm">Carregando...</div>
-                        ) : notifications.length === 0 ? (
                             <div className="p-8 text-center text-slate-400 text-sm">
-                                <Bell className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                                Nenhuma notificação
+                                <RefreshCw className="w-6 h-6 mx-auto mb-2 opacity-50 animate-spin" />
+                                Carregando...
+                            </div>
+                        ) : error ? (
+                            <div className="p-8 text-center text-sm">
+                                <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-amber-500 opacity-70" />
+                                <p className="text-slate-300 mb-3">{error}</p>
+                                <button
+                                    onClick={loadNotifications}
+                                    className="text-xs text-indigo-400 hover:text-indigo-300"
+                                >
+                                    Tentar novamente
+                                </button>
+                            </div>
+                        ) : notifications.length === 0 ? (
+                            <div className="p-8 text-center text-sm">
+                                <Bell className="w-8 h-8 mx-auto mb-2 opacity-30 text-slate-400" />
+                                <p className="text-slate-400 mb-1">Nenhuma notificação</p>
+                                <p className="text-slate-500 text-xs mb-4">
+                                    As notificações são geradas automaticamente às 8h.
+                                </p>
+                                {isManager && (
+                                    <button
+                                        onClick={handleGenerateNotifications}
+                                        disabled={generating}
+                                        className="flex items-center gap-1.5 mx-auto text-xs text-indigo-400 hover:text-indigo-300 disabled:opacity-50 transition-colors"
+                                    >
+                                        <RefreshCw className={`w-3 h-3 ${generating ? 'animate-spin' : ''}`} />
+                                        {generating ? 'Gerando...' : 'Gerar notificações agora'}
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             notifications.map(notification => (
                                 <div
                                     key={notification.id}
-                                    className={`flex items-start gap-3 px-4 py-3 border-b border-slate-700/50 cursor-pointer transition-colors ${notification.read ? 'bg-transparent' : 'bg-indigo-500/5'
-                                        } hover:bg-slate-700/30`}
+                                    className={`flex items-start gap-3 px-4 py-3 border-b border-slate-700/50 cursor-pointer transition-colors ${
+                                        notification.read ? 'bg-transparent' : 'bg-indigo-500/5'
+                                    } hover:bg-slate-700/30`}
                                     onClick={() => !notification.read && markAsRead(notification.id)}
                                 >
                                     <div className="mt-0.5">

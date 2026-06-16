@@ -273,4 +273,26 @@ const generateStaleDemandNotifications = async () => {
     }
 };
 
+/**
+ * POST /notifications/generate
+ * Manually trigger notification generation (managers/admins only).
+ * Useful for the first run or when no notifications have been generated yet.
+ */
+router.post('/generate', async (req, res) => {
+    try {
+        const userRole = req.user?.role;
+        if (!['manager', 'admin', 'general_manager'].includes(userRole)) {
+            return res.status(403).json({ error: 'Acesso negado.' });
+        }
+
+        await generateExpiringContractNotifications();
+        await generateStaleDemandNotifications();
+
+        res.json({ message: 'Notificações geradas com sucesso.' });
+    } catch (err) {
+        console.error('[NOTIFICATION GENERATE ERROR]:', err.message);
+        res.status(500).json({ error: 'Falha ao gerar notificações.' });
+    }
+});
+
 module.exports = { router, generateExpiringContractNotifications, generateStaleDemandNotifications };

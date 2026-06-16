@@ -618,6 +618,19 @@ const start = async () => {
         writeLog('INFO', `Server running on port ${port}`);
     });
 
+    // On startup: immediately generate notifications so the panel is never empty
+    // on a fresh boot. The generation functions already deduplicate, so this is safe.
+    setTimeout(async () => {
+        try {
+            writeLog('INFO', '[STARTUP] Generating initial notifications...');
+            await generateExpiringContractNotifications();
+            await generateStaleDemandNotifications();
+            writeLog('INFO', '[STARTUP] Initial notifications generated successfully.');
+        } catch (err) {
+            writeLog('ERROR', `[STARTUP] Failed to generate initial notifications: ${err.message}`);
+        }
+    }, 5000); // Slight delay to ensure DB connections are fully stable
+
     // Daily cron: generate expiring contract notifications at 8am
     cron.schedule('0 8 * * *', async () => {
         console.log('[CRON] Generating expiring contract notifications...');

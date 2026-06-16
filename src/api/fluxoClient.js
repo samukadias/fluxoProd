@@ -147,6 +147,7 @@ export const fluxoApi = {
         unreadCount: () => fluxClient.get('/notifications/unread-count').then(res => res.data),
         markRead: (id) => fluxClient.put(`/notifications/${id}/read`).then(res => res.data),
         markAllRead: () => fluxClient.put('/notifications/mark-all-read').then(res => res.data),
+        generate: () => fluxClient.post('/notifications/generate').then(res => res.data),
     },
     activity: {
         list: (params) => fluxClient.get('/activity-log', { params }).then(res => res.data),
